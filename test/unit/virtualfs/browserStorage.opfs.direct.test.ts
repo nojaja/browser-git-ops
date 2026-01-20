@@ -64,7 +64,7 @@ function makeFakeIndexedDB() {
 // @ts-ignore
 global.indexedDB = makeFakeIndexedDB()
 
-import { BrowserStorage } from '../../../src/virtualfs/persistence'
+import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
 
 describe('BrowserStorage OPFS direct (truthy getFileHandle) path', () => {
   it('writeBlob/readBlob via OPFS success path', async () => {

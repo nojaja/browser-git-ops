@@ -128,7 +128,7 @@ function makeFakeIndexedDB() {
 global.indexedDB = makeFakeIndexedDB()
 
 // now import BrowserStorage
-import { BrowserStorage } from '../../../src/virtualfs/persistence'
+import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
 
 describe('BrowserStorage (IndexedDB) flows', () => {
   it('writeIndex/readIndex via IndexedDB', async () => {

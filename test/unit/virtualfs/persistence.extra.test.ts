@@ -63,7 +63,7 @@ function makeFakeIndexedDB() {
 // @ts-ignore
 global.indexedDB = makeFakeIndexedDB()
 
-import { BrowserStorage } from '../../../src/virtualfs/persistence'
+import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
 
 describe('BrowserStorage extra coverage', () => {
   it('canUseOpfs returns true only when persist and getDirectory exist', async () => {

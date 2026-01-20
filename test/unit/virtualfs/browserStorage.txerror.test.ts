@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
-import { BrowserStorage } from '../../../src/virtualfs/persistence'
+import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
 
 beforeEach(() => jest.clearAllMocks())
 

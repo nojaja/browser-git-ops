@@ -62,7 +62,7 @@ function makeFakeIndexedDB() {
 // @ts-ignore
 global.indexedDB = makeFakeIndexedDB()
 
-import { BrowserStorage } from '../../../src/virtualfs/persistence'
+import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
 
 describe('BrowserStorage OPFS extra branches for coverage', () => {
   it('uses originPrivateFileSystem fallback when storage.getDirectory throws and remove via handle', async () => {

@@ -1,5 +1,6 @@
 import { IndexFile, TombstoneEntry } from './types'
-import { StorageBackend, BrowserStorage } from './persistence'
+import { StorageBackend } from './storageBackend'
+import { BrowserStorage } from './browserStorage'
 
 /**
  *

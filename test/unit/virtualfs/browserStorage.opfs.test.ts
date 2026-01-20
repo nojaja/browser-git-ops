@@ -83,7 +83,7 @@ function makeFakeIndexedDB() {
 global.indexedDB = makeFakeIndexedDB()
 
 // import BrowserStorage after installing indexedDB
-import { BrowserStorage } from '../../../src/virtualfs/persistence'
+import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
 
 describe('BrowserStorage OPFS branches', () => {
   it('uses OPFS when available for write/read', async () => {
