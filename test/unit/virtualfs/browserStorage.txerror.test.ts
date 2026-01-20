@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
-import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
+import { IndexedDbStorage } from '../../../src/virtualfs/indexedDbStorage'
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -68,7 +68,7 @@ global.indexedDB = makeFakeIndexedDB()
 
 describe('BrowserStorage transaction/error branches', () => {
   it('tx rejects when transaction.onerror fires during writeIndex', async () => {
-    const bs = new BrowserStorage()
+    const bs = new IndexedDbStorage()
     // create custom DB that triggers tx.onerror after cb finishes
     const customDb: any = {
       /** @returns {any} */
@@ -100,7 +100,7 @@ describe('BrowserStorage transaction/error branches', () => {
   })
 
   it('readIndex rejects when request.onerror fires', async () => {
-    const bs = new BrowserStorage()
+    const bs = new IndexedDbStorage()
     const customDb: any = {
       /** @returns {any} */
       transaction: (_: string, _mode: string) => {

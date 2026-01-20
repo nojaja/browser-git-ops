@@ -82,10 +82,10 @@ function makeFakeIndexedDB() {
 // @ts-ignore
 global.indexedDB = makeFakeIndexedDB()
 
-// import BrowserStorage after installing indexedDB
-import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
+// import OpfsStorage after installing indexedDB
+import { OpfsStorage } from '../../../src/virtualfs/opfsStorage'
 
-describe('BrowserStorage OPFS branches', () => {
+describe('OpfsStorage OPFS branches', () => {
   it('uses OPFS when available for write/read', async () => {
     // create simple OPFS mock with nested directories and file handle
     const files = new Map<string, string>()
@@ -133,7 +133,7 @@ describe('BrowserStorage OPFS branches', () => {
       getDirectory: async () => root
     }
 
-    const bs = new BrowserStorage()
+    const bs = new OpfsStorage()
     await bs.init()
 
     await bs.writeBlob('dir1/x.txt', 'opfs-content')
@@ -150,30 +150,24 @@ describe('BrowserStorage OPFS branches', () => {
       getDirectory: async () => { throw new Error('opfs fail') }
     }
 
-    const bs = new BrowserStorage()
+    const bs = new OpfsStorage()
     await bs.init()
 
-    await bs.writeBlob('dir2/y.txt', 'fallback-content')
-    const r = await bs.readBlob('dir2/y.txt')
-    expect(r).toBe('fallback-content')
+    await expect(bs.writeBlob('dir2/y.txt', 'fallback-content')).rejects.toThrow()
   })
 
   it('falls back to IndexedDB when OPFS read throws', async () => {
     // prepare IndexedDB with a blob
-    const bs0 = new BrowserStorage()
-    await bs0.init()
-    await bs0.writeBlob('dir3/z.txt', 'db-only')
-
-    // opfs that throws on read
+    // opfs that throws on read -> without fallback, should get null
     ;(globalThis as any).navigator = (globalThis as any).navigator || {}
     ;(navigator as any).storage = {
       persist: async () => true,
       getDirectory: async () => { throw new Error('opfs read fail') }
     }
 
-    const bs = new BrowserStorage()
+    const bs = new OpfsStorage()
     await bs.init()
     const got = await bs.readBlob('dir3/z.txt')
-    expect(got).toBe('db-only')
+    expect(got).toBeNull()
   })
 })

@@ -127,12 +127,12 @@ function makeFakeIndexedDB() {
 // @ts-ignore
 global.indexedDB = makeFakeIndexedDB()
 
-// now import BrowserStorage
-import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
+// now import IndexedDbStorage
+import { IndexedDbStorage } from '../../../src/virtualfs/indexedDbStorage'
 
 describe('BrowserStorage (IndexedDB) flows', () => {
   it('writeIndex/readIndex via IndexedDB', async () => {
-    const bs = new BrowserStorage()
+    const bs = new IndexedDbStorage()
     await bs.init()
     const idx = { head: 'h', entries: {} }
     await bs.writeIndex(idx as any)
@@ -142,7 +142,7 @@ describe('BrowserStorage (IndexedDB) flows', () => {
   })
 
   it('writeBlob/readBlob/deleteBlob via IndexedDB', async () => {
-    const bs = new BrowserStorage()
+    const bs = new IndexedDbStorage()
     await bs.init()
     await bs.writeBlob('dir/x.txt', 'hello')
     const r = await bs.readBlob('dir/x.txt')

@@ -149,3 +149,4 @@ vite.config.ts.timestamp-*
 /test/conf/github.config.json
 /test/conf/gitlab.config.json
 /examples/test-results
+/examples/playwright-report

@@ -64,9 +64,9 @@ function makeFakeIndexedDB() {
 // @ts-ignore
 global.indexedDB = makeFakeIndexedDB()
 
-import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
+import { OpfsStorage } from '../../../src/virtualfs/opfsStorage'
 
-describe('BrowserStorage OPFS direct (truthy getFileHandle) path', () => {
+describe('OpfsStorage OPFS direct (truthy getFileHandle) path', () => {
   it('writeBlob/readBlob via OPFS success path', async () => {
     const files = new Map<string, string>()
     /** @returns {{getDirectory: (name:string)=>Promise<any>, getFileHandle: (name:string, opts?:any)=>Promise<any>}} */
@@ -102,7 +102,7 @@ describe('BrowserStorage OPFS direct (truthy getFileHandle) path', () => {
       getDirectory: async () => root
     }
 
-    const bs = new BrowserStorage()
+    const bs = new OpfsStorage()
     await bs.init()
     await bs.writeBlob('opfsdir/x.txt', 'from-opfs')
     const got = await bs.readBlob('opfsdir/x.txt')

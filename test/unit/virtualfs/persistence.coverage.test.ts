@@ -62,9 +62,9 @@ function makeFakeIndexedDB() {
 // @ts-ignore
 global.indexedDB = makeFakeIndexedDB()
 
-import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
+import { OpfsStorage } from '../../../src/virtualfs/opfsStorage'
 
-describe('BrowserStorage OPFS extra branches for coverage', () => {
+describe('OpfsStorage OPFS extra branches for coverage', () => {
   it('uses originPrivateFileSystem fallback when storage.getDirectory throws and remove via handle', async () => {
     const files = new Map<string, string>()
 
@@ -104,7 +104,7 @@ describe('BrowserStorage OPFS extra branches for coverage', () => {
     // originPrivateFileSystem provides fallback
     ;(globalThis as any).originPrivateFileSystem = { getDirectory: async () => root }
 
-    const bs = new BrowserStorage()
+    const bs = new OpfsStorage()
     await bs.init()
 
     await bs.writeBlob('d/r.txt', 'origin-content')

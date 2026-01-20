@@ -11,7 +11,7 @@ type AnyLib = any;
 // Import library source directly so esbuild will include it in the examples bundle.
 // Import library source so esbuild bundles proper ESM exports (GitHubAdapter/GitLabAdapter/VirtualFS)
 // Import named exports and assemble a `lib` object so properties are present at runtime.
-import { GitHubAdapter, GitLabAdapter, VirtualFS } from 'browser-git-ops';
+import { GitHubAdapter, GitLabAdapter, VirtualFS, OpfsStorage } from 'browser-git-ops';
 
 function el(id: string) { return document.getElementById(id)! }
 
@@ -60,7 +60,7 @@ async function main() {
       GitHubAdapter: GitHubAdapter,
       GitLabAdapter: GitLabAdapter,
       VirtualFS: VirtualFS,
-      default: VirtualFS
+      OpfsStorage: OpfsStorage,
     }
 
   // keep a reference to the created vfs so other buttons reuse it
@@ -125,7 +125,9 @@ async function main() {
           appendOutput('VirtualFS.init() 実行済み（IndexedDB/OPFS 初期化）')
           let hasOPFS = false
           try {
-            hasOPFS = typeof vfs.canUseOpfs === 'function' ? await vfs.canUseOpfs() : false
+            hasOPFS = lib && lib.OpfsStorage && typeof lib.OpfsStorage.canUse === 'function'
+              ? await lib.OpfsStorage.canUse()
+              : false
           } catch (_) {
             hasOPFS = false
           }

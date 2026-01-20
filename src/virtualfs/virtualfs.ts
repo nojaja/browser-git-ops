@@ -1,10 +1,8 @@
 import { IndexFile, TombstoneEntry } from './types'
 import { StorageBackend } from './storageBackend'
-import { BrowserStorage } from './browserStorage'
+import { OpfsStorage } from './opfsStorage'
 
-/**
- *
- */
+/** Virtual file system - 永続化バックエンドを抽象化した仮想ファイルシステム */
 export class VirtualFS {
   private storageDir: string | undefined
   private base = new Map<string, { sha: string; content: string }>()
@@ -21,23 +19,7 @@ export class VirtualFS {
   constructor(options?: { storageDir?: string; backend?: StorageBackend }) {
     this.storageDir = options?.storageDir
     if (options?.backend) this.backend = options.backend
-    else this.backend = new BrowserStorage()
-  }
-
-  /**
-   * ブラウザ向けストレージ（Backend）が OPFS を利用可能かを判定して返します。
-   * `BrowserStorage` の `canUseOpfs` を委譲します。
-    * @returns {Promise<boolean>} OPFS 利用可能なら true
-   */
-  async canUseOpfs(): Promise<boolean> {
-    try {
-      if ((this.backend as any) && typeof (this.backend as any).canUseOpfs === 'function') {
-        return await (this.backend as any).canUseOpfs()
-      }
-    } catch (_) {
-      // ignore
-    }
-    return false
+    else this.backend = new OpfsStorage()
   }
 
 

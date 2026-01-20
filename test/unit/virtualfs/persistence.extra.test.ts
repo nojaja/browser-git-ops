@@ -63,27 +63,27 @@ function makeFakeIndexedDB() {
 // @ts-ignore
 global.indexedDB = makeFakeIndexedDB()
 
-import { BrowserStorage } from '../../../src/virtualfs/browserStorage'
+import { OpfsStorage } from '../../../src/virtualfs/opfsStorage'
 
-describe('BrowserStorage extra coverage', () => {
+describe('OpfsStorage extra coverage', () => {
   it('canUseOpfs returns true only when persist and getDirectory exist', async () => {
     ;(globalThis as any).navigator = (globalThis as any).navigator || {}
     // both present -> true
     ;(navigator as any).storage = { persist: async () => true, getDirectory: async () => ({}) }
-    const bs = new BrowserStorage()
+    const bs = new OpfsStorage()
     await bs.init()
-    expect(await bs.canUseOpfs()).toBe(true)
+    expect(OpfsStorage.canUse()).toBe(true)
 
     // persist exists (even if returns false) -> true (persist-only detection)
     ;(navigator as any).storage = { persist: async () => false, getDirectory: async () => ({}) }
-    expect(await bs.canUseOpfs()).toBe(true)
+    expect(OpfsStorage.canUse()).toBe(true)
 
     // missing getDirectory -> still true (persist-only detection)
     ;(navigator as any).storage = { persist: async () => true }
-    expect(await bs.canUseOpfs()).toBe(true)
+    expect(OpfsStorage.canUse()).toBe(true)
   })
 
-  it('deleteBlob attempts OPFS removal then IndexedDB', async () => {
+  it('deleteBlob via OPFS works', async () => {
     const files = new Map<string, string>()
 
     function makeDir(map: Map<string, any>) {
@@ -109,7 +109,7 @@ describe('BrowserStorage extra coverage', () => {
     ;(globalThis as any).navigator = (globalThis as any).navigator || {}
     ;(navigator as any).storage = { persist: async () => true, getDirectory: async () => root }
 
-    const bs = new BrowserStorage()
+    const bs = new OpfsStorage()
     await bs.init()
 
     await bs.writeBlob('d1/a.txt', 'x')
