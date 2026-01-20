@@ -1,8 +1,6 @@
-# apigitworkspace
+# browser-git-ops
 
-短い説明: Git 風のリモート操作をローカルでシミュレートできる VirtualFS と、GitHub/GitLab 向けのアダプタを提供する TypeScript ライブラリ。
-
-**目的**: リモートリポジトリ（GitHub/GitLab）への push/pull フローを抽象化し、ローカルでの変更管理・差分生成・衝突検知を行う軽量ライブラリを提供します。OSS として再利用できるライブラリ向けドキュメントです。
+**目的**: ブラウザネイティブ環境（OPFS + Github/Gitlab APIs）で動作する軽量な Git 操作ライブラリを提供します。VirtualFS によるローカル差分生成と、GitHub/GitLab 向けのアダプタを通じたリモート操作を抽象化します。
 
 **主な特徴**
 - **仮想ファイルシステム (VirtualFS)**: ローカルワークスペースとベーススナップショットを管理し、変更セット（create/update/delete）を生成します。
@@ -132,10 +130,10 @@ npm ci
 
 --------------------------------------------------
 **ライセンスとメタデータ**
-- package name: `apigitworkspace`
+- package name: `browser-git-ops`
 - version: `0.0.0`
-- module type: ESM (`type: module`)
-- License: MITMIT License
+- module type: CommonJS (`type: commonjs`)
+- License: MIT License
 
 --------------------------------------------------
 追加で欲しいもの

@@ -1,10 +1,10 @@
 {
-  "name": "apigitworkspace",
+  "name": "browser-git-ops",
   "version": "0.0.0",
   "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "description": "Virtual filesystem and Git adapters (VirtualFS, GitHubAdapter) extracted from APIGitWorkspace sample",
+  "description": "A browser-native Git operations library built with OPFS and Web APIs.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nojaja/APIGitWorkspace.git"
