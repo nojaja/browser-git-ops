@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-param, jsdoc/require-jsdoc, jsdoc/require-returns */
 import { GitAdapter } from './adapter'
 import crypto from 'crypto'
 

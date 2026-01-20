@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   forbidden: [
     {
       name: 'no-cross-layer-imports',
@@ -19,4 +19,4 @@ export default {
       path: 'node_modules'
     }
   }
-};
+}

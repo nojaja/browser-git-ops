@@ -222,9 +222,10 @@ export class VirtualFS {
    */
 
   /**
-   *
-   */
-  async getChangeSet() {
+    * ワークスペースとインデックスから変更セットを生成します。
+    * @returns {Promise<Array<{type:string,path:string,content?:string,baseSha?:string}>>} 変更リスト
+    */
+    async getChangeSet() {
     // produce Change[] per spec
     type Change =
       | { type: 'create'; path: string; content: string }
@@ -488,7 +489,7 @@ export class VirtualFS {
       // If adapter supports createCommitWithActions (GitLab style), use it directly
       if ((adapter as any).createCommitWithActions) {
         // ensure message contains commitKey
-        ;(input as any).message = messageWithKey
+        (input as any).message = messageWithKey
         const res = await this._pushWithActions(adapter, input, branch)
         // record commitKey in index metadata
         this.index.lastCommitKey = input.commitKey
@@ -496,7 +497,7 @@ export class VirtualFS {
       }
 
       // Fallback to GitHub-style flow: delegate to helper
-      ;(input as any).message = messageWithKey
+      (input as any).message = messageWithKey
       const res = await this._pushWithGitHubFlow(adapter, input, branch)
       this.index.lastCommitKey = input.commitKey
       return res

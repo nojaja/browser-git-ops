@@ -1,18 +1,18 @@
 {
   "name": "browser-git-ops",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "description": "A browser-native Git operations library built with OPFS and Web APIs.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nojaja/APIGitWorkspace.git"
+    "url": "git+https://github.com/nojaja/browser-git-ops.git"
   },
   "bugs": {
-    "url": "https://github.com/nojaja/APIGitWorkspace/issues"
+    "url": "https://github.com/nojaja/browser-git-ops/issues"
   },
-  "homepage": "https://github.com/nojaja/APIGitWorkspace#readme",
+  "homepage": "https://github.com/nojaja/browser-git-ops#readme",
   "keywords": ["virtualfs", "git", "github", "vfs", "apigit"],
   "author": "nojaja <free.riccia@gmail.com> (https://github.com/nojaja)",
   "license": "MIT",
@@ -27,7 +27,7 @@
     "test:e2e": "playwright test --config=playwright.config.cjs",
     "test:ci": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage --runInBand",
     "lint": "eslint \"src/**/*.{ts,js}\" --config .eslintrc.cjs",
-    "depcruise": "depcruise --config .dependency-cruiser.js src || exit 0",
+    "depcruise": "depcruise --config .dependency-cruiser.cjs src || exit 0",
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.e2e.json"
   },
   "devDependencies": {
