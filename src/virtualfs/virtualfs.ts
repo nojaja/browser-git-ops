@@ -1,4 +1,3 @@
-import { sha1 } from '../utils/sha1'
 import { IndexFile, TombstoneEntry } from './types'
 import { StorageBackend, BrowserStorage } from './persistence'
 
@@ -14,12 +13,30 @@ export class VirtualFS {
   private backend: StorageBackend
 
   /**
-   *
+   * VirtualFS のインスタンスを初期化します。
+   * @param options オプション
+   * @returns {void}
    */
   constructor(options?: { storageDir?: string; backend?: StorageBackend }) {
     this.storageDir = options?.storageDir
     if (options?.backend) this.backend = options.backend
     else this.backend = new BrowserStorage()
+  }
+
+  /**
+   * ブラウザ向けストレージ（Backend）が OPFS を利用可能かを判定して返します。
+   * `BrowserStorage` の `canUseOpfs` を委譲します。
+    * @returns {Promise<boolean>} OPFS 利用可能なら true
+   */
+  async canUseOpfs(): Promise<boolean> {
+    try {
+      if ((this.backend as any) && typeof (this.backend as any).canUseOpfs === 'function') {
+        return await (this.backend as any).canUseOpfs()
+      }
+    } catch (_) {
+      // ignore
+    }
+    return false
   }
 
 
@@ -28,8 +45,12 @@ export class VirtualFS {
    * @param {string} content コンテンツ
    * @returns {string} 計算された SHA
    */
-  private shaOf(content: string) {
-    return sha1(content)
+  private async shaOf(content: string) {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(content)
+    const hashBuffer = await crypto.subtle.digest('SHA-1', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
   }
 
   /**
@@ -82,7 +103,7 @@ export class VirtualFS {
    * @returns {Promise<void>}
    */
   async writeWorkspace(filepath: string, content: string) {
-    const sha = this.shaOf(content)
+    const sha = await this.shaOf(content)
     this.workspace.set(filepath, { sha, content })
     const now = Date.now()
     const existing = this.index.entries[filepath]
@@ -169,7 +190,7 @@ export class VirtualFS {
     // snapshot: path -> content
     this.base.clear()
     for (const [p, c] of Object.entries(snapshot)) {
-      this.base.set(p, { sha: this.shaOf(c), content: c })
+      this.base.set(p, { sha: await this.shaOf(c), content: c })
       // persist base blob
       await this.backend.writeBlob(p, c)
     }
@@ -349,7 +370,7 @@ export class VirtualFS {
    */
   private async _applyChangeLocally(ch: any) {
     if (ch.type === 'create' || ch.type === 'update') {
-      const sha = this.shaOf(ch.content)
+      const sha = await this.shaOf(ch.content)
       this.base.set(ch.path, { sha, content: ch.content })
       const entry = this.index.entries[ch.path] || ({ path: ch.path } as any)
       entry.baseSha = sha
@@ -437,7 +458,7 @@ export class VirtualFS {
     // compute remote shas
     const remoteShas: Record<string, string> = {}
     for (const [p, c] of Object.entries(baseSnapshot)) {
-      remoteShas[p] = this.shaOf(c)
+      remoteShas[p] = await this.shaOf(c)
     }
 
     // handle remote additions/updates via helper
@@ -475,7 +496,7 @@ export class VirtualFS {
     // generate commitKey for idempotency if not provided
     if (!input.commitKey) {
       // commitKey = hash(parentSha + JSON.stringify(changes))
-      input.commitKey = this.shaOf(input.parentSha + JSON.stringify(input.changes))
+      input.commitKey = await this.shaOf(input.parentSha + JSON.stringify(input.changes))
     }
 
     // ensure changes are present
@@ -504,7 +525,7 @@ export class VirtualFS {
     }
 
     // fallback: simulate commit locally
-    const commitSha = this.shaOf(input.parentSha + '|' + input.commitKey)
+    const commitSha = await this.shaOf(input.parentSha + '|' + input.commitKey)
 
     for (const ch of input.changes as any[]) {
       await this._applyChangeLocally(ch)

@@ -3,6 +3,18 @@ import { Page } from '@playwright/test'
 export async function clearOPFS(page: Page) {
   // Ensure an OPFS polyfill exists in new pages (IndexedDB-backed) so tests can run
   await page.addInitScript(() => {
+    // Prefer library-provided canUseOpfs when available in the page context
+    try {
+      // @ts-ignore - check for BrowserStorage prototype canUseOpfs
+      if (typeof (window as any).BrowserStorage === 'function' && typeof (window as any).BrowserStorage.prototype.canUseOpfs === 'function') {
+        // call and if true, skip polyfill
+        const res = (window as any).BrowserStorage.prototype.canUseOpfs()
+        if (res && typeof res.then === 'function') return res.then((v: any) => !!v).catch(() => false)
+        if (res) return
+      }
+    } catch (_) {
+      // fallthrough to navigator check
+    }
     if ((navigator as any).storage && (navigator as any).storage.getDirectory) return;
     const DB_NAME = 'opfs_mock';
 

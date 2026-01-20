@@ -126,11 +126,11 @@ describe('BrowserStorage OPFS branches', () => {
     }
 
     const root = makeDir(new Map())
-    // @ts-ignore
-    global.originPrivateFileSystem = {
-      /** @returns {Promise<any>} */
-      getDirectory: async () => root,
-      getFileHandle: undefined
+    // mock navigator.storage for OPFS
+    ;(globalThis as any).navigator = (globalThis as any).navigator || {}
+    ;(navigator as any).storage = {
+      persist: async () => true,
+      getDirectory: async () => root
     }
 
     const bs = new BrowserStorage()
@@ -143,9 +143,10 @@ describe('BrowserStorage OPFS branches', () => {
 
   it('falls back to IndexedDB when OPFS write throws', async () => {
     // opfs that throws on getDirectory
-    // @ts-ignore
-    global.originPrivateFileSystem = {
-      /** @returns {Promise<any>} */
+    // mock navigator.storage to throw on getDirectory
+    ;(globalThis as any).navigator = (globalThis as any).navigator || {}
+    ;(navigator as any).storage = {
+      persist: async () => true,
       getDirectory: async () => { throw new Error('opfs fail') }
     }
 
@@ -164,9 +165,9 @@ describe('BrowserStorage OPFS branches', () => {
     await bs0.writeBlob('dir3/z.txt', 'db-only')
 
     // opfs that throws on read
-    // @ts-ignore
-    global.originPrivateFileSystem = {
-      /** @returns {Promise<any>} */
+    ;(globalThis as any).navigator = (globalThis as any).navigator || {}
+    ;(navigator as any).storage = {
+      persist: async () => true,
       getDirectory: async () => { throw new Error('opfs read fail') }
     }
 

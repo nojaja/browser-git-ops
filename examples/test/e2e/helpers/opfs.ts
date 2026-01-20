@@ -123,7 +123,6 @@ export async function clearOPFS(page: Page) {
     (navigator as any).storage.getDirectory = async function() {
       return makeDirHandle('');
     };
-    (globalThis as any).originPrivateFileSystem = (globalThis as any).originPrivateFileSystem || { getDirectory: async () => makeDirHandle('') };
   });
 
   // Remove any previous mock DB so tests start with clean state

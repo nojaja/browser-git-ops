@@ -123,7 +123,12 @@ async function main() {
         try {
           await vfs.init()
           appendOutput('VirtualFS.init() 実行済み（IndexedDB/OPFS 初期化）')
-          const hasOPFS = !!(globalThis as any).originPrivateFileSystem
+          let hasOPFS = false
+          try {
+            hasOPFS = typeof vfs.canUseOpfs === 'function' ? await vfs.canUseOpfs() : false
+          } catch (_) {
+            hasOPFS = false
+          }
           appendOutput('OPFS 利用可: ' + String(hasOPFS))
           await vfs.writeWorkspace('examples/demo.txt', 'hello from examples')
           const txt = await vfs.readWorkspace('examples/demo.txt')

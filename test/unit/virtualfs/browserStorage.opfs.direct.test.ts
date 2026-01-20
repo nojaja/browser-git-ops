@@ -95,11 +95,12 @@ describe('BrowserStorage OPFS direct (truthy getFileHandle) path', () => {
     })
 
     const root = makeDir(new Map())
-    // provide opfs with truthy getFileHandle property so code enters OPFS branch
-    // @ts-ignore
-    global.originPrivateFileSystem = { /** @returns {Promise<any>} */
-    getDirectory: async () => root, /** @returns {boolean} */
-    getFileHandle: () => true }
+    // mock navigator.storage to indicate persistence and provide getDirectory
+    ;(globalThis as any).navigator = (globalThis as any).navigator || {}
+    ;(navigator as any).storage = {
+      persist: async () => true,
+      getDirectory: async () => root
+    }
 
     const bs = new BrowserStorage()
     await bs.init()

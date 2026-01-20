@@ -1,5 +1,5 @@
 import { GitAdapter } from './adapter'
-import { sha1 } from '../utils/sha1'
+// Use Web Crypto directly for SHA-1
 
 type GLOpts = { projectId: string; token: string; host?: string }
 
@@ -28,8 +28,11 @@ export class GitLabAdapter implements GitAdapter {
    * @param {string} content コンテンツ
    * @returns {string} sha1 ハッシュ
    */
-  private shaOf(content: string) {
-    return sha1(content)
+  private async shaOf(content: string) {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(content)
+    const buf = await crypto.subtle.digest('SHA-1', data)
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
   }
 
   /**
@@ -40,7 +43,7 @@ export class GitLabAdapter implements GitAdapter {
   async createBlobs(changes: any[]) {
     const map: Record<string, string> = {}
     for (const c of changes) {
-      if (c.type === 'create' || c.type === 'update') map[c.path] = this.shaOf(c.content)
+      if (c.type === 'create' || c.type === 'update') map[c.path] = await this.shaOf(c.content)
     }
     return map
   }

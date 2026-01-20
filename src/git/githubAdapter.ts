@@ -1,5 +1,5 @@
 import { GitAdapter } from './adapter'
-import { sha1 } from '../utils/sha1'
+// Use Web Crypto directly for SHA-1
 
 type GHOptions = {
   owner: string
@@ -112,8 +112,11 @@ export class GitHubAdapter implements GitAdapter {
   async createBlobs(changes: any[], concurrency = 5) {
     const tasks = changes.filter((c) => c.type === 'create' || c.type === 'update')
     const mapper = async (ch: any) => {
-      // compute simple content hash to enable cache lookup
-      const contentHash = sha1(ch.content || '')
+      // compute simple content hash to enable cache lookup (Web Crypto)
+      const encoder = new TextEncoder()
+      const data = encoder.encode(ch.content || '')
+      const buf = await crypto.subtle.digest('SHA-1', data)
+      const contentHash = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
       const cached = this.blobCache.get(contentHash)
       if (cached) return { path: ch.path, sha: cached }
       const body = JSON.stringify({ content: ch.content, encoding: 'utf-8' })
