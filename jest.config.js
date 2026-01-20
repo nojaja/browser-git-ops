@@ -1,11 +1,11 @@
-export default {
+module.exports = {
   testEnvironment: 'node',
   moduleFileExtensions: ['ts', 'js', 'json'],
   testMatch: ['<rootDir>/test/unit/**/*.test.ts'],
   verbose: true,
   collectCoverage: true,
   collectCoverageFrom: ['src/**/*.ts'],
-  coveragePathIgnorePatterns: ['<rootDir>/src/git/gitlabAdapter.clean.ts'],
+  coveragePathIgnorePatterns: ['<rootDir>/src/git/gitlabAdapter.ts'],
   transform: {
     '^.+\\.(ts|tsx)$': [
       'ts-jest',
@@ -14,10 +14,10 @@ export default {
       }
     ]
   },
-  extensionsToTreatAsEsm: ['.ts'],
   globals: {
     'ts-jest': {
-      useESM: true
+      tsconfig: 'tsconfig.json',
+      useESM: false
     }
   },
   // coverage threshold to enforce 80% global minimum

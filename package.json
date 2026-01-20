@@ -1,14 +1,34 @@
 {
   "name": "apigitworkspace",
   "version": "0.0.0",
-  "type": "module",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "description": "Virtual filesystem and Git adapters (VirtualFS, GitHubAdapter) extracted from APIGitWorkspace sample",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nojaja/APIGitWorkspace.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nojaja/APIGitWorkspace/issues"
+  },
+  "homepage": "https://github.com/nojaja/APIGitWorkspace#readme",
+  "keywords": ["virtualfs", "git", "github", "vfs", "apigit"],
+  "author": "nojaja <free.riccia@gmail.com> (https://github.com/nojaja)",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
-    "test:e2e": "playwright test",
+    "pretest:e2e": "npm run build",
+    "test:e2e": "playwright test --config=playwright.config.cjs",
     "test:ci": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage --runInBand",
     "lint": "eslint \"src/**/*.{ts,js}\" --config .eslintrc.cjs",
     "depcruise": "depcruise --config .dependency-cruiser.js src || exit 0",
-    "build": "tsc -p tsconfig.json --outDir dist"
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.e2e.json"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",

@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
-import GitLabAdapter from '../../src/git/gitlabAdapter.clean'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+// runtime: load built library from dist (compiled tests live under dist/test/e2e)
+// @ts-ignore: require of built JS module for e2e runtime
+const { GitLabAdapter } = require('../../index.js')
+declare const __dirname: string;
 const cfgPath = path.join(__dirname, 'gitlab.config.json')
 
 test('gitlab adapter smoke (skips if config missing)', async () => {
