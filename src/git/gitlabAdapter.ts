@@ -20,7 +20,10 @@ export class GitLabAdapter implements GitAdapter {
   constructor(private opts: GLOpts) {
     const host = opts.host || 'https://gitlab.com'
     this.baseUrl = `${host}/api/v4/projects/${encodeURIComponent(opts.projectId)}`
-    this.headers = { 'PRIVATE-TOKEN': opts.token, 'Content-Type': 'application/json' }
+    this.headers = {
+       'PRIVATE-TOKEN': opts.token,
+       'Content-Type': 'application/json' 
+    }
   }
 
   /**
@@ -85,6 +88,17 @@ export class GitLabAdapter implements GitAdapter {
     }
     // Fallback: no-op commit (return parentSha)
     return parentSha
+  }
+
+  /**
+   * リファレンス更新は不要なため noop 実装です。
+   * @param {string} _ref ref 名
+   * @param {string} _commitSha コミット SHA
+   * @param {boolean} [_force]
+   * @returns {Promise<void>}
+   */
+  async updateRef(_ref: string, _commitSha: string, _force = false) {
+    // Not required when using commits API
   }
 
   /**
@@ -169,17 +183,6 @@ export class GitLabAdapter implements GitAdapter {
     const base = this.baseBackoff * Math.pow(2, attempt - 1)
     const jitter = Math.floor(Math.random() * base * 0.3)
     return base + jitter
-  }
-
-  /**
-   * リファレンス更新は不要なため noop 実装です。
-   * @param {string} _ref ref 名
-   * @param {string} _commitSha コミット SHA
-   * @param {boolean} [_force]
-   * @returns {Promise<void>}
-   */
-  async updateRef(_ref: string, _commitSha: string, _force = false) {
-    // Not required when using commits API
   }
 }
 

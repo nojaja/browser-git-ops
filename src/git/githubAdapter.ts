@@ -5,6 +5,7 @@ type GHOptions = {
   owner: string
   repo: string
   token: string
+  host?: string // optional GitHub Enterprise host
 }
 
 /**
@@ -99,8 +100,14 @@ export class GitHubAdapter implements GitAdapter {
   private _fetchWithRetry: (_: RequestInfo, __: RequestInit, ___?: number, ____?: number) => Promise<Response>
   // simple in-memory blob cache: contentSha -> blobSha
   private blobCache: Map<string, string> = new Map()
+
+  /**
+   * GitHubAdapter を初期化します。
+   * @param {GHOptions} opts 設定オブジェクト
+   */
   constructor(private opts: GHOptions) {
-    this.baseUrl = `https://api.github.com/repos/${opts.owner}/${opts.repo}`
+    const host = opts.host || 'https://api.github.com'
+    this.baseUrl = `${host}/repos/${opts.owner}/${opts.repo}`
     this.headers = {
       Authorization: `token ${opts.token}`,
       Accept: 'application/vnd.github+json',
@@ -109,14 +116,22 @@ export class GitHubAdapter implements GitAdapter {
     this._fetchWithRetry = fetchWithRetry
   }
 
+  /**
+   * コンテンツから sha1 を算出します。
+   * @param {string} content コンテンツ
+   * @returns {string} sha1 ハッシュ
+   */
+  private async shaOf(content: string) {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(content)
+    const buf = await crypto.subtle.digest('SHA-1', data)
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+  }
+
   async createBlobs(changes: any[], concurrency = 5) {
     const tasks = changes.filter((c) => c.type === 'create' || c.type === 'update')
     const mapper = async (ch: any) => {
-      // compute simple content hash to enable cache lookup (Web Crypto)
-      const encoder = new TextEncoder()
-      const data = encoder.encode(ch.content || '')
-      const buf = await crypto.subtle.digest('SHA-1', data)
-      const contentHash = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+      const contentHash = await this.shaOf(ch.content || '')
       const cached = this.blobCache.get(contentHash)
       if (cached) return { path: ch.path, sha: cached }
       const body = JSON.stringify({ content: ch.content, encoding: 'utf-8' })
@@ -133,6 +148,12 @@ export class GitHubAdapter implements GitAdapter {
     return map
   }
 
+  /**
+   * 互換用のツリー作成。
+   * @param {any[]} changes 変更一覧
+   * @param {string} [baseTreeSha] ベースツリー
+   * @returns {Promise<string>} 作成されたツリーの sha
+   */
   async createTree(changes: any[], baseTreeSha?: string) {
     const tree = [] as any[]
     for (const c of changes) {
@@ -151,6 +172,13 @@ export class GitHubAdapter implements GitAdapter {
     return j.sha as string
   }
 
+  /**
+   * コミットを作成します。
+   * @param {string} message コミットメッセージ
+   * @param {string} parentSha 親コミット SHA
+   * @param {string} treeSha ツリー SHA
+   * @returns {Promise<string>} 新規コミット SHA
+   */
   async createCommit(message: string, parentSha: string, treeSha: string) {
     const body = JSON.stringify({ message, tree: treeSha, parents: [parentSha] })
     const res = await this._fetchWithRetry(`${this.baseUrl}/git/commits`, { method: 'POST', headers: this.headers, body }, 4, 300)
@@ -159,6 +187,12 @@ export class GitHubAdapter implements GitAdapter {
     return j.sha as string
   }
 
+  /**
+   * 参照を更新します。
+   * @param {string} ref 参照名（例: heads/main）
+   * @param {string} commitSha コミット SHA
+   * @param {boolean} force 強制更新フラグ
+   */
   async updateRef(ref: string, commitSha: string, force = false) {
     const body = JSON.stringify({ sha: commitSha, force })
     const res = await this._fetchWithRetry(`${this.baseUrl}/git/refs/${ref}`, { method: 'PATCH', headers: this.headers, body }, 4, 300)
