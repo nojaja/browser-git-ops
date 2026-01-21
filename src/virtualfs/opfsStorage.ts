@@ -1,10 +1,10 @@
 import { IndexFile } from './types'
-import { StorageBackend } from './storageBackend'
+import { StorageBackend, StorageBackendConstructor } from './storageBackend'
 
 const ERR_OPFS_DIR_API = 'OPFS directory API not available'
 
 /** OPFS (origin private file system) を利用する永続化実装 */
-export class OpfsStorage implements StorageBackend {
+export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implements StorageBackend {
   /**
    * 同期的に OPFS 利用可否を判定します（レガシーヒントも含む）。
    * @returns {boolean} 利用可能なら true

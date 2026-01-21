@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals'
 import VirtualFS from '../../../src/virtualfs/virtualfs'
-import InMemoryStorage from '../helpers/inmemoryStorage'
+import InMemoryStorage from '../../../src/virtualfs/inmemoryStorage'
 
 describe('VirtualFS pull/push', () => {
   it('pull updates base when workspace unchanged', async () => {

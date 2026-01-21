@@ -1,10 +1,10 @@
 import { IndexFile } from './types'
-import { StorageBackend } from './storageBackend'
+import { StorageBackend, StorageBackendConstructor } from './storageBackend'
 
 /**
  * IndexedDB を用いた永続化実装
  */
-export class IndexedDbStorage implements StorageBackend {
+export const IndexedDbStorage: StorageBackendConstructor = class IndexedDbStorage implements StorageBackend {
   /**
    * 環境に IndexedDB が存在するかを同期検査します。
     * @returns {boolean} 利用可能なら true

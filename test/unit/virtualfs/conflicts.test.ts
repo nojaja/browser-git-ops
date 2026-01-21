@@ -3,7 +3,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import VirtualFS from '../../../src/virtualfs/virtualfs'
-import { InMemoryStorage } from '../helpers/inmemoryStorage'
+import { InMemoryStorage } from '../../../src/virtualfs/inmemoryStorage'
 
 let tmpDir: string
 beforeEach(async () => {

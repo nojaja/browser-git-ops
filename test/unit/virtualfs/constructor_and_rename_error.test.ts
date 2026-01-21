@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals'
 import VirtualFS from '../../../src/virtualfs/virtualfs'
-import InMemoryStorage from '../helpers/inmemoryStorage'
+import InMemoryStorage from '../../../src/virtualfs/inmemoryStorage'
 
 describe('VirtualFS constructor default and rename error', () => {
   it('constructs with InMemoryStorage backend when none provided', async () => {

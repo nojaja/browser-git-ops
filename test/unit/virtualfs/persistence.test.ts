@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
-import InMemoryStorage from '../helpers/inmemoryStorage'
+import InMemoryStorage from '../../../src/virtualfs/inmemoryStorage'
 
 beforeEach(() => jest.clearAllMocks())
 afterEach(() => jest.resetAllMocks())

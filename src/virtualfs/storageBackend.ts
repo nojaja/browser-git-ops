@@ -42,4 +42,13 @@ export interface StorageBackend {
   deleteBlob(_filepath: string): Promise<void>
 }
 
+/**
+ * StorageBackend の "静的側"（コンストラクタ/クラス）を表現する型。
+ * クラス実装はこの型を満たすことで `canUse()` の静的メソッドを持つことが保証されます。
+ */
+export interface StorageBackendConstructor {
+  new (): StorageBackend
+  canUse(): boolean
+}
+
 export default StorageBackend

@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals'
 import VirtualFS from '../../../src/virtualfs/virtualfs'
-import InMemoryStorage from '../helpers/inmemoryStorage'
+import InMemoryStorage from '../../../src/virtualfs/inmemoryStorage'
 
 describe('VirtualFS 基本動作', () => {
   it('ファイルの追加・更新・削除と index.json の更新', async () => {
