@@ -437,12 +437,22 @@ export class VirtualFS {
       entry.workspaceSha = undefined
       this.index.entries[ch.path] = entry
       await this.backend.writeBlob(`.git-base/${ch.path}`, ch.content)
+      try {
+        await this.backend.deleteBlob(`workspace/${ch.path}`)
+      } catch (_) {
+        // ignore backend errors when cleaning workspace blob
+      }
       this.workspace.delete(ch.path)
     } else if (ch.type === 'delete') {
       delete this.index.entries[ch.path]
       this.base.delete(ch.path)
       this.tombstones.delete(ch.path)
       await this.backend.deleteBlob(`.git-base/${ch.path}`)
+      try {
+        await this.backend.deleteBlob(`workspace/${ch.path}`)
+      } catch (_) {
+        // ignore backend errors when cleaning workspace blob
+      }
       this.workspace.delete(ch.path)
     }
   }
