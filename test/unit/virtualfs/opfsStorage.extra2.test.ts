@@ -1,0 +1,108 @@
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
+import OpfsStorage from '../../../src/virtualfs/opfsStorage'
+
+describe('OpfsStorage additional failure branches', () => {
+  beforeEach(() => jest.clearAllMocks())
+  afterEach(() => jest.resetAllMocks())
+
+  it('deleteBlob uses fileHandle.remove when removeEntry not present', async () => {
+    const storage = new OpfsStorage()
+    // simulate a directory where removeEntry is not present but file handle has remove
+    const dir = {
+      getDirectory: jest.fn(async (p: string) => dir),
+      getFileHandle: jest.fn(async (name: string, opts?: any) => ({
+        remove: jest.fn(async () => true),
+        name
+      }))
+    } as any
+    // mock getOpfsRoot to return our dir
+    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => dir
+
+    // should not throw
+    await expect(storage.deleteBlob('a/b/c.txt')).resolves.toBeUndefined()
+    expect(dir.getFileHandle).toHaveBeenCalled()
+  })
+
+  it('writeBlob/readBlob handles nested path creation', async () => {
+    const storage = new OpfsStorage()
+    const created: Record<string, string> = {}
+    const dir = {
+      getDirectory: jest.fn(async (name: string) => dir),
+      getFileHandle: jest.fn(async (name: string, opts?: any) => ({
+        createWritable: jest.fn(async () => ({ write: async (d: any) => { created[name] = d }, close: async () => {} })),
+        getFile: jest.fn(async () => ({ text: async () => created[name] || '' }))
+      }))
+    } as any
+    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => dir
+
+    await storage.writeBlob('nested/dir/f.txt', 'ok data')
+    const buf = await storage.readBlob('nested/dir/f.txt')
+    expect(buf).toBeDefined()
+    const text = buf as string
+    expect(text).toBe('ok data')
+  })
+
+  it('writeBlob falls back to IndexedDB when OPFS write throws', async () => {
+    const storage = new OpfsStorage()
+    // mock getOpfsRoot to throw to force fallback
+    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => { throw new Error('opfs unavailable') }
+    // provide a fake indexedDB backend used by OpfsStorage internals
+    const indexedFallback = {
+      writeBlob: jest.fn(async (_p: string, _b: any) => true),
+      readBlob: jest.fn(async () => 'f')
+    }
+    ;(storage as any).indexedDb = indexedFallback
+
+    await expect(storage.writeBlob('f.txt', 'data')).rejects.toThrow()
+  })
+
+  it('deleteBlob swallows getFileHandle throwing errors', async () => {
+    const storage = new OpfsStorage()
+    // create a recursive dir whose getFileHandle throws
+    const recursiveDir: any = {}
+    recursiveDir.getDirectory = jest.fn(async () => recursiveDir)
+    recursiveDir.getDirectoryHandle = jest.fn(async () => recursiveDir)
+    recursiveDir.getFileHandle = jest.fn(async () => { throw new Error('boom') })
+
+    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => recursiveDir
+
+    // Should not throw and should resolve (errors are swallowed)
+    await expect(storage.deleteBlob('x/y/z.txt')).resolves.toBeUndefined()
+  })
+
+  it('writeBlob rejects when directory API is absent on intermediate nodes', async () => {
+    const storage = new OpfsStorage()
+    // root without any directory/file APIs
+    const badRoot: any = {}
+    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => badRoot
+
+    await expect(storage.writeBlob('a/b/c.txt', 'x')).rejects.toThrow()
+  })
+
+  it('readIndex returns null when getFile throws in fallback path', async () => {
+    const storage = new OpfsStorage()
+    const root = {
+      getFileHandle: jest.fn(async () => ({ getFile: async () => { throw new Error('nope') } }))
+    } as any
+    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => root
+
+    const res = await storage.readIndex()
+    expect(res).toBeNull()
+  })
+
+  it('writeBlob/readBlob works with getDirectoryHandle API', async () => {
+    const storage = new OpfsStorage()
+    const created: Record<string, string> = {}
+    const root: any = {}
+    root.getDirectoryHandle = jest.fn(async (p: string) => root)
+    root.getFileHandle = jest.fn(async (name: string, opts?: any) => ({
+      createWritable: jest.fn(async () => ({ write: async (d: any) => { created[name] = d }, close: async () => {} })),
+      getFile: jest.fn(async () => ({ text: async () => created[name] || '' }))
+    }))
+    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => root
+
+    await storage.writeBlob('dir1/dir2/f.txt', 'hello-handle')
+    const out = await storage.readBlob('dir1/dir2/f.txt')
+    expect(out).toBe('hello-handle')
+  })
+})

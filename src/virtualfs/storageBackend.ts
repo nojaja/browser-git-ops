@@ -1,6 +1,11 @@
 import { IndexFile } from './types'
 
 /**
+ * Storage セグメント
+ */
+export type Segment = 'workspace' | 'base' | 'conflict'
+
+/**
  * 永続化レイヤーの抽象インターフェース
  * Storage の具体実装はこの契約に従うこと
  */
@@ -25,21 +30,25 @@ export interface StorageBackend {
    * ファイルコンテンツを保存
    * @param {string} filepath
    * @param {string} content
+   * @param {Segment} segment 保存先セグメント
    * @returns {Promise<void>}
    */
-  writeBlob(_filepath: string, _content: string): Promise<void>
+  writeBlob(_filepath: string, _content: string, _segment?: Segment): Promise<void>
   /**
    * ファイルコンテンツを読み出す
    * @param {string} filepath
+   * @param {Segment} segment 読み出すセグメント
    * @returns {Promise<string|null>}
    */
-  readBlob(_filepath: string): Promise<string | null>
+  readBlob(_filepath: string, _segment?: Segment): Promise<string | null>
+
   /**
    * ファイルを削除する
    * @param {string} filepath
+   * @param {Segment} [segment] 削除するセグメント（省略時は全セグメント削除）
    * @returns {Promise<void>}
    */
-  deleteBlob(_filepath: string): Promise<void>
+  deleteBlob(_filepath: string, _segment?: Segment): Promise<void>
 }
 
 /**
@@ -47,8 +56,20 @@ export interface StorageBackend {
  * クラス実装はこの型を満たすことで `canUse()` の静的メソッドを持つことが保証されます。
  */
 export interface StorageBackendConstructor {
-  new (): StorageBackend
+  /**
+   * コンストラクタ。ルートパスやDB名などのオプション引数を受け取れるようにする。
+   * 実装側はこの引数を利用して初期化を行うことができます。
+   */
+  new (root?: string): StorageBackend
+  /**
+   * このストレージ実装が利用可能かどうかを返す（例: 環境依存のチェック）。
+   */
   canUse(): boolean
+  /**
+   * このストレージ実装で利用可能なルートパスあるいはDB名の一覧を返す。
+   * 例えばローカルFS実装ならベースディレクトリ名、IndexedDB実装ならDB名候補を返す等。
+   */
+  availableRoots(): string[]
 }
 
 export default StorageBackend

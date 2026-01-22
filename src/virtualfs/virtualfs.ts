@@ -5,7 +5,7 @@ import { OpfsStorage } from './opfsStorage'
 type RemoteSnapshotDescriptor = {
   headSha: string
   shas: Record<string, string>
-  fetchContent: (paths: string[]) => Promise<Record<string, string>>
+  fetchContent: (_paths: string[]) => Promise<Record<string, string>>
 }
 
 /** Virtual file system - 永続化バックエンドを抽象化した仮想ファイルシステム */
@@ -43,7 +43,11 @@ export class VirtualFS {
   }
 
   /** Git blob の SHA1 (ヘッダ込み) を算出します。*/
-  private async shaOfGitBlob(content: string) {
+  /** Git blob の SHA1 (ヘッダ込み) を算出します。
+   * @param {string} content コンテンツ
+   * @returns {Promise<string>} 計算された SHA
+   */
+  private async shaOfGitBlob(content: string): Promise<string> {
     const encoder = new TextEncoder()
     const body = encoder.encode(content)
     const header = encoder.encode(`blob ${body.byteLength}\0`)
@@ -94,10 +98,7 @@ export class VirtualFS {
   private async saveIndex() {
     await this.backend.writeIndex(this.index)
   }
-
-  /**
-   *
-  */
+ 
   /**
    * ファイルを書き込みます（ローカル編集）。
    * @param {string} filepath ファイルパス
@@ -118,7 +119,7 @@ export class VirtualFS {
       updatedAt: now,
     }
     // persist workspace blob (optional) under workspace/
-    await this.backend.writeBlob(`workspace/${filepath}`, content)
+    await this.backend.writeBlob(`${filepath}`, content, 'workspace')
     await this.saveIndex()
   }
 
@@ -141,7 +142,7 @@ export class VirtualFS {
       }
       // remove any workspace copy from backend
       try {
-        await this.backend.deleteBlob(`workspace/${filepath}`)
+        await this.backend.deleteBlob(`${filepath}`, 'workspace')
       } catch (_) {
         // ignore
       }
@@ -149,7 +150,7 @@ export class VirtualFS {
       // created in workspace and deleted before push
       delete this.index.entries[filepath]
       this.workspace.delete(filepath)
-      await this.backend.deleteBlob(`workspace/${filepath}`)
+      await this.backend.deleteBlob(`${filepath}`, 'workspace')
     }
     await this.saveIndex()
   }
@@ -180,20 +181,25 @@ export class VirtualFS {
     const w = this.workspace.get(filepath)
     if (w) return w.content
     // try workspace blob in backend first (read-through)
-    const wsBlob = await this.backend.readBlob(`workspace/${filepath}`)
+    const wsBlob = await this.backend.readBlob(filepath, 'workspace')
     if (wsBlob !== null) return wsBlob
     // then try base (.git-base)
-    const baseBlob = await this.backend.readBlob(`.git-base/${filepath}`)
+    const baseBlob = await this.backend.readBlob(filepath, 'base')
     if (baseBlob !== null) return baseBlob
     const b = this.base.get(filepath)
     if (b && b.content) return b.content
     return null
   }
 
-  private async _readBaseContent(filepath: string) {
+  /**
+   * Read content from base segment (cache-first).
+   * @param {string} filepath ファイルパス
+   * @returns {Promise<string|null>} content or null if not present
+   */
+  private async _readBaseContent(filepath: string): Promise<string | null> {
     const cached = this.base.get(filepath)
     if (cached && cached.content) return cached.content
-    const blob = await this.backend.readBlob(`.git-base/${filepath}`)
+    const blob = await this.backend.readBlob(filepath, 'base')
     if (blob !== null) {
       this.base.set(filepath, { sha: cached?.sha || '', content: blob })
       return blob
@@ -202,12 +208,42 @@ export class VirtualFS {
   }
 
   /**
+   * Classify a remote path during pull: reconcile against local base if possible.
+   * @param p file path
+   * @param sha remote blob sha
+   * @param normalized normalized remote descriptor
+   * @param pathsToFetch accumulator for paths requiring fetch
+   * @param reconciledPaths accumulator for paths reconciled from base
+   * @returns {Promise<boolean>} true if reconciled/no-fetch required, false when fetch is needed
+   */
+  private async _classifyRemotePathForPull(p: string, sha: string, normalized: RemoteSnapshotDescriptor, pathsToFetch: string[], reconciledPaths: string[]): Promise<boolean> {
+    const entry = this.index.entries[p]
+    if (!entry) return false
+    if (entry.baseSha === sha) return true
+
+    const baseContent = await this._readBaseContent(p)
+    if (baseContent !== null) {
+      const gitSha = await this.shaOfGitBlob(baseContent)
+      if (gitSha === sha) {
+        entry.baseSha = sha
+        entry.state = entry.state || 'base'
+        entry.updatedAt = Date.now()
+        this.index.entries[p] = entry
+        this.base.set(p, { sha, content: baseContent })
+        reconciledPaths.push(p)
+        return true
+      }
+    }
+    return false
+  }
+
+  /**
    * 衝突ファイル（.git-conflict/配下）を取得します。
    * @param {string} filepath ファイルパス
    * @returns {Promise<string|null>} ファイル内容または null
    */
   async readConflict(filepath: string) {
-    const blob = await this.backend.readBlob(`.git-conflict/${filepath}`)
+    const blob = await this.backend.readBlob(filepath, 'conflict')
     if (blob !== null) return blob
     return null
   }
@@ -221,13 +257,13 @@ export class VirtualFS {
   async resolveConflict(filepath: string) {
     try {
       // Read remote conflict content
-      const remoteContent = await this.backend.readBlob(`.git-conflict/${filepath}`)
+      const remoteContent = await this.backend.readBlob(filepath, 'conflict')
       const ie = this.index.entries[filepath]
       // If we have remote content and an index entry with remoteSha, promote it to base
       if (remoteContent !== null && ie && ie.remoteSha) {
         // write to .git-base
         try {
-          await this.backend.writeBlob(`.git-base/${filepath}`, remoteContent)
+          await this.backend.writeBlob(filepath, remoteContent, 'base')
         } catch (_) {
           // ignore backend write errors
         }
@@ -250,7 +286,7 @@ export class VirtualFS {
 
       // remove conflict blob if present
       try {
-        await this.backend.deleteBlob(`.git-conflict/${filepath}`)
+        await this.backend.deleteBlob(filepath, 'conflict')
       } catch (_) {
         // ignore
       }
@@ -317,7 +353,7 @@ export class VirtualFS {
     for (const p of toRemove) {
       this.base.delete(p)
       try {
-        await this.backend.deleteBlob(`.git-base/${p}`)
+        await this.backend.deleteBlob(p)
       } catch (_) {
         // ignore backend errors
       }
@@ -339,7 +375,7 @@ export class VirtualFS {
       const sha = newShas[p]
       this.base.set(p, { sha, content })
       try {
-        await this.backend.writeBlob(`.git-base/${p}`, content)
+        await this.backend.writeBlob(p, content, 'base')
       } catch (_) {
         // ignore
       }
@@ -452,12 +488,8 @@ export class VirtualFS {
   private async _changesFromModifiedEntries(): Promise<Array<{ type: 'create' | 'update'; path: string; content: string; baseSha?: string }>> {
     const out: Array<{ type: 'create' | 'update'; path: string; content: string; baseSha?: string }> = []
     for (const [p, e] of Object.entries(this.index.entries)) {
-      // Include entries that are explicitly 'modified' or in 'conflict'.
-      // Also include entries that have a workspace blob _unless_ they are
-      // newly 'added' entries (those are handled by _changesFromAddedEntries()).
-      const consider =
-        e.state === 'modified' || e.state === 'conflict' || (!!e.workspaceSha && e.state !== 'added')
-      if (!consider) continue
+      // Decide whether this entry should be considered for update/create
+      if (!this._isEntryConsidered(e)) continue
 
       const w = await this._ensureWorkspaceBlobForEntry(p, e)
       if (!w) continue
@@ -465,6 +497,15 @@ export class VirtualFS {
       await this._pushChangeForModifiedEntry(out, p, e, w)
     }
     return out
+  }
+
+  /**
+   * 指定エントリが変更リストに含めるべきか判定します。
+   * @param e インデックスエントリ
+   * @returns {boolean}
+   */
+  private _isEntryConsidered(e: any) {
+    return e.state === 'modified' || e.state === 'conflict' || (!!e.workspaceSha && e.state !== 'added')
   }
 
   /**
@@ -492,7 +533,7 @@ export class VirtualFS {
     let w = this.workspace.get(p)
     if ((!w || !w.content) && e.workspaceSha) {
       try {
-        const blob = await this.backend.readBlob(`workspace/${p}`)
+        const blob = await this.backend.readBlob(p, 'workspace')
         if (blob !== null) {
           w = { sha: e.workspaceSha, content: blob }
           this.workspace.set(p, w)
@@ -530,19 +571,10 @@ export class VirtualFS {
     const workspaceSha = localWorkspace ? localWorkspace.sha : undefined
     if (localWorkspace) {
       // workspace has uncommitted changes -> conflict
-      // persist remote content for inspection under .git-conflict/
-      try {
-        const content = baseSnapshot[p]
-        if (content !== undefined) await this.backend.writeBlob(`.git-conflict/${p}`, content)
-      } catch (_) {
-        // ignore backend write errors
-      }
-      // mark index entry as conflict and store remoteHeadSha for later resolution
+      const content = baseSnapshot[p]
+      await this._persistRemoteContentAsConflict(p, content)
       const ie = this.index.entries[p] || ({ path: p } as any)
-      ie.state = 'conflict'
-      ie.remoteSha = remoteHeadSha
-      ie.updatedAt = Date.now()
-      this.index.entries[p] = ie
+      this._setIndexEntryToConflict(p, ie, remoteHeadSha)
       await this.saveIndex()
       conflicts.push({ path: p, remoteSha: remoteHeadSha, workspaceSha, baseSha: localBase?.sha })
     } else {
@@ -550,17 +582,14 @@ export class VirtualFS {
       const content = baseSnapshot[p]
       if (typeof content === 'undefined') {
         const ie = this.index.entries[p] || ({ path: p } as any)
-        ie.state = 'conflict'
-        ie.remoteSha = remoteHeadSha
-        ie.updatedAt = Date.now()
-        this.index.entries[p] = ie
+        this._setIndexEntryToConflict(p, ie, remoteHeadSha)
         conflicts.push({ path: p, remoteSha: remoteHeadSha, workspaceSha, baseSha: localBase?.sha })
         await this.saveIndex()
         return
       }
       this.base.set(p, { sha: perFileRemoteSha, content })
       this.index.entries[p] = { path: p, state: 'base', baseSha: perFileRemoteSha, updatedAt: Date.now() }
-      await this.backend.writeBlob(`.git-base/${p}`, content)
+      await this.backend.writeBlob(p, content, 'base')
     }
   }
 
@@ -569,43 +598,106 @@ export class VirtualFS {
    * @returns {Promise<void>}
    */
   private async _handleRemoteExisting(p: string, idxEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<import('./types').ConflictEntry>, localWorkspace: { sha: string; content: string } | undefined, remoteHeadSha: string) {
-    const workspaceSha = localWorkspace ? localWorkspace.sha : undefined
     const baseSha = idxEntry.baseSha
     if (baseSha === perFileRemoteSha) return
     // remote changed
     if (!localWorkspace || localWorkspace.sha === baseSha) {
-      // workspace unchanged -> update base
-      const content = baseSnapshot[p]
-      if (typeof content === 'undefined') {
-        idxEntry.state = 'conflict'
-        idxEntry.remoteSha = remoteHeadSha
-        idxEntry.updatedAt = Date.now()
-        this.index.entries[p] = idxEntry
-        await this.saveIndex()
-        conflicts.push({ path: p, baseSha, remoteSha: remoteHeadSha, workspaceSha })
-        return
-      }
-      idxEntry.baseSha = perFileRemoteSha
-      idxEntry.state = 'base'
-      idxEntry.updatedAt = Date.now()
-      await this.backend.writeBlob(`.git-base/${p}`, content)
+      await this._handleRemoteExistingUpdate(p, idxEntry, perFileRemoteSha, baseSnapshot, conflicts, remoteHeadSha)
     } else {
-      // workspace modified -> conflict
-      // persist remote content for inspection under .git-conflict/
-      try {
-        const content = baseSnapshot[p]
-        if (content !== undefined) await this.backend.writeBlob(`.git-conflict/${p}`, content)
-      } catch (_) {
-        // ignore backend write errors
-      }
-      // record remoteHeadSha in index for later resolution
+      await this._handleRemoteExistingConflict(p, idxEntry, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, remoteHeadSha)
+    }
+  }
+
+  /**
+   * workspace に変更が無い場合のリモート更新処理を行う
+   * @returns {Promise<void>}
+   */
+  private async _handleRemoteExistingUpdate(p: string, idxEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<import('./types').ConflictEntry>, remoteHeadSha: string) {
+    const baseSha = idxEntry.baseSha
+    const content = baseSnapshot[p]
+    if (typeof content === 'undefined') {
       idxEntry.state = 'conflict'
       idxEntry.remoteSha = remoteHeadSha
       idxEntry.updatedAt = Date.now()
       this.index.entries[p] = idxEntry
       await this.saveIndex()
-      conflicts.push({ path: p, baseSha, remoteSha: remoteHeadSha, workspaceSha })
+      conflicts.push({ path: p, baseSha, remoteSha: remoteHeadSha, workspaceSha: undefined })
+      return
     }
+    idxEntry.baseSha = perFileRemoteSha
+    idxEntry.state = 'base'
+    idxEntry.updatedAt = Date.now()
+    try {
+      await this.backend.writeBlob(p, content, 'base')
+    } catch (_) {
+      /* ignore write errors */
+    }
+  }
+
+  /**
+   * workspace が変更されている場合の競合処理（conflict 登録、remote content を .git-conflict に保存）
+   * @returns {Promise<void>}
+   */
+  private async _handleRemoteExistingConflict(p: string, idxEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<import('./types').ConflictEntry>, localWorkspace: { sha: string; content: string }, remoteHeadSha: string) {
+    const baseSha = idxEntry.baseSha
+    // persist remote content for inspection under .git-conflict/
+    await this._persistRemoteContentAsConflict(p, baseSnapshot[p])
+    // record remoteHeadSha in index for later resolution
+    this._setIndexEntryToConflict(p, idxEntry, remoteHeadSha)
+    await this.saveIndex()
+    conflicts.push({ path: p, baseSha, remoteSha: remoteHeadSha, workspaceSha: localWorkspace?.sha })
+  }
+
+  /**
+   * Persist remote content into conflict segment if content is provided.
+   * @param p file path
+   * @param content remote content
+   */
+  private async _persistRemoteContentAsConflict(p: string, content: string | undefined) {
+    if (typeof content === 'undefined') return
+    try {
+      await this.backend.writeBlob(p, content, 'conflict')
+    } catch (_) {
+      // ignore backend write errors
+    }
+  }
+
+  /**
+   * Mark an index entry as conflict and store it in index.
+   * @param p file path
+   * @param ie index entry object
+   * @param remoteHeadSha remote head sha to record
+   */
+  private _setIndexEntryToConflict(p: string, ie: any, remoteHeadSha: string) {
+    ie.state = 'conflict'
+    ie.remoteSha = remoteHeadSha
+    ie.updatedAt = Date.now()
+    this.index.entries[p] = ie
+  }
+
+  /**
+   * Promote a single resolved conflict into base (helper for _promoteResolvedConflicts).
+   * @param c conflict entry
+   * @param baseSnapshot snapshot map
+   */
+  private async _promoteResolvedConflictEntry(c: import('./types').ConflictEntry, baseSnapshot: Record<string, string>) {
+    const p = c.path
+    const ie = this.index.entries[p]
+    try {
+      const content = typeof baseSnapshot[p] !== 'undefined' ? baseSnapshot[p] : this.base.get(p)?.content
+      if (content !== undefined) {
+        await this.backend.writeBlob(p, content, 'base')
+        this.base.set(p, { sha: ie.remoteSha!, content })
+      }
+    } catch (_) {
+      /* ignore write errors */
+    }
+    ie.baseSha = ie.remoteSha
+    delete ie.remoteSha
+    ie.state = 'base'
+    ie.updatedAt = Date.now()
+    this.index.entries[p] = ie
+    try { await this.backend.deleteBlob(p, 'conflict') } catch (_) { /* ignore */ }
   }
 
   /**
@@ -623,19 +715,7 @@ export class VirtualFS {
       entry.updatedAt = Date.now()
       entry.workspaceSha = undefined
       this.index.entries[ch.path] = entry
-      await this.backend.writeBlob(`.git-base/${ch.path}`, ch.content)
-      try {
-        await this.backend.deleteBlob(`workspace/${ch.path}`)
-      } catch (_) {
-        // ignore backend errors when cleaning workspace blob
-      }
-      this.workspace.delete(ch.path)
-      // cleanup any conflict blob for this path
-      try {
-        await this.backend.deleteBlob(`.git-conflict/${ch.path}`)
-      } catch (_) {
-        // ignore
-      }
+      // Delegate to helper which will persist base and clean workspace in the correct order
       await this._applyCreateOrUpdate(ch)
     } else if (ch.type === 'delete') {
       await this._applyDelete(ch)
@@ -648,18 +728,14 @@ export class VirtualFS {
    * @returns {Promise<void>}
    */
   private async _applyCreateOrUpdate(ch: any) {
-    const sha = await this.shaOf(ch.content)
-    this.base.set(ch.path, { sha, content: ch.content })
-    const entry = this.index.entries[ch.path] || ({ path: ch.path } as any)
-    entry.baseSha = sha
-    entry.state = 'base'
-    entry.updatedAt = Date.now()
-    entry.workspaceSha = undefined
-    this.index.entries[ch.path] = entry
-    await this.backend.writeBlob(`.git-base/${ch.path}`, ch.content)
-    try { await this.backend.deleteBlob(`workspace/${ch.path}`) } catch (_) { /* ignore backend errors when cleaning workspace blob */ }
+    // Ensure workspace copy is removed first (delete may remove all segments),
+    // then persist base blob so it remains.
+    try { await this.backend.deleteBlob(ch.path, 'workspace') } catch (_) { /* ignore backend errors when cleaning workspace blob */ }
+    try {
+      await this.backend.writeBlob(ch.path, ch.content, 'base')
+    } catch (_) { /* ignore write errors */ }
     this.workspace.delete(ch.path)
-    try { await this.backend.deleteBlob(`.git-conflict/${ch.path}`) } catch (_) { /* ignore */ }
+    try { await this.backend.deleteBlob(ch.path, 'workspace') } catch (_) { /* ignore */ }
   }
 
   /**
@@ -671,10 +747,8 @@ export class VirtualFS {
     delete this.index.entries[ch.path]
     this.base.delete(ch.path)
     this.tombstones.delete(ch.path)
-    await this.backend.deleteBlob(`.git-base/${ch.path}`)
-    try { await this.backend.deleteBlob(`workspace/${ch.path}`) } catch (_) { /* ignore backend errors when cleaning workspace blob */ }
+    try { await this.backend.deleteBlob(ch.path) } catch (_) { /* ignore backend errors when deleting blobs */ }
     this.workspace.delete(ch.path)
-    try { await this.backend.deleteBlob(`.git-conflict/${ch.path}`) } catch (_) { /* ignore */ }
   }
 
   /**
@@ -694,7 +768,7 @@ export class VirtualFS {
       // safe to delete locally
       delete this.index.entries[p]
       this.base.delete(p)
-      await this.backend.deleteBlob(`.git-base/${p}`)
+      await this.backend.deleteBlob(p)
     } else {
       conflicts.push({ path: p, baseSha: e.baseSha, workspaceSha: localWorkspace?.sha })
     }
@@ -803,29 +877,11 @@ export class VirtualFS {
     const conflicts: Array<import('./types').ConflictEntry> = []
     const pathsToFetch: string[] = []
     const reconciledPaths: string[] = []
+
+    // Classify each remote path: either reconcile from existing base or mark for fetch
     for (const [p, sha] of Object.entries(normalized.shas)) {
-      const entry = this.index.entries[p]
-      if (!entry) {
-        pathsToFetch.push(p)
-        continue
-      }
-      if (entry.baseSha === sha) continue
-
-      const baseContent = await this._readBaseContent(p)
-      if (baseContent !== null) {
-        const gitSha = await this.shaOfGitBlob(baseContent)
-        if (gitSha === sha) {
-          entry.baseSha = sha
-          entry.state = entry.state || 'base'
-          entry.updatedAt = Date.now()
-          this.index.entries[p] = entry
-          this.base.set(p, { sha, content: baseContent })
-          reconciledPaths.push(p)
-          continue
-        }
-      }
-
-      pathsToFetch.push(p)
+      const classified = await this._classifyRemotePathForPull(p, sha, normalized, pathsToFetch, reconciledPaths)
+      if (!classified) pathsToFetch.push(p)
     }
 
     const fetched = await normalized.fetchContent(pathsToFetch)
@@ -845,12 +901,23 @@ export class VirtualFS {
     return { conflicts, fetchedPaths: pathsToFetch, reconciledPaths }
   }
 
+  /**
+   * Normalize remote input which may be a headSha or a full descriptor.
+   * @param {RemoteSnapshotDescriptor | string} remote remote descriptor or headSha
+   * @param {Record<string,string>=} baseSnapshot optional snapshot when remote is a headSha
+   * @returns {Promise<RemoteSnapshotDescriptor>} normalized descriptor
+   */
   private async _normalizeRemoteInput(remote: RemoteSnapshotDescriptor | string, baseSnapshot?: Record<string, string>): Promise<RemoteSnapshotDescriptor> {
     if (typeof remote !== 'string') return remote
     const snapshot = baseSnapshot || {}
     const shas: Record<string, string> = {}
     for (const [p, c] of Object.entries(snapshot)) shas[p] = await this.shaOf(c)
-    const fetchContent = async (paths: string[]) => {
+    /**
+     * Fetch content for the requested paths from the provided snapshot.
+     * @param {string[]} paths requested paths
+     * @returns {Promise<Record<string,string>>} path->content map
+     */
+    async function fetchContent(paths: string[]): Promise<Record<string, string>> {
       const out: Record<string, string> = {}
       for (const p of paths) {
         if (p in snapshot) out[p] = snapshot[p]
@@ -902,23 +969,7 @@ export class VirtualFS {
   private async _promoteResolvedConflicts(conflicts: Array<import('./types').ConflictEntry>, baseSnapshot: Record<string, string>, remoteHead: string) {
     if (!this._areAllResolved(conflicts)) return
     for (const c of conflicts) {
-      const p = c.path
-      const ie = this.index.entries[p]
-      try {
-        const content = typeof baseSnapshot[p] !== 'undefined' ? baseSnapshot[p] : this.base.get(p)?.content
-        if (content !== undefined) {
-          await this.backend.writeBlob(`.git-base/${p}`, content)
-          this.base.set(p, { sha: ie.remoteSha!, content })
-        }
-      } catch (_) {
-        /* ignore write errors */
-      }
-      ie.baseSha = ie.remoteSha
-      delete ie.remoteSha
-      ie.state = 'base'
-      ie.updatedAt = Date.now()
-      this.index.entries[p] = ie
-      try { await this.backend.deleteBlob(`.git-conflict/${p}`) } catch (_) { /* ignore */ }
+      await this._promoteResolvedConflictEntry(c, baseSnapshot)
     }
     this.index.head = remoteHead
     await this.saveIndex()

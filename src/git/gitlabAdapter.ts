@@ -113,19 +113,8 @@ export class GitLabAdapter implements GitAdapter {
    */
   async createCommitWithActions(branch: string, message: string, changes: Array<{ type: string; path: string; content?: string }>, expectedParentSha?: string) {
     const url = `${this.baseUrl}/repository/commits`
-    const actions = changes.map((c) => {
-      if (c.type === 'delete') return { action: 'delete', file_path: c.path }
-      if (c.type === 'create') return { action: 'create', file_path: c.path, content: c.content }
-      return { action: 'update', file_path: c.path, content: c.content }
-    })
-    /**
-     * GitLab のコミット API を呼び出します。
-     * @param {string} branch ブランチ名
-     * @param {string} message コミットメッセージ
-     * @param {{type:string,path:string,content?:string}[]} changes 変更一覧
-     * @returns {Promise<any>} 作成されたコミットの識別子
-     */
-    const body = JSON.stringify({ branch, commit_message: message, actions })
+    const actions = this.createActions(changes)
+    const body = this._prepareCommitBody(branch, message, actions)
 
     // If caller provided an expected parent SHA, verify remote branch head matches it to avoid accidental overwrites
     if (expectedParentSha) {
@@ -133,39 +122,68 @@ export class GitLabAdapter implements GitAdapter {
       // which would consume the single prepared mock for the commit call and break tests.
       // Skip the pre-check when fetch is a Jest mock function.
       const gfetch: any = (globalThis as any).fetch
-      if (gfetch && gfetch._isMockFunction) {
-        // skip pre-check in mocked environments
-      } else {
-      try {
-        const branchRes = await this.fetchWithRetry(`${this.baseUrl}/repository/branches/${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
-        if (branchRes && branchRes.ok) {
-          const bj = await branchRes.json().catch(() => null)
-          const remoteHead = bj && bj.commit && (bj.commit.id || bj.commit.sha) ? (bj.commit.id || bj.commit.sha) : null
-          if (remoteHead && remoteHead !== expectedParentSha) {
-            throw new Error(`422 Non-fast-forward: remote head ${remoteHead} !== expected ${expectedParentSha}`)
-          }
-        }
-      } catch (err) {
-        if (err && String(err).includes('422')) throw err
-        // otherwise continue to attempt commit and let API surface other errors
-      }
+      if (!(gfetch && gfetch._isMockFunction)) {
+        await this._maybeVerifyParent(expectedParentSha, branch)
       }
     }
 
-    const res = await this.fetchWithRetry(url, { method: 'POST', headers: this.headers, body })
-    const text = await res.text().catch(() => '')
+    return await this.postCommit(url, body)
+  }
+
+  /**
+   * Convert change descriptors to GitLab API actions
+    * @returns {Array<any>} API-compatible actions array
+   */
+  private createActions(changes: Array<{ type: string; path: string; content?: string }>) {
+    return changes.map((c) => {
+      if (c.type === 'delete') return { action: 'delete', file_path: c.path }
+      if (c.type === 'create') return { action: 'create', file_path: c.path, content: c.content }
+      return { action: 'update', file_path: c.path, content: c.content }
+    })
+  }
+
+  /**
+   * Verify remote branch head matches expected parent SHA.
+   * @throws Error if non-fast-forward
+    * @returns {Promise<void>}
+   */
+  private async verifyParent(expectedParentSha: string, branch: string): Promise<void> {
+    const branchRes = await this.fetchWithRetry(`${this.baseUrl}/repository/branches/${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
+    if (branchRes && branchRes.ok) {
+      const bj = await branchRes.json().catch(() => null)
+      const remoteHead = bj && bj.commit && (bj.commit.id || bj.commit.sha) ? (bj.commit.id || bj.commit.sha) : null
+      if (remoteHead && remoteHead !== expectedParentSha) {
+        throw new Error(`422 Non-fast-forward: remote head ${remoteHead} !== expected ${expectedParentSha}`)
+      }
+    }
+  }
+
+  /**
+   * Parse and validate commit API response text
+   * @param {string} text 応答テキスト
+   * @returns {any} parsed commit id/object
+   */
+  private parseCommitResponse(text: string) {
     let j: any = null
     try {
       j = text ? JSON.parse(text) : null
     } catch (err) {
       throw new Error(`GitLab commit invalid JSON response: ${text}`)
     }
-
-    // validate expected fields (GitLab returns 'id' for commit id)
     if (!j || (!j.id && !j.commit)) {
       throw new Error(`GitLab commit unexpected response: ${JSON.stringify(j)}`)
     }
     return j.id || j.commit || j
+  }
+
+  /**
+   * Post commit request and parse response
+    * @returns {Promise<any>}
+    */
+    private async postCommit(url: string, body: string) {
+    const res = await this.fetchWithRetry(url, { method: 'POST', headers: this.headers, body })
+    const text = await res.text().catch(() => '')
+    return this.parseCommitResponse(text)
   }
 
   /**
@@ -177,20 +195,31 @@ export class GitLabAdapter implements GitAdapter {
    */
   private async fetchWithRetry(url: string, opts: RequestInit, retries = this.maxRetries): Promise<Response> {
     for (let attempt = 1; attempt <= retries; attempt++) {
+      let res: Response | null = null
       try {
-        const res = await fetch(url, opts)
-        if (!res || !this.isRetryableStatus(res.status)) return res
-        if (attempt === retries) return res
-        const wait = this.backoffMs(attempt)
-        await new Promise((r) => setTimeout(r, wait))
-      } catch (err) {
-        if (attempt === retries) throw err
-        const wait = this.backoffMs(attempt)
-        await new Promise((r) => setTimeout(r, wait))
+        // If fetch throws synchronously (e.g. mocked impl), this will be caught here
+        // and handled as a transient error to be retried.
+        res = await fetch(url, opts) as Response
+      } catch (e: any) {
+        if (attempt === retries) throw e
+        await this._waitAttempt(attempt)
+        continue
       }
+
+      if (!res || !this.isRetryableStatus(res.status) || attempt === retries) return res
+      await this._waitAttempt(attempt)
     }
-    // should not reach here
     throw new Error('fetchWithRetry: unexpected exit')
+  }
+
+  /**
+   * Wait helper for fetch retry backoff.
+   * @param attempt Attempt number
+   * @returns {Promise<void>} resolves after backoff
+   */
+  private async _waitAttempt(attempt: number): Promise<void> {
+    const wait = this.backoffMs(attempt)
+    await new Promise((r) => setTimeout(r, wait))
   }
 
   /**
@@ -223,23 +252,34 @@ export class GitLabAdapter implements GitAdapter {
    * @returns {Promise<R[]>}
    */
   private async mapWithConcurrency<T, R>(items: T[], mapper: (_t: T) => Promise<R>, concurrency = 5) {
-    const results: R[] = []
-    let idx = 0
-    const runners: Promise<void>[] = []
-    /**
-     * 実行ランナー: キューから項目を取り出して mapper を実行します。
-     */
-    const run = async () => {
-      while (idx < items.length) {
-        const i = idx++
-        if (i >= items.length) break
-        const r = await mapper(items[i])
-        results[i] = r
-      }
+    const results: R[] = new Array(items.length)
+    if (items.length === 0) return results
+    // process items in chunks to limit concurrency
+    for (let i = 0; i < items.length; i += concurrency) {
+      const chunk = items.slice(i, i + concurrency)
+      await Promise.all(chunk.map((it, idx) => mapper(it).then((r) => { results[i + idx] = r })))
     }
-    for (let i = 0; i < Math.min(concurrency, items.length); i++) runners.push(run())
-    await Promise.all(runners)
     return results
+  }
+
+  /**
+   * Prepare JSON body for commit API call.
+   * @returns {string} JSON body
+   */
+  private _prepareCommitBody(branch: string, message: string, actions: any[]) {
+    return JSON.stringify({ branch, commit_message: message, actions })
+  }
+
+  /**
+   * Optionally verify parent SHA; swallow non-422 errors.
+   */
+  private async _maybeVerifyParent(expectedParentSha: string, branch: string) {
+    try {
+      await this.verifyParent(expectedParentSha, branch)
+    } catch (err: any) {
+      if (err && String(err).includes('422')) throw err
+      // otherwise continue
+    }
   }
 
   /**
@@ -248,63 +288,86 @@ export class GitLabAdapter implements GitAdapter {
   * @returns {Promise<{headSha:string,shas:Record<string,string>,fetchContent:(paths:string[])=>Promise<Record<string,string>>}>}
    */
   async fetchSnapshot(branch = 'main', concurrency = 5) {
-    // Determine remote HEAD commit SHA by fetching branch info when possible
-    let headSha: string = branch
+    const headSha = await this._determineHeadSha(branch)
+    const { shas, fileSet } = await this._fetchTreeAndBuildShas(branch)
+
+    const cache = new Map<string, string>()
+    const snapshot: Record<string, string> = {}
+    /**
+     * Fetch content helper for requested paths.
+     * @param {string[]} paths File paths to fetch
+     * @returns {Promise<Record<string,string>>}
+     */
+    const fetchContent = (paths: string[]) => this._fetchContentFromFileSet(fileSet, cache, snapshot, paths, branch, concurrency)
+
+    return { headSha, shas, fetchContent, snapshot }
+  }
+
+  /**
+   * Determine the remote head SHA for a branch. Falls back to branch name on error.
+   * @param {string} branch Branch name
+   * @returns {Promise<string>} head SHA or branch
+   */
+  private async _determineHeadSha(branch: string): Promise<string> {
     try {
       const brRes = await this.fetchWithRetry(`${this.baseUrl}/repository/branches/${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
       if (brRes && brRes.ok) {
         const bj = await brRes.json().catch(() => null)
-        headSha = (bj && bj.commit && (bj.commit.id || bj.commit.sha)) ? (bj.commit.id || bj.commit.sha) : branch
+        return (bj && bj.commit && (bj.commit.id || bj.commit.sha)) ? (bj.commit.id || bj.commit.sha) : branch
       }
-    } catch (e) {
-      // ignore and fall back to branch name as headSha
-      headSha = branch
+    } catch (_) {
+      // ignore
     }
+    return branch
+  }
 
+  /**
+   * Fetch repository tree and build shas/fileSet.
+   * @param {string} branch Branch name
+   * @returns {Promise<{shas:Record<string,string>,fileSet:Set<string>}>}
+   */
+  private async _fetchTreeAndBuildShas(branch: string): Promise<{ shas: Record<string, string>; fileSet: Set<string> }> {
     const treeRes = await this.fetchWithRetry(`${this.baseUrl}/repository/tree?recursive=true&ref=${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
     const treeJ = await treeRes.json()
     const files = Array.isArray(treeJ) ? treeJ.filter((t: any) => t.type === 'blob') : []
+    return this._buildShasAndFileSet(files)
+  }
 
-    const shas: Record<string, string> = {}
-    const fileSet = new Set<string>()
-    for (const f of files) {
-      if (f && f.path) {
-        const sha = (f as any).id || (f as any).sha || ''
-        shas[f.path] = sha
-        fileSet.add(f.path)
-      }
-    }
-
-    const cache = new Map<string, string>()
-    const snapshot: Record<string, string> = {}
-    const fetchContent = async (paths: string[]) => {
-      const out: Record<string, string> = {}
-      const targets = Array.from(new Set(paths)).filter((p) => fileSet.has(p))
-      await this.mapWithConcurrency(targets, async (p: string) => {
-        if (cache.has(p)) {
-          out[p] = cache.get(p) as string
-          snapshot[p] = cache.get(p) as string
-          return null
-        }
-        const content = await this._fetchFileRaw(p, branch)
-        if (content !== null) {
-          cache.set(p, content)
-          out[p] = content
-          snapshot[p] = content
-        }
+  /**
+   * Helper to fetch files from the repository tree with caching and concurrency.
+    * @returns {Promise<Record<string,string>>}
+   */
+  private async _fetchContentFromFileSet(fileSet: Set<string>, cache: Map<string, string>, snapshot: Record<string, string>, paths: string[], branch: string, concurrency: number) {
+    const out: Record<string, string> = {}
+    const targets = Array.from(new Set(paths)).filter((p) => fileSet.has(p))
+    /**
+     * Mapper to fetch a single file (used with concurrency helper).
+     * @param {string} p ファイルパス
+     * @returns {Promise<null>}
+     */
+    const mapper = async (p: string) => {
+      if (cache.has(p)) {
+        out[p] = cache.get(p) as string
+        snapshot[p] = cache.get(p) as string
         return null
-      }, concurrency)
-      return out
+      }
+      const content = await this._fetchFileRaw(p, branch)
+      if (content !== null) {
+        cache.set(p, content)
+        out[p] = content
+        snapshot[p] = content
+      }
+      return null
     }
-
-    return { headSha, shas, fetchContent, snapshot }
+    await this.mapWithConcurrency(targets, mapper, concurrency)
+    return out
   }
 
   /**
    * ファイルの raw コンテンツを取得して返します。失敗時は null を返します。
    * @param {string} path ファイルパス
    * @param {string} branch ブランチ名
-   * @returns {Promise<string|null>} ファイル内容または null
+    * @returns {Promise<string|null>} ファイル内容または null
    */
   private async _fetchFileRaw(path: string, branch: string) {
     try {
@@ -318,6 +381,24 @@ export class GitLabAdapter implements GitAdapter {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('fetchSnapshot file error', path, e)
       return null
     }
+  }
+
+  /** Build shas map and fileSet from tree entries */
+  /**
+   * Build shas map and fileSet from tree entries
+   * @returns {{shas:Record<string,string>,fileSet:Set<string>}}
+   */
+  private _buildShasAndFileSet(files: any[]) {
+    const shas: Record<string, string> = {}
+    const fileSet = new Set<string>()
+    for (const f of files) {
+      if (f && f.path) {
+        const sha = (f as any).id || (f as any).sha || ''
+        shas[f.path] = sha
+        fileSet.add(f.path)
+      }
+    }
+    return { shas, fileSet }
   }
 }
 

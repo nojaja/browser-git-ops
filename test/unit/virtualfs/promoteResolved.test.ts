@@ -21,7 +21,6 @@ describe('promoteResolvedConflicts', () => {
     expect(ie.baseSha).toBe(sha)
     expect(vfs.getIndex().head).toBe(remoteHead)
     // backend should have .git-base blob
-    // @ts-ignore access internal storage map
-    expect((storage as any).blobs.get(`.git-base/${path}`)).toBe('content')
+    expect(await storage.readBlob(path,'base')).toBe('content')
   })
 })

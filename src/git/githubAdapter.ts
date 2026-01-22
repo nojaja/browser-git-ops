@@ -296,27 +296,35 @@ export class GitHubAdapter implements GitAdapter {
 
     const contentCache = new Map<string, string>()
     const snapshot: Record<string, string> = {}
-    const fetchContent = async (paths: string[]) => {
-      const out: Record<string, string> = {}
-      const unique = Array.from(new Set(paths)).filter((p) => fileMap.has(p))
-      await mapWithConcurrency(unique, async (p: string) => {
-        if (contentCache.has(p)) {
-          out[p] = contentCache.get(p) as string
-          snapshot[p] = contentCache.get(p) as string
-          return
-        }
-        const f = fileMap.get(p)
-        const r = await this._fetchBlobContentOrNull(f)
-        if (r && r.content !== null) {
-          contentCache.set(p, r.content)
-          out[p] = r.content
-          snapshot[p] = r.content
-        }
-      }, concurrency)
-      return out
-    }
+    /**
+     * Fetch content wrapper that delegates to private helper.
+     */
+    const fetchContent = (paths: string[]) => this._fetchContentFromMap(fileMap, contentCache, snapshot, paths, concurrency)
 
     return { headSha, shas, fetchContent, snapshot }
+  }
+
+  /**
+   * Helper to fetch file contents from a file map with concurrency and caching.
+   */
+  private async _fetchContentFromMap(fileMap: Map<string, any>, contentCache: Map<string, string>, snapshot: Record<string, string>, paths: string[], concurrency: number) {
+    const out: Record<string, string> = {}
+    const unique = Array.from(new Set(paths)).filter((p) => fileMap.has(p))
+    await mapWithConcurrency(unique, async (p: string) => {
+      if (contentCache.has(p)) {
+        out[p] = contentCache.get(p) as string
+        snapshot[p] = contentCache.get(p) as string
+        return
+      }
+      const f = fileMap.get(p)
+      const r = await this._fetchBlobContentOrNull(f)
+      if (r && r.content !== null) {
+        contentCache.set(p, r.content)
+        out[p] = r.content
+        snapshot[p] = r.content
+      }
+    }, concurrency)
+    return out
   }
 }
 

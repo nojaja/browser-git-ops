@@ -2,6 +2,9 @@ import { IndexFile } from './types'
 import { StorageBackend, StorageBackendConstructor } from './storageBackend'
 
 const ERR_OPFS_DIR_API = 'OPFS directory API not available'
+const VAR_WORKSPACE = 'workspace'
+const VAR_BASE = '.git-base'
+const VAR_CONFLICT = '.git-conflict'
 
 /** OPFS (origin private file system) を利用する永続化実装 */
 export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implements StorageBackend {
@@ -23,8 +26,27 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     return ok
   }
 
-  /** コンストラクタ（OPFS は初期化不要） */
-  constructor() {}
+  /** 利用可能なサブディレクトリ名の候補を返す
+   * @returns {string[]} available root directories
+   */
+  static availableRoots(): string[] {
+    return ['apigit_storage']
+  }
+
+  /**
+   * Returns the known segment variants in search order.
+   * @returns {string[]} segment directory names
+   */
+  private getVariants(): string[] {
+    return [VAR_WORKSPACE, VAR_BASE, VAR_CONFLICT]
+  }
+
+  private rootDir = 'apigit_storage'
+
+  /** コンストラクタ（OPFS は初期化不要）。`root` は OPFS ルート直下に作成するサブディレクトリ名です。 */
+  constructor(root?: string) {
+    if (root) this.rootDir = root
+  }
 
   /**
    * 初期化（OPFS はランタイム判定のみ）
@@ -85,10 +107,28 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     try {
       const root = await this.getOpfsRoot()
       if (!root) return null
-      const fh = await root.getFileHandle('index')
-      const file = await fh.getFile()
-      const txt = await file.text()
-      return txt ? (JSON.parse(txt) as IndexFile) : null
+      // If root exposes directory API, read from scoped subdir; otherwise operate on root directly
+      const hasDirApi = typeof (root as any).getDirectoryHandle === 'function' || typeof (root as any).getDirectory === 'function'
+      if (hasDirApi) {
+        try {
+          const scoped = await this.traverseDir(root, this.rootDir.split('/').filter(Boolean))
+          const fh = await scoped.getFileHandle('index')
+          const file = await fh.getFile()
+          const txt = await file.text()
+          return txt ? (JSON.parse(txt) as IndexFile) : null
+        } catch (_) {
+          return null
+        }
+      }
+      // fallback: root supports getFileHandle directly
+      try {
+        const fh = await (root as any).getFileHandle('index')
+        const file = await fh.getFile()
+        const txt = await file.text()
+        return txt ? (JSON.parse(txt) as IndexFile) : null
+      } catch (_) {
+        return null
+      }
     } catch (_) {
       return null
     }
@@ -101,7 +141,18 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   async writeIndex(index: IndexFile): Promise<void> {
     const root = await this.getOpfsRoot()
     if (!root) throw new Error('OPFS not available')
-    const fh = await root.getFileHandle('index', { create: true })
+    const hasDirApi = typeof (root as any).getDirectoryHandle === 'function' || typeof (root as any).getDirectory === 'function'
+    if (hasDirApi) {
+      const parts = this.rootDir.split('/').filter(Boolean)
+      const parent = await this.ensureDir(root, parts)
+      const fh = await parent.getFileHandle('index', { create: true })
+      const writable = await fh.createWritable()
+      await writable.write(JSON.stringify(index))
+      await writable.close()
+      return
+    }
+    // fallback: root supports getFileHandle directly
+    const fh = await (root as any).getFileHandle('index', { create: true })
     const writable = await fh.createWritable()
     await writable.write(JSON.stringify(index))
     await writable.close()
@@ -111,36 +162,35 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * blob を書き込む
    * @returns {Promise<void>} 書込完了時に解決
    */
-  async writeBlob(filepath: string, content: string): Promise<void> {
+  async writeBlob(filepath: string, content: string, segment?: any): Promise<void> {
+    const seg = segment || VAR_WORKSPACE
     const root = await this.getOpfsRoot()
     if (!root) throw new Error('OPFS not available')
-    const parts = filepath.split('/')
-    if (parts.length > 1) {
-      const dirParts = parts.slice(0, parts.length - 1)
-      const parent = await this.ensureDir(root, dirParts)
-      const fh = await parent.getFileHandle(parts[parts.length - 1], { create: true })
-      const writable = await fh.createWritable()
-      await writable.write(content)
-      await writable.close()
-      return
-    }
-    const fh = await root.getFileHandle(filepath, { create: true })
+    const prefix = seg === VAR_WORKSPACE ? VAR_WORKSPACE : seg === 'base' ? VAR_BASE : VAR_CONFLICT
+    await this._writeToPrefix(root, prefix, filepath, content)
+  }
+
+  /**
+   * Write content to a file under given prefix, creating directories as needed.
+   */
+  private async _writeToPrefix(root: any, prefix: string, filepath: string, content: string): Promise<void> {
+    const fullPath = this.rootDir ? `${this.rootDir}/${prefix}/${filepath}` : `${prefix}/${filepath}`
+    const parts = fullPath.split('/').filter(Boolean)
+    const dirParts = parts.slice(0, parts.length - 1)
+    const parent = await this.ensureDir(root, dirParts)
+    const fh = await parent.getFileHandle(parts[parts.length - 1], { create: true })
     const writable = await fh.createWritable()
     await writable.write(content)
     await writable.close()
   }
 
   /**
-   * blob を読み出す
-   * @returns {Promise<string|null>} ファイル内容、存在しなければ null
+   * Read text from a file handle returning null on failure.
+   * @param fh File handle
+   * @returns {Promise<string|null>} file text or null
    */
-  async readBlob(filepath: string): Promise<string | null> {
+  private async _readFileFromHandle(fh: any): Promise<string | null> {
     try {
-      const root = await this.getOpfsRoot()
-      if (!root) return null
-      const parts = filepath.split('/')
-      const dir = await this.traverseDir(root, parts.slice(0, parts.length - 1))
-      const fh = await dir.getFileHandle(parts[parts.length - 1])
       const file = await fh.getFile()
       const txt = await file.text()
       return txt ?? null
@@ -150,14 +200,89 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   }
 
   /**
+   * blob を読み出す
+   * @returns {Promise<string|null>} ファイル内容、存在しなければ null
+   */
+  async readBlob(filepath: string, segment?: any): Promise<string | null> {
+    const root = await this.getOpfsRoot()
+    if (!root) return null
+    return await this._readBlobFromRoot(root, segment, filepath)
+  }
+
+  /**
+   * Read blob from a resolved root. Extracted to reduce cognitive complexity of public entry.
+   * @returns {Promise<string|null>}
+   */
+  private async _readBlobFromRoot(root: any, segment: any | undefined, filepath: string): Promise<string | null> {
+    if (segment) return await this._readFromSegment(root, segment, filepath)
+    return await this._readFromVariants(root, filepath)
+  }
+
+  /**
+   * Read from a specific segment prefix.
+    * @returns {Promise<string|null>} file text or null
+    */
+  private async _readFromSegment(root: any, segment: any, filepath: string): Promise<string | null> {
+    const prefix = segment === VAR_WORKSPACE ? VAR_WORKSPACE : segment === 'base' ? VAR_BASE : VAR_CONFLICT
+    try {
+      return await this.readFromPrefix(root, prefix, filepath)
+    } catch (_) {
+      return null
+    }
+  }
+
+  /**
+   * Read by trying each variant in order and returning first match.
+    * @returns {Promise<string|null>} file text or null
+    */
+  private async _readFromVariants(root: any, filepath: string): Promise<string | null> {
+    for (const v of this.getVariants()) {
+      try {
+        const txt = await this.readFromPrefix(root, v, filepath)
+        if (txt !== null) return txt
+      } catch (_) {
+        // try next
+      }
+    }
+    return null
+  }
+
+  /**
    * blob を削除する
    * @returns {Promise<void>} 削除完了時に解決
    */
-  async deleteBlob(filepath: string): Promise<void> {
+  async deleteBlob(filepath: string, segment?: any): Promise<void> {
     try {
       const root = await this.getOpfsRoot()
       if (!root) return
-      const parts = filepath.split('/')
+
+      if (segment === VAR_WORKSPACE) { await this.removeAtPrefix(root, VAR_WORKSPACE, filepath); return }
+      if (segment === 'base') { await this.removeAtPrefix(root, VAR_BASE, filepath); return }
+      if (segment === 'conflict') { await this.removeAtPrefix(root, VAR_CONFLICT, filepath); return }
+
+      for (const v of this.getVariants()) await this.removeAtPrefix(root, v, filepath)
+    } catch (_) {
+      void 0
+    }
+  }
+
+  /**
+   * Read a file at a given prefix (does not create directories)
+   * @returns {Promise<string|null>} file text or null
+   */
+  // NOTE: kept a single guarded `readFromPrefix` implementation below.
+
+  /**
+    * Remove a file at a given prefix (does not create directories)
+    * @param root root directory handle
+    * @param prefix prefix dir
+    * @param filepath path relative to prefix
+    * @returns {Promise<void>} resolves when removal attempted (errors are ignored)
+    */
+  private async removeAtPrefix(root: any, prefix: string, filepath: string): Promise<void> {
+    try {
+      const full = this.rootDir ? `${this.rootDir}/${prefix}/${filepath}` : `${prefix}/${filepath}`
+      const parts = full.split('/').filter(Boolean)
       const dir = await this.traverseDir(root, parts.slice(0, parts.length - 1))
       const name = parts[parts.length - 1]
       if (typeof dir.removeEntry === 'function') {
@@ -169,9 +294,30 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
         return
       }
     } catch (_) {
-      void 0
+      // ignore per-variant errors
     }
   }
+
+  /**
+   * Read a file under a prefix without throwing. Returns null when not found.
+   * @param root root directory handle
+   * @param prefix prefix dir
+   * @param filepath path relative to prefix
+    * @returns {Promise<string|null>} file contents or null when not found
+    */
+  private async readFromPrefix(root: any, prefix: string, filepath: string): Promise<string | null> {
+    // reuse existing traversal logic but guard errors
+    try {
+      const fullPath = this.rootDir ? `${this.rootDir}/${prefix}/${filepath}` : `${prefix}/${filepath}`
+      const parts = fullPath.split('/').filter(Boolean)
+      const dir = await this.traverseDir(root, parts.slice(0, parts.length - 1))
+      const fh = await dir.getFileHandle(parts[parts.length - 1])
+      return await this._readFileFromHandle(fh)
+    } catch (_) {
+      return null
+    }
+  }
+
 
   /**
    * Traverse into nested directories without creating them.

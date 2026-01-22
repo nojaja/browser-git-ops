@@ -30,8 +30,8 @@ describe('coverage fix: VirtualFS push cleanup', () => {
 
     // workspace blobs should be removed
     const backend: any = (vfs as any).backend
-    expect(await backend.readBlob('workspace/a.txt')).toBeNull()
-    expect(await backend.readBlob('workspace/b.txt')).toBeNull()
-    expect(await backend.readBlob('workspace/c.txt')).toBeNull()
+    expect(await backend.readBlob('a.txt','workspace')).toBeNull()
+    expect(await backend.readBlob('b.txt','workspace')).toBeNull()
+    expect(await backend.readBlob('c.txt','workspace')).toBeNull()
   })
 })

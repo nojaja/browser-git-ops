@@ -7,7 +7,7 @@ describe('applyBaseSnapshot branches', () => {
     const vfs = new VirtualFS({ backend: storage })
 
     // initial base: x.txt -> old
-    await storage.writeBlob('.git-base/x.txt', 'old')
+    await storage.writeBlob('x.txt', 'old', 'base')
     // manually populate index as if loaded
     vfs.getIndex().entries['x.txt'] = { path: 'x.txt', state: 'base', baseSha: await (async () => { const enc = new TextEncoder(); const h = await crypto.subtle.digest('SHA-1', enc.encode('old')); return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('') })(), updatedAt: Date.now() } as any
 
@@ -16,8 +16,8 @@ describe('applyBaseSnapshot branches', () => {
     await vfs.applyBaseSnapshot(snapshot, 'headsha')
 
     // backend should have updated blobs
-    expect(await storage.readBlob('.git-base/x.txt')).toBe('newx')
-    expect(await storage.readBlob('.git-base/y.txt')).toBe('ycontent')
+    expect(await storage.readBlob('x.txt','base')).toBe('newx')
+    expect(await storage.readBlob('y.txt','base')).toBe('ycontent')
     // index head should be updated
     expect(vfs.getIndex().head).toBe('headsha')
   })

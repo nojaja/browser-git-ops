@@ -10,16 +10,16 @@ describe('readFile and resolveConflict branches', () => {
     await vfs.writeFile('a.txt', 'A')
     expect(await vfs.readFile('a.txt')).toBe('A')
 
-    // workspace blob read-through (simulate backend-only)
-    await storage.writeBlob('workspace/b.txt', 'B')
-    expect(await vfs.readFile('b.txt')).toBe('B')
+     // workspace blob read-through (simulate backend-only)
+     await storage.writeBlob('b.txt', 'B', 'workspace')
+     expect(await vfs.readFile('b.txt')).toBe('B')
 
-    // base blob read-through
-    await storage.writeBlob('.git-base/c.txt', 'C')
-    const gotc = await vfs.readFile('c.txt'); if (gotc !== 'C') throw new Error('expected C got ' + String(gotc))
+     // base blob read-through
+     await storage.writeBlob('c.txt', 'C', 'base')
+     const gotc = await vfs.readFile('c.txt'); if (gotc !== 'C') throw new Error('expected C got ' + String(gotc))
 
        // base blob read-through for d.txt
-       await storage.writeBlob('.git-base/d.txt', 'D')
+       await storage.writeBlob('d.txt', 'D', 'base')
        expect(await vfs.readFile('d.txt')).toBe('D')
   })
 
@@ -29,15 +29,16 @@ describe('readFile and resolveConflict branches', () => {
     const path = 'conf.txt'
     // set index entry with remoteSha
     vfs.getIndex().entries[path] = { path, remoteSha: 'r1' } as any
+
     // write conflict blob
-    await storage.writeBlob('.git-conflict/' + path, 'RC')
+    await storage.writeBlob(path, 'RC', 'conflict')
 
     const res = await vfs.resolveConflict(path)
     expect(res).toBe(true)
     const ie = vfs.getIndex().entries[path]
     expect(ie.state).toBe('base')
     // backend should have base blob
-    expect((storage as any).blobs.get('.git-base/' + path)).toBe('RC')
+    expect(await storage.readBlob(path,'base')).toBe('RC')
   })
 
   it('resolveConflict promotes remoteSha even if blob not present', async () => {
