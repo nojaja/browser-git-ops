@@ -172,14 +172,64 @@ export class VirtualFS {
   }
 
   /**
-   * リモート側の衝突ファイル（.git-conflict/配下）を取得します。
+   * 衝突ファイル（.git-conflict/配下）を取得します。
    * @param {string} filepath ファイルパス
    * @returns {Promise<string|null>} ファイル内容または null
    */
-  async readRemoteFile(filepath: string) {
+  async readConflict(filepath: string) {
     const blob = await this.backend.readBlob(`.git-conflict/${filepath}`)
     if (blob !== null) return blob
     return null
+  }
+
+  /**
+   * 指定パスのリモート衝突ファイル (.git-conflict/) を削除して
+   * 競合を解消済とマークします。
+   * @param {string} filepath ファイルパス
+   * @returns {Promise<boolean>} 成功したら true
+   */
+  async resolveConflict(filepath: string) {
+    try {
+      // Read remote conflict content
+      const remoteContent = await this.backend.readBlob(`.git-conflict/${filepath}`)
+      const ie = this.index.entries[filepath]
+      // If we have remote content and an index entry with remoteSha, promote it to base
+      if (remoteContent !== null && ie && ie.remoteSha) {
+        // write to .git-base
+        try {
+          await this.backend.writeBlob(`.git-base/${filepath}`, remoteContent)
+        } catch (_) {
+          // ignore backend write errors
+        }
+        // update in-memory base map
+        this.base.set(filepath, { sha: ie.remoteSha, content: remoteContent })
+        // update index entry: set baseSha to remoteSha, clear remoteSha, set state to base
+        ie.baseSha = ie.remoteSha
+        delete ie.remoteSha
+        ie.state = 'base'
+        ie.updatedAt = Date.now()
+        this.index.entries[filepath] = ie
+      } else if (ie && ie.remoteSha) {
+        // no blob but remoteSha present: still update baseSha to remoteSha (content unknown)
+        ie.baseSha = ie.remoteSha
+        delete ie.remoteSha
+        ie.state = 'base'
+        ie.updatedAt = Date.now()
+        this.index.entries[filepath] = ie
+      }
+
+      // remove conflict blob if present
+      try {
+        await this.backend.deleteBlob(`.git-conflict/${filepath}`)
+      } catch (_) {
+        // ignore
+      }
+
+      await this.saveIndex()
+      return true
+    } catch (_) {
+      return false
+    }
   }
 
   /**
@@ -324,7 +374,8 @@ export class VirtualFS {
 
     const changes: Change[] = []
     changes.push(...this._changesFromTombstones())
-    changes.push(...this._changesFromIndexEntries())
+    const idxChanges = await this._changesFromIndexEntries()
+    changes.push(...idxChanges)
     return changes
   }
 
@@ -342,10 +393,10 @@ export class VirtualFS {
    * index entries から create/update の変更リストを生成します。
    * @returns {Array<{type:'create'|'update',path:string,content:string,baseSha?:string}>}
    */
-  private _changesFromIndexEntries(): Array<{ type: 'create' | 'update'; path: string; content: string; baseSha?: string }> {
+  private async _changesFromIndexEntries(): Promise<Array<{ type: 'create' | 'update'; path: string; content: string; baseSha?: string }>> {
     const out: Array<{ type: 'create' | 'update'; path: string; content: string; baseSha?: string }> = []
-    out.push(...this._changesFromAddedEntries())
-    out.push(...this._changesFromModifiedEntries())
+    out.push(...await this._changesFromAddedEntries())
+    out.push(...await this._changesFromModifiedEntries())
     return out
   }
 
@@ -353,12 +404,25 @@ export class VirtualFS {
    * 追加状態のエントリから create 変更を生成します。
    * @returns {Array<{type:'create',path:string,content:string}>}
    */
-  private _changesFromAddedEntries(): Array<{ type: 'create'; path: string; content: string }> {
+  private async _changesFromAddedEntries(): Promise<Array<{ type: 'create'; path: string; content: string }>> {
     const out: Array<{ type: 'create'; path: string; content: string }> = []
     for (const [p, e] of Object.entries(this.index.entries)) {
       if (e.state === 'added') {
-        const w = this.workspace.get(p)
-        if (w) out.push({ type: 'create', path: p, content: w.content })
+        let w = this.workspace.get(p)
+        // If workspace entry exists but content is empty, try read-through from backend
+        if ((!w || !w.content) && e.workspaceSha) {
+          try {
+            const blob = await this.backend.readBlob(`workspace/${p}`)
+            if (blob !== null) {
+              // update in-memory workspace cache
+              w = { sha: e.workspaceSha, content: blob }
+              this.workspace.set(p, w)
+            }
+          } catch (_) {
+            // ignore backend read errors
+          }
+        }
+        if (w && w.content !== undefined) out.push({ type: 'create', path: p, content: w.content })
       }
     }
     return out
@@ -368,12 +432,37 @@ export class VirtualFS {
    * 変更状態のエントリから update 変更を生成します。
    * @returns {Array<{type:'update',path:string,content:string,baseSha:string}>}
    */
-  private _changesFromModifiedEntries(): Array<{ type: 'update'; path: string; content: string; baseSha: string }> {
-    const out: Array<{ type: 'update'; path: string; content: string; baseSha: string }> = []
+  private async _changesFromModifiedEntries(): Promise<Array<{ type: 'create' | 'update'; path: string; content: string; baseSha?: string }>> {
+    const out: Array<{ type: 'create' | 'update'; path: string; content: string; baseSha?: string }> = []
     for (const [p, e] of Object.entries(this.index.entries)) {
-      if (e.state === 'modified') {
-        const w = this.workspace.get(p)
-        if (w && e.baseSha) out.push({ type: 'update', path: p, content: w.content, baseSha: e.baseSha })
+      // Include entries that are explicitly 'modified' or in 'conflict'.
+      // Also include entries that have a workspace blob _unless_ they are
+      // newly 'added' entries (those are handled by _changesFromAddedEntries()).
+      const consider =
+        e.state === 'modified' || e.state === 'conflict' || (!!e.workspaceSha && e.state !== 'added')
+      if (!consider) continue
+
+      let w = this.workspace.get(p)
+      // If workspace cache is missing or content empty, try read-through
+      if ((!w || !w.content) && e.workspaceSha) {
+        try {
+          const blob = await this.backend.readBlob(`workspace/${p}`)
+          if (blob !== null) {
+            w = { sha: e.workspaceSha, content: blob }
+            this.workspace.set(p, w)
+          }
+        } catch (_) {
+          // ignore
+        }
+      }
+      if (!w) continue
+
+      // If we have a baseSha, and workspace differs from base, report update
+      if (e.baseSha) {
+        if (e.baseSha !== w.sha) out.push({ type: 'update', path: p, content: w.content, baseSha: e.baseSha })
+      } else {
+        // No baseSha -> treat as create
+        out.push({ type: 'create', path: p, content: w.content })
       }
     }
     return out
@@ -384,20 +473,20 @@ export class VirtualFS {
    * 必要なら conflicts に追加、もしくは base を更新します。
    * @returns {Promise<void>}
    */
-  private async _handleRemotePath(p: string, remoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<import('./types').ConflictEntry>) {
+  private async _handleRemotePath(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<import('./types').ConflictEntry>, remoteHeadSha: string) {
     const idxEntry = this.index.entries[p]
     const localWorkspace = this.workspace.get(p)
     const localBase = this.base.get(p)
 
-    if (!idxEntry) return await this._handleRemoteNew(p, remoteSha, baseSnapshot, conflicts, localWorkspace, localBase)
-    return await this._handleRemoteExisting(p, idxEntry, remoteSha, baseSnapshot, conflicts, localWorkspace)
+    if (!idxEntry) return await this._handleRemoteNew(p, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, localBase, remoteHeadSha)
+    return await this._handleRemoteExisting(p, idxEntry, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, remoteHeadSha)
   }
 
   /**
    * リモートに存在するがローカルにないパスを処理します。
    * @returns {Promise<void>}
    */
-  private async _handleRemoteNew(p: string, remoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<import('./types').ConflictEntry>, localWorkspace: { sha: string; content: string } | undefined, localBase: { sha: string; content: string } | undefined) {
+  private async _handleRemoteNew(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<import('./types').ConflictEntry>, localWorkspace: { sha: string; content: string } | undefined, localBase: { sha: string; content: string } | undefined, remoteHeadSha: string) {
     if (localWorkspace) {
       // workspace has uncommitted changes -> conflict
       // persist remote content for inspection under .git-conflict/
@@ -407,12 +496,19 @@ export class VirtualFS {
       } catch (_) {
         // ignore backend write errors
       }
-      conflicts.push({ path: p, remoteSha, workspaceSha: localWorkspace.sha, baseSha: localBase?.sha })
+      // mark index entry as conflict and store remoteHeadSha for later resolution
+      const ie = this.index.entries[p] || ({ path: p } as any)
+      ie.state = 'conflict'
+      ie.remoteSha = remoteHeadSha
+      ie.updatedAt = Date.now()
+      this.index.entries[p] = ie
+      await this.saveIndex()
+      conflicts.push({ path: p, remoteSha: remoteHeadSha, workspaceSha: localWorkspace.sha, baseSha: localBase?.sha })
     } else {
       // safe to add to base
       const content = baseSnapshot[p]
-      this.base.set(p, { sha: remoteSha, content })
-      this.index.entries[p] = { path: p, state: 'base', baseSha: remoteSha, updatedAt: Date.now() }
+      this.base.set(p, { sha: perFileRemoteSha, content })
+      this.index.entries[p] = { path: p, state: 'base', baseSha: perFileRemoteSha, updatedAt: Date.now() }
       await this.backend.writeBlob(`.git-base/${p}`, content)
     }
   }
@@ -421,14 +517,14 @@ export class VirtualFS {
    * リモートに存在し、かつローカルにエントリがあるパスを処理します。
    * @returns {Promise<void>}
    */
-  private async _handleRemoteExisting(p: string, idxEntry: any, remoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<import('./types').ConflictEntry>, localWorkspace: { sha: string; content: string } | undefined) {
+  private async _handleRemoteExisting(p: string, idxEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<import('./types').ConflictEntry>, localWorkspace: { sha: string; content: string } | undefined, remoteHeadSha: string) {
     const baseSha = idxEntry.baseSha
-    if (baseSha === remoteSha) return
+    if (baseSha === perFileRemoteSha) return
     // remote changed
     if (!localWorkspace || localWorkspace.sha === baseSha) {
       // workspace unchanged -> update base
       const content = baseSnapshot[p]
-      idxEntry.baseSha = remoteSha
+      idxEntry.baseSha = perFileRemoteSha
       idxEntry.state = 'base'
       idxEntry.updatedAt = Date.now()
       await this.backend.writeBlob(`.git-base/${p}`, content)
@@ -441,7 +537,13 @@ export class VirtualFS {
       } catch (_) {
         // ignore backend write errors
       }
-      conflicts.push({ path: p, baseSha, remoteSha, workspaceSha: localWorkspace?.sha })
+      // record remoteHeadSha in index for later resolution
+      idxEntry.state = 'conflict'
+      idxEntry.remoteSha = remoteHeadSha
+      idxEntry.updatedAt = Date.now()
+      this.index.entries[p] = idxEntry
+      await this.saveIndex()
+      conflicts.push({ path: p, baseSha, remoteSha: remoteHeadSha, workspaceSha: localWorkspace?.sha })
     }
   }
 
@@ -499,6 +601,13 @@ export class VirtualFS {
    */
   private async _handleRemoteDeletion(p: string, e: any, _remoteShas: Record<string, string>, conflicts: Array<import('./types').ConflictEntry>) {
     const localWorkspace = this.workspace.get(p)
+    // If the index entry has no baseSha it was created locally (added) and not
+    // present in the remote base. In that case, remote lacking the path is NOT
+    // a conflict — keep the local addition as-is.
+    if (!e || !e.baseSha) {
+      return
+    }
+
     if (!localWorkspace || localWorkspace.sha === e.baseSha) {
       // safe to delete locally
       delete this.index.entries[p]
@@ -617,7 +726,7 @@ export class VirtualFS {
 
     // handle remote additions/updates via helper
     for (const [p, remoteSha] of Object.entries(remoteShas)) {
-      await this._handleRemotePath(p, remoteSha, baseSnapshot, conflicts)
+      await this._handleRemotePath(p, remoteSha, baseSnapshot, conflicts, remoteHead)
     }
 
     // handle remote deletions via helper
@@ -628,6 +737,51 @@ export class VirtualFS {
     }
 
     if (conflicts.length === 0) {
+      this.index.head = remoteHead
+      await this.saveIndex()
+      return { conflicts }
+    }
+
+    // If conflicts exist, but for every conflict the index already has baseSha === remoteSha,
+    // treat them as already-resolved. Promote remoteSha -> baseSha, write .git-base blobs,
+    // cleanup .git-conflict blobs and mark entries as 'base'. Then advance head to remoteHead.
+    let allResolved = true
+    for (const c of conflicts) {
+      const p = c.path
+      const ie = this.index.entries[p]
+      if (!ie || !ie.remoteSha || ie.baseSha !== ie.remoteSha) {
+        allResolved = false
+        break
+      }
+    }
+
+    if (allResolved) {
+      for (const c of conflicts) {
+        const p = c.path
+        const ie = this.index.entries[p]
+        try {
+          // write remote content into .git-base if available in snapshot
+          const content = baseSnapshot[p]
+          if (content !== undefined) {
+            await this.backend.writeBlob(`.git-base/${p}`, content)
+            this.base.set(p, { sha: ie.remoteSha!, content })
+          }
+        } catch (_) {
+          // ignore write errors
+        }
+        // update index entry state
+        ie.baseSha = ie.remoteSha
+        delete ie.remoteSha
+        ie.state = 'base'
+        ie.updatedAt = Date.now()
+        this.index.entries[p] = ie
+        // remove conflict blob if any
+        try {
+          await this.backend.deleteBlob(`.git-conflict/${p}`)
+        } catch (_) {
+          // ignore
+        }
+      }
       this.index.head = remoteHead
       await this.saveIndex()
     }

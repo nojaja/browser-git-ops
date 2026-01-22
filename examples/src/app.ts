@@ -40,8 +40,7 @@ function renderUI() {
           <button id="pullRemote">リモート一覧を pull</button>
           <label>Remote Path: <input id="remotePath" style="width:420px" placeholder="path/to/file.txt"/></label>
           <button id="fetchRemoteFile">リモートファイルを fetch</button>
-            <button id="resolveWithLocal">ローカルファイルで競合解消</button>
-            <input type="file" id="localFileInput" style="display:none" />
+          <button id="resolveConflict">競合を解消済にする</button>
           <button id="remoteChanges">リモートで新しいファイル一覧 (チェンジセット)</button>
           <button id="addLocalFile">ローカルにファイルを追加</button>
           <button id="localChanges">ローカルの変更一覧を表示</button>
@@ -264,7 +263,16 @@ async function main() {
       }
       const preIndexKeys = Object.keys(currentVfs.getIndex().entries)
       const res = await currentVfs.pull(data.headSha, data.snapshot)
-      appendOutput('pull 完了。コンフリクト数: ' + (res.conflicts ? res.conflicts.length : 0))
+      const totalConflicts = res.conflicts ? res.conflicts.length : 0
+      // count conflicts where baseSha === remoteSha (already-resolved)
+      let resolvedConflicts = 0
+      if (res.conflicts && res.conflicts.length > 0) {
+        for (const c of res.conflicts) {
+          if (c.baseSha && c.remoteSha && c.baseSha === c.remoteSha) resolvedConflicts++
+        }
+      }
+      appendOutput('pull 完了。コンフリクト数: ' + totalConflicts)
+      if (resolvedConflicts > 0) appendOutput('解決済コンフリクト数: ' + resolvedConflicts)
       if (res.conflicts && res.conflicts.length > 0) {
         appendOutput('--- コンフリクト詳細 ---')
         for (const c of res.conflicts) {
@@ -335,41 +343,21 @@ async function main() {
     }
   })
 
-  // Resolve conflict by selecting a local file and writing it into the VFS, then simulate a local commit
-  const resolveWithLocalBtn = el('resolveWithLocal') as HTMLButtonElement
-  const localFileInput = el('localFileInput') as HTMLInputElement
-  resolveWithLocalBtn.addEventListener('click', () => {
+  const resolveConflictBtn = el('resolveConflict') as HTMLButtonElement
+  resolveConflictBtn.addEventListener('click', async () => {
+    const path = (el('remotePath') as HTMLInputElement).value.trim() || prompt('競合を解消するファイル名を入力してください（例: examples/new.txt）')
+    if (!path) return
     if (!currentVfs) { appendOutput('先に VirtualFS を初期化してください'); return }
-    localFileInput.value = ''
-    localFileInput.click()
-  })
-
-  localFileInput.addEventListener('change', async () => {
     try {
-      if (!currentVfs) { appendOutput('先に VirtualFS を初期化してください'); return }
-      const files = (localFileInput as HTMLInputElement).files
-      if (!files || files.length === 0) return
-      const file = files[0]
-      const content = await file.text()
-      const defaultPath = (el('remotePath') as HTMLInputElement).value.trim()
-      const path = defaultPath || prompt('保存先パスを入力してください（例: examples/file.txt）', file.name) || ''
-      if (!path) { appendOutput('保存先パスが指定されませんでした'); return }
-      await currentVfs.writeFile(path, content)
-      appendOutput(`ローカルファイルを読み込み、VFS に書き込みました: ${path}`)
-
-      // simulate committing locally to apply change and cleanup conflict blobs
-      try {
-        const changes = await currentVfs.getChangeSet()
-        if (!changes || changes.length === 0) { appendOutput('コミットする変更がありません'); return }
-        const idx = currentVfs.getIndex()
-        const input = { parentSha: idx.head || '', message: 'Resolve conflict via local file', changes }
-        const res = await currentVfs.push(input)
-        appendOutput('競合を解消してローカルコミットを適用しました: ' + JSON.stringify(res))
-      } catch (e) {
-        appendOutput('競合解消後のローカルコミットでエラー: ' + String(e))
+      if (typeof currentVfs.resolveConflict === 'function') {
+        const ok = await currentVfs.resolveConflict(path)
+        if (ok) appendOutput(`競合を解消しました: ${path}`)
+        else appendOutput(`競合ファイルが見つからないか削除に失敗しました: ${path}`)
+      } else {
+        appendOutput('VirtualFS に resolveConflict() が実装されていません')
       }
     } catch (e) {
-      appendOutput('localFileInput 処理で例外: ' + String(e))
+      appendOutput('resolveConflict 失敗: ' + String(e))
     }
   })
 

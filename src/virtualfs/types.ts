@@ -4,6 +4,8 @@ export interface IndexEntry {
   path: string
   state: FileState
   baseSha?: string
+  // remoteSha is set when a conflict is detected to hold the incoming remote version's sha
+  remoteSha?: string
   workspaceSha?: string
   updatedAt: number
 }

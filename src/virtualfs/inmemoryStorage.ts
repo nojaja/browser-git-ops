@@ -17,6 +17,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
   static canUse(): boolean {
     return true
   }
+  // legacy canUseOpfs removed; use static canUse() instead
   /**
    * コンストラクタ。互換性のために `dir` 引数を受け取るが無視する。
    * @param _dir 任意のディレクトリ文字列（使用しない）
@@ -82,6 +83,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     this.blobs.delete(filepath)
     this.blobs.delete(`workspace/${filepath}`)
     this.blobs.delete(`.git-base/${filepath}`)
+    this.blobs.delete(`.git-conflict/${filepath}`)
   }
 }
 

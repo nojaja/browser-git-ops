@@ -172,20 +172,28 @@ export const IndexedDbStorage: StorageBackendConstructor = class IndexedDbStorag
    */
   async readBlob(filepath: string): Promise<string | null> {
     const db = await this.dbPromise
-    return new Promise<string | null>((resolve, reject) => {
+    // Try primary key, then common fallbacks for workspace/.git-base/.git-conflict
+    const tryGet = (key: string) => new Promise<string | null>((resolve, reject) => {
       const tx = db.transaction('blobs', 'readonly')
       const store = tx.objectStore('blobs')
-      const req = store.get(filepath)
-
-      /** blob 取得成功ハンドラ */
-      function handleBlobSuccess() { resolve(req.result ?? null) }
-
-      /** blob 取得エラーハンドラ */
-      function handleBlobError() { reject(req.error) }
-
-      req.onsuccess = handleBlobSuccess
-      req.onerror = handleBlobError
+      const req = store.get(key)
+      req.onsuccess = () => resolve(req.result ?? null)
+      req.onerror = () => reject(req.error)
     })
+
+    try {
+      const primary = await tryGet(filepath)
+      if (primary !== null) return primary
+      const ws = await tryGet(`workspace/${filepath}`)
+      if (ws !== null) return ws
+      const base = await tryGet(`.git-base/${filepath}`)
+      if (base !== null) return base
+      const conflict = await tryGet(`.git-conflict/${filepath}`)
+      if (conflict !== null) return conflict
+      return null
+    } catch (err) {
+      return null
+    }
   }
 
   /**
@@ -193,7 +201,13 @@ export const IndexedDbStorage: StorageBackendConstructor = class IndexedDbStorag
    * @returns {Promise<void>} 削除完了時に解決
    */
   async deleteBlob(filepath: string): Promise<void> {
-    await this.tx('blobs', 'readwrite', (store) => { store.delete(filepath) })
+    // Delete the exact key and common variants for compatibility with other backends
+    await this.tx('blobs', 'readwrite', (store) => {
+      store.delete(filepath)
+      store.delete(`workspace/${filepath}`)
+      store.delete(`.git-base/${filepath}`)
+      store.delete(`.git-conflict/${filepath}`)
+    })
   }
 }
 
