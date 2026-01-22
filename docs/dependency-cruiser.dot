@@ -1,0 +1,22 @@
+strict digraph "dependency-cruiser output"{
+    rankdir="LR" splines="true" overlap="false" nodesep="0.16" ranksep="0.18" fontname="Helvetica-bold" fontsize="9" style="rounded,bold,filled" fillcolor="#ffffff" compound="true"
+    node [shape="box" style="rounded, filled" height="0.2" color="black" fillcolor="#ffffcc" fontcolor="black" fontname="Helvetica" fontsize="9"]
+    edge [arrowhead="normal" arrowsize="0.6" penwidth="2.0" color="#00000033" fontname="Helvetica" fontsize="9"]
+
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/git" {label="git" "src/git/adapter.ts" [label=<adapter.ts> tooltip="adapter.ts" URL="src/git/adapter.ts" fillcolor="#ccffcc"] } }
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/git" {label="git" "src/git/githubAdapter.ts" [label=<githubAdapter.ts> tooltip="githubAdapter.ts" URL="src/git/githubAdapter.ts" fillcolor="#ddfeff"] } }
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/git" {label="git" "src/git/gitlabAdapter.ts" [label=<gitlabAdapter.ts> tooltip="gitlabAdapter.ts" URL="src/git/gitlabAdapter.ts" fillcolor="#ddfeff"] } }
+    subgraph "cluster_src" {label="src" "src/index.ts" [label=<index.ts> tooltip="index.ts" URL="src/index.ts" fillcolor="#ddfeff"] }
+    "src/index.ts" -> "src/git/githubAdapter.ts" [arrowhead="inv"]
+    "src/index.ts" -> "src/git/gitlabAdapter.ts" [arrowhead="inv"]
+    "src/index.ts" -> "src/virtualfs/indexedDbStorage.ts" [arrowhead="inv"]
+    "src/index.ts" -> "src/virtualfs/opfsStorage.ts" [arrowhead="inv"]
+    "src/index.ts" -> "src/virtualfs/virtualfs.ts" [arrowhead="inv"]
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/virtualfs" {label="virtualfs" "src/virtualfs/indexedDbStorage.ts" [label=<indexedDbStorage.ts> tooltip="indexedDbStorage.ts" URL="src/virtualfs/indexedDbStorage.ts" fillcolor="#ddfeff"] } }
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/virtualfs" {label="virtualfs" "src/virtualfs/inmemoryStorage.ts" [label=<inmemoryStorage.ts> tooltip="inmemoryStorage.ts" URL="src/virtualfs/inmemoryStorage.ts" fillcolor="#ccffcc"] } }
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/virtualfs" {label="virtualfs" "src/virtualfs/opfsStorage.ts" [label=<opfsStorage.ts> tooltip="opfsStorage.ts" URL="src/virtualfs/opfsStorage.ts" fillcolor="#ddfeff"] } }
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/virtualfs" {label="virtualfs" "src/virtualfs/storageBackend.ts" [label=<storageBackend.ts> tooltip="storageBackend.ts" URL="src/virtualfs/storageBackend.ts" fillcolor="#ccffcc"] } }
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/virtualfs" {label="virtualfs" "src/virtualfs/types.ts" [label=<types.ts> tooltip="types.ts" URL="src/virtualfs/types.ts" fillcolor="#ccffcc"] } }
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/virtualfs" {label="virtualfs" "src/virtualfs/virtualfs.ts" [label=<virtualfs.ts> tooltip="virtualfs.ts" URL="src/virtualfs/virtualfs.ts" fillcolor="#ddfeff"] } }
+    "src/virtualfs/virtualfs.ts" -> "src/virtualfs/opfsStorage.ts"
+}

@@ -14,12 +14,12 @@ test.describe('Examples UI smoke', () => {
     await page.goto('http://127.0.0.1:8080')
     await page.waitForSelector('#repoInput')
 
-    // load GitHub config (owner/repo/token) from test/conf/github.config.json
+    // load GitLab config (projectId/token/host) from test/conf/gitlab.config.json
     const candidates = [
-      path.resolve(process.cwd(), 'test', 'conf', 'github.config.json'),
-      path.resolve(process.cwd(), '..', 'test', 'conf', 'github.config.json')
+      path.resolve(process.cwd(), 'test', 'conf', 'gitlab.config.json'),
+      path.resolve(process.cwd(), '..', 'test', 'conf', 'gitlab.config.json')
     ]
-    let cfg: { owner: string; repo: string; token: string } | undefined
+    let cfg: { projectId: string; token: string; host?: string } | undefined
     for (const p of candidates) {
       try {
         const txt = await fs.readFile(p, 'utf8')
@@ -29,10 +29,12 @@ test.describe('Examples UI smoke', () => {
         // ignore and try next candidate
       }
     }
-    if (!cfg) throw new Error('test/conf/github.config.json が見つかりません')
-    const repoUrl = `https://github.com/${cfg.owner}/${cfg.repo}`
+    if (!cfg) throw new Error('test/conf/gitlab.config.json が見つかりません')
+    const repoUrl = `${cfg.host || ''}/${cfg.projectId}`.replace(/([^:])\/\//g, '$1/')
     await page.fill('#repoInput', repoUrl)
     await page.fill('#tokenInput', cfg.token)
+    // Ensure platform is set to gitlab to avoid heuristics ambiguity
+    await page.selectOption('#platformSelect', 'gitlab')
     await page.click('#connectBtn')
     await page.waitForTimeout(500)
 
