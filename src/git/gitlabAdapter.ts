@@ -245,7 +245,7 @@ export class GitLabAdapter implements GitAdapter {
   /**
    * リポジトリのスナップショットを取得します。
    * @param {string} branch ブランチ名 (default: 'main')
-  * @returns {Promise<{headSha:string,snapshot:Record<string,string>}>}
+  * @returns {Promise<{headSha:string,shas:Record<string,string>,fetchContent:(paths:string[])=>Promise<Record<string,string>>}>}
    */
   async fetchSnapshot(branch = 'main', concurrency = 5) {
     // Determine remote HEAD commit SHA by fetching branch info when possible
@@ -264,15 +264,40 @@ export class GitLabAdapter implements GitAdapter {
     const treeRes = await this.fetchWithRetry(`${this.baseUrl}/repository/tree?recursive=true&ref=${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
     const treeJ = await treeRes.json()
     const files = Array.isArray(treeJ) ? treeJ.filter((t: any) => t.type === 'blob') : []
+
+    const shas: Record<string, string> = {}
+    const fileSet = new Set<string>()
+    for (const f of files) {
+      if (f && f.path) {
+        const sha = (f as any).id || (f as any).sha || ''
+        shas[f.path] = sha
+        fileSet.add(f.path)
+      }
+    }
+
+    const cache = new Map<string, string>()
     const snapshot: Record<string, string> = {}
+    const fetchContent = async (paths: string[]) => {
+      const out: Record<string, string> = {}
+      const targets = Array.from(new Set(paths)).filter((p) => fileSet.has(p))
+      await this.mapWithConcurrency(targets, async (p: string) => {
+        if (cache.has(p)) {
+          out[p] = cache.get(p) as string
+          snapshot[p] = cache.get(p) as string
+          return null
+        }
+        const content = await this._fetchFileRaw(p, branch)
+        if (content !== null) {
+          cache.set(p, content)
+          out[p] = content
+          snapshot[p] = content
+        }
+        return null
+      }, concurrency)
+      return out
+    }
 
-    await this.mapWithConcurrency(files, async (f: any) => {
-      const content = await this._fetchFileRaw(f.path, branch)
-      if (content !== null) snapshot[f.path] = content
-      return null
-    }, concurrency)
-
-    return { headSha, snapshot }
+    return { headSha, shas, fetchContent, snapshot }
   }
 
   /**

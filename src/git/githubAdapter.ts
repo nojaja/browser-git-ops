@@ -287,13 +287,36 @@ export class GitHubAdapter implements GitAdapter {
     const treeJ = await treeRes.json()
     const files = (treeJ && treeJ.tree) ? treeJ.tree.filter((t: any) => t.type === 'blob') : []
 
-    const results = await mapWithConcurrency(files, (f: any) => this._fetchBlobContentOrNull(f), concurrency)
-    const snapshot: Record<string, string> = {}
-    for (const r of results) {
-      if (r && r.content !== null) snapshot[r.path] = r.content
+    const shas: Record<string, string> = {}
+    const fileMap = new Map<string, any>()
+    for (const f of files) {
+      shas[f.path] = f.sha
+      fileMap.set(f.path, f)
     }
 
-    return { headSha, snapshot }
+    const contentCache = new Map<string, string>()
+    const snapshot: Record<string, string> = {}
+    const fetchContent = async (paths: string[]) => {
+      const out: Record<string, string> = {}
+      const unique = Array.from(new Set(paths)).filter((p) => fileMap.has(p))
+      await mapWithConcurrency(unique, async (p: string) => {
+        if (contentCache.has(p)) {
+          out[p] = contentCache.get(p) as string
+          snapshot[p] = contentCache.get(p) as string
+          return
+        }
+        const f = fileMap.get(p)
+        const r = await this._fetchBlobContentOrNull(f)
+        if (r && r.content !== null) {
+          contentCache.set(p, r.content)
+          out[p] = r.content
+          snapshot[p] = r.content
+        }
+      }, concurrency)
+      return out
+    }
+
+    return { headSha, shas, fetchContent, snapshot }
   }
 }
 

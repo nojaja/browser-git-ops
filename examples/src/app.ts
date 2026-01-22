@@ -44,9 +44,7 @@ function renderUI() {
           <button id="connectOpfs">opfsStorageを接続</button>
           <button id="connectIndexedDb">IndexedDbStorageを接続</button>
           <button id="listAdapters">アダプタ情報を表示</button>
-          <button id="pullRemote">リモート一覧を pull</button>
-          <label>Remote Path: <input id="remotePath" style="width:420px" placeholder="path/to/file.txt"/></label>
-          <button id="fetchRemoteFile">リモートファイルを fetch</button>
+          <button id="fetchRemote">リモート一覧をfetch</button>
           <button id="resolveConflict">競合を解消済にする</button>
           <button id="remoteChanges">リモートで新しいファイル一覧 (チェンジセット)</button>
           <button id="addLocalFile">ローカルにファイルを追加</button>
@@ -55,7 +53,7 @@ function renderUI() {
             <button id="editAndPush">既存ファイルを編集</button>
             <button id="deleteAndPush">既存ファイルを削除</button>
             <button id="renameAndPush">既存ファイルを名前変更</button>
-          <button id="showSnapshot">スナップショット一覧表示</button>
+          <button id="showSnapshot">スナップショット（ローカル）一覧表示</button>
       </section>
     </div>
   `
@@ -313,9 +311,9 @@ async function main() {
 
   // スナップショット取得はアダプタ実装の fetchSnapshot() を使います。
 
-  const pullRemoteBtn = el('pullRemote') as HTMLButtonElement
-  pullRemoteBtn.addEventListener('click', async () => {
-    appendOutput('リモートスナップショットを取得して pull を実行します...')
+  const fetchRemoteBtn = el('fetchRemote') as HTMLButtonElement
+  fetchRemoteBtn.addEventListener('click', async () => {
+    appendOutput('リモートスナップショットを取得します...')
     if (!currentVfs) { appendOutput('先に VirtualFS を初期化してください'); return }
     if (!currentPlatform || !currentOwner || !currentRepoName) { appendOutput('先に接続してください'); return }
     try {
@@ -326,7 +324,7 @@ async function main() {
         appendOutput('アダプタに fetchSnapshot() が実装されていません'); return
       }
       // show remote snapshot summary
-      const remotePaths = Object.keys(data.snapshot || {})
+      const remotePaths = Object.keys(data.shas || {})
       appendOutput(`リモートファイル数: ${remotePaths.length}`)
       if (remotePaths.length > 0) {
         const first = remotePaths.slice(0, 20)
@@ -334,7 +332,9 @@ async function main() {
         if (remotePaths.length > 20) appendOutput(`... 他 ${remotePaths.length - 20} 件`) 
       }
       const preIndexKeys = Object.keys(currentVfs.getIndex().entries)
-      const res = await currentVfs.pull(data.headSha, data.snapshot)
+      const res = await currentVfs.pull(data)
+      const fetchedPaths = (res as any).fetchedPaths || []
+      const reconciledPaths = (res as any).reconciledPaths || []
       const totalConflicts = res.conflicts ? res.conflicts.length : 0
       // count conflicts where baseSha === remoteSha (already-resolved)
       let resolvedConflicts = 0
@@ -344,6 +344,11 @@ async function main() {
         }
       }
       appendOutput('pull 完了。コンフリクト数: ' + totalConflicts)
+      appendOutput('fetchContent 対象ファイル数: ' + fetchedPaths.length)
+      if (reconciledPaths.length > 0) {
+        const sample = reconciledPaths.slice(0, 20)
+        appendOutput('ローカル一致で再計算されたファイル: ' + sample.join(', '))
+      }
       if (resolvedConflicts > 0) appendOutput('解決済コンフリクト数: ' + resolvedConflicts)
       if (res.conflicts && res.conflicts.length > 0) {
         appendOutput('--- コンフリクト詳細 ---')
@@ -364,7 +369,8 @@ async function main() {
             }
             // remote snapshot content if available in fetched data
             try {
-              const remoteContent = (data && data.snapshot && data.snapshot[path]) || null
+              const fetched = data && typeof data.fetchContent === 'function' ? await data.fetchContent([path]) : {}
+              const remoteContent = fetched[path] || null
               const rsn = remoteContent === null ? '<取得不可>' : (typeof remoteContent === 'string' ? remoteContent.slice(0, 400).replace(/\r?\n/g, '\\n') : String(remoteContent))
               appendOutput(`  remote snippet: ${rsn}`)
             } catch (e) {
@@ -397,27 +403,11 @@ async function main() {
     }
   })
 
-  const fetchRemoteFileBtn = el('fetchRemoteFile') as HTMLButtonElement
-  fetchRemoteFileBtn.addEventListener('click', async () => {
-    const path = (el('remotePath') as HTMLInputElement).value.trim()
-    if (!path) { appendOutput('Remote Path を入力してください'); return }
-    if (!currentPlatform || !currentOwner || !currentRepoName) { appendOutput('先に接続してください'); return }
-    try {
-      if (currentAdapter && typeof currentAdapter.fetchSnapshot === 'function') {
-        const { snapshot } = await currentAdapter.fetchSnapshot()
-        if (snapshot[path] === undefined) { appendOutput('リモートに該当ファイルがありません'); return }
-        appendOutput(`--- ${path} ---\n` + snapshot[path])
-      } else {
-        appendOutput('アダプタに fetchSnapshot() が実装されていません')
-      }
-    } catch (e) {
-      appendOutput('fetchRemoteFile 失敗: ' + String(e))
-    }
-  })
+  
 
   const resolveConflictBtn = el('resolveConflict') as HTMLButtonElement
   resolveConflictBtn.addEventListener('click', async () => {
-    const path = (el('remotePath') as HTMLInputElement).value.trim() || prompt('競合を解消するファイル名を入力してください（例: examples/new.txt）')
+    const path = (prompt('競合を解消するファイル名を入力してください（例: examples/new.txt）') || '').trim()
     if (!path) return
     if (!currentVfs) { appendOutput('先に VirtualFS を初期化してください'); return }
     try {
@@ -445,12 +435,7 @@ async function main() {
       } else {
         appendOutput('アダプタに fetchSnapshot() が実装されていません'); return
       }
-      const remoteShas: Record<string,string> = {}
-      for (const [p, c] of Object.entries(data.snapshot)) {
-        // compute simple sha via TextEncoder + subtle digest
-        const enc = new TextEncoder(); const buf = await crypto.subtle.digest('SHA-1', enc.encode(c as string)); const sha = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('')
-        remoteShas[p] = sha
-      }
+      const remoteShas: Record<string,string> = data.shas || {}
       const idx = currentVfs.getIndex()
       const diffs: string[] = []
       for (const [p, sha] of Object.entries(remoteShas)) {
@@ -508,8 +493,7 @@ async function main() {
     if (!currentVfs) { appendOutput('先に VirtualFS を初期化してください'); return }
     if (!currentAdapter) { appendOutput('先にアダプタを接続してください'); return }
     try {
-      const defaultPath = (el('remotePath') as HTMLInputElement).value.trim()
-      const path = defaultPath || prompt('編集するファイルのパスを入力してください（例: examples/file.txt）') || ''
+      const path = (prompt('編集するファイルのパスを入力してください（例: examples/file.txt）') || '').trim()
       if (!path) return
       const existing = await currentVfs.readFile(path)
       const newContent = prompt('新しいファイル内容を入力してください', existing === null ? '' : String(existing))
@@ -530,8 +514,7 @@ async function main() {
     if (!currentVfs) { appendOutput('先に VirtualFS を初期化してください'); return }
     if (!currentAdapter) { appendOutput('先にアダプタを接続してください'); return }
     try {
-      const defaultPath = (el('remotePath') as HTMLInputElement).value.trim()
-      const path = defaultPath || prompt('削除するファイルのパスを入力してください（例: examples/file.txt）') || ''
+      const path = (prompt('削除するファイルのパスを入力してください（例: examples/file.txt）') || '').trim()
       if (!path) return
       const ok = confirm(`本当に削除しますか: ${path}`)
       if (!ok) return
@@ -551,10 +534,9 @@ async function main() {
     if (!currentVfs) { appendOutput('先に VirtualFS を初期化してください'); return }
     if (!currentAdapter) { appendOutput('先にアダプタを接続してください'); return }
     try {
-      const defaultFrom = (el('remotePath') as HTMLInputElement).value.trim()
-      const from = defaultFrom || prompt('変更元のファイルパスを入力してください（例: examples/old.txt）') || ''
+      const from = (prompt('変更元のファイルパスを入力してください（例: examples/old.txt）') || '').trim()
       if (!from) return
-      const to = prompt('新しいファイル名を入力してください（例: examples/new.txt）') || ''
+      const to = (prompt('新しいファイル名を入力してください（例: examples/new.txt）') || '').trim()
       if (!to) return
       await currentVfs.renameFile(from, to)
       appendOutput(`ローカルでリネームしました: ${from} -> ${to}`)

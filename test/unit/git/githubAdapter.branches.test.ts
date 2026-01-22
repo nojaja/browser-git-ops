@@ -59,7 +59,8 @@ describe('GitHubAdapter branch coverage', () => {
 
     const res = await a.fetchSnapshot('main', 2)
     expect(res.headSha).toBe('head-1')
-    // snapshot should include f1 but not f2
+    // lazy fetch only requested blobs
+    await res.fetchContent(Object.keys(res.shas))
     expect(Object.keys(res.snapshot)).toContain('f1')
     expect(res.snapshot['f1']).toBe('ok')
     expect(res.snapshot['f2']).toBeUndefined()
