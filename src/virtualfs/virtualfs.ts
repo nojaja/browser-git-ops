@@ -414,25 +414,6 @@ export class VirtualFS {
   }
 
   /**
-   * tombstone を返します。
-   * @returns {TombstoneEntry[]}
-   */
-  getTombstones(): TombstoneEntry[] {
-    // derive tombstones from backend info entries marked as 'remove'
-    // Note: this is synchronous API in the original surface; return an
-    // array by querying backend synchronously is not possible, so return
-    // an empty array here and provide `_changesFromTombstones` to reflect
-    // deletions in change sets. Consumers that need detailed tombstone
-    // listing should call `backend.listFiles('info')` directly.
-    return []
-  }
-
-  /**
-   * tombstone を返します。
-   * @returns {TombstoneEntry[]}
-   */
-
-  /**
     * ワークスペースとインデックスから変更セットを生成します。
     * @returns {Promise<Array<{type:string,path:string,content?:string,baseSha?:string}>>} 変更リスト
     */
@@ -852,10 +833,6 @@ export class VirtualFS {
     }
   }
 
-  /**
-   * Apply changes locally, update index head and persist index.
-   * Returns the commit result object for callers.
-   */
   /**
    * Apply changes locally, update index head and persist index.
    * Returns the commit result object for callers.
