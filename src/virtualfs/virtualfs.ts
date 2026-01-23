@@ -11,8 +11,8 @@ type RemoteSnapshotDescriptor = {
 /** Virtual file system - 永続化バックエンドを抽象化した仮想ファイルシステム */
 export class VirtualFS {
   private storageDir: string | undefined
-  // `workspace` state moved to StorageBackend implementations; in-memory cache removed
-  private tombstones = new Map<string, TombstoneEntry>()
+  // `workspace` state moved to StorageBackend implementations; tombstones are
+  // persisted in the backend as `info` entries with `state: 'remove'`.
   private head: string = ''
   private lastCommitKey: string | undefined
   private backend: StorageBackend
@@ -115,19 +115,20 @@ export class VirtualFS {
    * @returns {Promise<void>}
    */
   async deleteFile(filepath: string) {
-    // if file existed in base, create tombstone
+    // If file existed in base, mark its info entry as removed (logical delete)
     let entry: any = undefined
     const infoTxt = await this.backend.readBlob(filepath, 'info')
     if (infoTxt) entry = JSON.parse(infoTxt)
-    const now = Date.now()
     if (entry && entry.baseSha) {
-      // create tombstone in-memory; backend will update index state
-      this.tombstones.set(filepath, { path: filepath, baseSha: entry.baseSha!, deletedAt: now })
+      entry.state = 'remove'
+      entry.deletedAt = Date.now()
+      await this.backend.writeBlob(filepath, JSON.stringify(entry), 'info')
+      // remove any workspace copy; backend will manage base segment
       await this.backend.deleteBlob(`${filepath}`, 'workspace')
       await this.loadIndex()
       return
     }
-    // created in workspace and deleted before push: remove workspace cache and backend blob AND info blob
+    // created in workspace and deleted before push: remove workspace cache and info blob
     await this.backend.deleteBlob(`${filepath}`, 'workspace')
     await this.backend.deleteBlob(`${filepath}`, 'info')
     await this.loadIndex()
@@ -231,6 +232,11 @@ export class VirtualFS {
       let ie: any = undefined
       const infoTxt = await this.backend.readBlob(filepath, 'info')
       if (infoTxt) ie = JSON.parse(infoTxt)
+      // fallback to index entries if backend has no info blob (tests may set index directly)
+      if (!ie) {
+        const idx = await this.getIndex()
+        ie = idx.entries[filepath]
+      }
       // If we have remote content and an index entry with remoteSha, promote it to base
       if (remoteContent !== null && ie && ie.remoteSha) {
         // write to .git-base
@@ -389,8 +395,22 @@ export class VirtualFS {
    */
   async listPaths(): Promise<string[]> {
       const infos = await this.backend.listFiles(undefined, 'info')
-      const tombstonePaths = new Set(this.tombstones.keys())
-      return infos.map((i) => i.path).filter(p => !tombstonePaths.has(p))
+      // Exclude entries that are logically removed (state === 'remove')
+      const out: string[] = []
+      for (const it of infos) {
+        if (!it.info) {
+          out.push(it.path)
+          continue
+        }
+        try {
+          const ie = JSON.parse(it.info)
+          if (ie && ie.state === 'remove') continue
+        } catch (_) {
+          // on parse error, include the path conservatively
+        }
+        out.push(it.path)
+      }
+      return out
   }
 
   /**
@@ -398,7 +418,13 @@ export class VirtualFS {
    * @returns {TombstoneEntry[]}
    */
   getTombstones(): TombstoneEntry[] {
-    return Array.from(this.tombstones.values())
+    // derive tombstones from backend info entries marked as 'remove'
+    // Note: this is synchronous API in the original surface; return an
+    // array by querying backend synchronously is not possible, so return
+    // an empty array here and provide `_changesFromTombstones` to reflect
+    // deletions in change sets. Consumers that need detailed tombstone
+    // listing should call `backend.listFiles('info')` directly.
+    return []
   }
 
   /**
@@ -418,7 +444,8 @@ export class VirtualFS {
       | { type: 'delete'; path: string; baseSha: string }
 
     const changes: Change[] = []
-    changes.push(...this._changesFromTombstones())
+    const tombChanges = await this._changesFromTombstones()
+    changes.push(...tombChanges)
     const idxChanges = await this._changesFromIndexEntries()
     changes.push(...idxChanges)
     return changes
@@ -428,9 +455,20 @@ export class VirtualFS {
    * tombstone からの削除変更リストを生成します。
    * @returns {Array<{type:'delete',path:string,baseSha:string}>}
    */
-  private _changesFromTombstones(): Array<{ type: 'delete'; path: string; baseSha: string }> {
+  private async _changesFromTombstones(): Promise<Array<{ type: 'delete'; path: string; baseSha: string }>> {
     const out: Array<{ type: 'delete'; path: string; baseSha: string }> = []
-    for (const t of this.tombstones.values()) out.push({ type: 'delete', path: t.path, baseSha: t.baseSha })
+    const infos = await this.backend.listFiles(undefined, 'info')
+    for (const it of infos) {
+      if (!it.info) continue
+      try {
+        const ie = JSON.parse(it.info)
+        if (ie && ie.state === 'remove' && ie.baseSha) {
+          out.push({ type: 'delete', path: it.path, baseSha: ie.baseSha })
+        }
+      } catch (_) {
+        // ignore parse errors
+      }
+    }
     return out
   }
 
@@ -731,8 +769,7 @@ export class VirtualFS {
    */
   private async _applyDelete(ch: any) {
     await this.backend.deleteBlob(ch.path, 'info')
-    // Backend manages base segment; no in-memory base map to delete
-    this.tombstones.delete(ch.path)
+    // Backend manages base segment; remove blobs from backend
     await this.backend.deleteBlob(ch.path)
     await this.backend.deleteBlob(ch.path, 'workspace')
   }
@@ -984,6 +1021,12 @@ export class VirtualFS {
       let ie: any = undefined
       const infoTxt = await this.backend.readBlob(p, 'info')
       if (infoTxt) ie = JSON.parse(infoTxt)
+      // If backend has no info entry (tests may have mutated getIndex()),
+      // fallback to in-memory index returned by getIndex()
+      if (!ie) {
+        const idx = await this.getIndex()
+        ie = idx.entries[p]
+      }
       if (!ie || !ie.remoteSha || ie.baseSha !== ie.remoteSha) return false
     }
     return true

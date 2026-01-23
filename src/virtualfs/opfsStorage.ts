@@ -403,10 +403,20 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   private async removeAtPrefix(root: any, prefix: string, filepath: string): Promise<void> {
     const full = this.rootDir ? `${this.rootDir}/${prefix}/${filepath}` : `${prefix}/${filepath}`
     const parts = full.split('/').filter(Boolean)
-    const dir = await this.traverseDir(root, parts.slice(0, parts.length - 1))
+    let dir: any
+    // ディレクトリが存在しない場合（NotFound）は削除対象なしとして終了
+    try {
+      dir = await this.traverseDir(root, parts.slice(0, parts.length - 1))
+    } catch (_) {
+      return
+    }
     const name = parts[parts.length - 1]
     if (typeof dir.removeEntry === 'function') {
-      await dir.removeEntry(name)
+      try {
+        await dir.removeEntry(name)
+      } catch (_) {
+        // removeEntryが失敗しても無視（存在しない等）
+      }
       return
     }
     if (typeof dir.getFileHandle === 'function') {

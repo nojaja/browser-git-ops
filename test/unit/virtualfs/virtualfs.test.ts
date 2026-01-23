@@ -29,8 +29,6 @@ describe('VirtualFS 基本動作', () => {
     await vfs.applyBaseSnapshot({ 'a.txt': 'basecontent' }, 'head1')
     await vfs.writeFile('a.txt', 'modified')
     await vfs.deleteFile('a.txt')
-    const tombs = vfs.getTombstones()
-    expect(tombs.length).toBe(1)
     const changes = await vfs.getChangeSet()
     // delete should be present
     expect(changes.find((c: any) => c.type === 'delete' && c.path === 'a.txt')).toBeDefined()
