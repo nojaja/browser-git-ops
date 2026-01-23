@@ -70,33 +70,47 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   // legacy canUseOpfs removed; use static canUse() instead
 
   /**
+   * Try to get OPFS root from navigator.storage.getDirectory().
+   * @returns {Promise<any|null>}
+   */
+  private async _tryNavigatorStorage(): Promise<any | null> {
+    const nav = (globalThis as any).navigator
+    if (!nav || !nav.storage || typeof nav.storage.getDirectory !== 'function') {
+      return null
+    }
+    try {
+      const maybe = nav.storage.getDirectory()
+      const d = await Promise.resolve(maybe)
+      return d || null
+    } catch (_) {
+      return null
+    }
+  }
+
+  /**
+   * Try to get OPFS root from originPrivateFileSystem.getDirectory().
+   * @returns {Promise<any|null>}
+   */
+  private async _tryOriginPrivateFileSystem(): Promise<any | null> {
+    const opfs = (globalThis as any).originPrivateFileSystem
+    if (!opfs || typeof opfs.getDirectory !== 'function') {
+      return null
+    }
+    try {
+      return await opfs.getDirectory()
+    } catch (_) {
+      return null
+    }
+  }
+
+  /**
    * OPFS のルートディレクトリハンドルを取得します。失敗時は null を返す。
    * @returns {Promise<any|null>} ルートハンドルまたは null
    */
   private async getOpfsRoot(): Promise<any | null> {
-    try {
-      const nav = (globalThis as any).navigator
-      if (nav && nav.storage && typeof nav.storage.getDirectory === 'function') {
-        try {
-          const maybe = nav.storage.getDirectory()
-          const d = await Promise.resolve(maybe)
-          if (d) return d
-        } catch (err) {
-          // fallthrough to originPrivateFileSystem or null
-        }
-      }
-
-      if ((globalThis as any).originPrivateFileSystem && typeof (globalThis as any).originPrivateFileSystem.getDirectory === 'function') {
-        try {
-          return await (globalThis as any).originPrivateFileSystem.getDirectory()
-        } catch (err) {
-          return null
-        }
-      }
-      return null
-    } catch (err) {
-      return null
-    }
+    const fromNav = await this._tryNavigatorStorage()
+    if (fromNav) return fromNav
+    return await this._tryOriginPrivateFileSystem()
   }
 
   /**
@@ -121,28 +135,37 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * index を読み出す
    * @returns {Promise<IndexFile|null>} 読み出した IndexFile、存在しなければ null
    */
+  /**
+   * Read index metadata file from OPFS.
+   * @returns {Promise<string|null>}
+   */
+  private async _readIndexMetadata(root: any): Promise<string | null> {
+    try {
+      const hasDirApi = typeof (root as any).getDirectoryHandle === 'function' || typeof (root as any).getDirectory === 'function'
+      if (hasDirApi) {
+        const scoped = await this.traverseDir(root, this.rootDir.split('/').filter(Boolean))
+        const fh = await scoped.getFileHandle('index')
+        const file = await fh.getFile()
+        return await file.text()
+      }
+      const fh = await (root as any).getFileHandle('index')
+      const file = await fh.getFile()
+      return await file.text()
+    } catch (_) {
+      return null
+    }
+  }
+
+  /**
+   * index を読み出す
+   * @returns {Promise<IndexFile|null>} 読み出した IndexFile、存在しなければ null
+   */
   async readIndex(): Promise<IndexFile | null> {
     try {
       const root = await this.getOpfsRoot()
       if (!root) return null
 
-      // Read index metadata (head, lastCommitKey) from 'index' file if present
-      let metaTxt: string | null = null
-      try {
-        const hasDirApi = typeof (root as any).getDirectoryHandle === 'function' || typeof (root as any).getDirectory === 'function'
-        if (hasDirApi) {
-          const scoped = await this.traverseDir(root, this.rootDir.split('/').filter(Boolean))
-          const fh = await scoped.getFileHandle('index')
-          const file = await fh.getFile()
-          metaTxt = await file.text()
-        } else {
-          const fh = await (root as any).getFileHandle('index')
-          const file = await fh.getFile()
-          metaTxt = await file.text()
-        }
-      } catch (_) {
-        metaTxt = null
-      }
+      const metaTxt = await this._readIndexMetadata(root)
 
       const result: IndexFile = { head: '', entries: {} }
       if (metaTxt) {

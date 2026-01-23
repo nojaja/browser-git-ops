@@ -21,28 +21,36 @@ describe('VirtualFS coverage targets', () => {
   it('_areAllResolved and _promoteResolvedConflicts flow', async () => {
     const backend = new InMemoryStorage()
     const v = new VirtualFS({ backend })
+    await v.init()
     // prepare index entry with baseSha equal to remoteSha
     const ie: any = { path: 'f', state: 'conflict', remoteSha: 'rs', baseSha: 'rs', updatedAt: Date.now() }
-    ;(await v.getIndex()).entries['f'] = ie
+    await backend.writeBlob('f', JSON.stringify(ie), 'info')
     const conflicts = [{ path: 'f', remoteSha: 'rs' }]
     // prepare baseSnapshot content
     const baseSnapshot: Record<string, string> = { f: 'content' }
     await (v as any)._promoteResolvedConflicts(conflicts, baseSnapshot, 'head123')
-    expect((await v.getIndex()).head).toBe('head123')
-    expect((await v.getIndex()).entries['f'].state).toBe('base')
+    const idx = await v.getIndex()
+    expect(idx.head).toBe('head123')
+    const infoTxt = await backend.readBlob('f', 'info')
+    const entry = infoTxt ? JSON.parse(infoTxt) : null
+    expect(entry?.state).toBe('base')
   })
 
   it('resolveConflict promotes remote content when present and deletes conflict blob', async () => {
     const backend = new InMemoryStorage()
     const v = new VirtualFS({ backend })
+    await v.init()
     // write conflict blob
     await backend.writeBlob('x', 'payload', 'conflict')
     // create index entry with remoteSha
-    ;(await v.getIndex()).entries['x'] = { path: 'x', state: 'conflict', remoteSha: 'r1', updatedAt: Date.now() }
+    const ie: any = { path: 'x', state: 'conflict', remoteSha: 'r1', updatedAt: Date.now() }
+    await backend.writeBlob('x', JSON.stringify(ie), 'info')
     const ok = await v.resolveConflict('x')
     expect(ok).toBe(true)
     // after resolve, index entry should be base and conflict removed
-    expect((await v.getIndex()).entries['x'].state).toBe('base')
+    const infoTxt = await backend.readBlob('x', 'info')
+    const entry = infoTxt ? JSON.parse(infoTxt) : null
+    expect(entry?.state).toBe('base')
     const got = await backend.readBlob('x', 'conflict')
     expect(got).toBeNull()
   })
@@ -50,23 +58,29 @@ describe('VirtualFS coverage targets', () => {
   it('_handleRemoteDeletion branches', async () => {
     const backend = new InMemoryStorage()
     const v = new VirtualFS({ backend })
+    await v.init()
     // case: entry with no baseSha -> ignored
-    ;(await v.getIndex()).entries['nobase'] = { path: 'nobase', state: 'added' }
+    const ie1: any = { path: 'nobase', state: 'added' }
+    await backend.writeBlob('nobase', JSON.stringify(ie1), 'info')
     const conflicts: any[] = []
-    await (v as any)._handleRemoteDeletion('nobase', (await v.getIndex()).entries['nobase'], {}, conflicts)
-    expect((await v.getIndex()).entries['nobase']).toBeDefined()
+    await (v as any)._handleRemoteDeletion('nobase', ie1, {}, conflicts)
+    const info1Txt = await backend.readBlob('nobase', 'info')
+    expect(info1Txt).toBeDefined()
 
     // case: entry with baseSha and no localWorkspace -> deleted
-    ;(await v.getIndex()).entries['delme'] = { path: 'delme', state: 'base', baseSha: 'b', updatedAt: Date.now() }
-    await backend.writeBlob('delme', 'old')
-    await (v as any)._handleRemoteDeletion('delme', (await v.getIndex()).entries['delme'], {}, conflicts)
-    expect((await v.getIndex()).entries['delme']).toBeUndefined()
+    const ie2: any = { path: 'delme', state: 'base', baseSha: 'b', updatedAt: Date.now() }
+    await backend.writeBlob('delme', JSON.stringify(ie2), 'info')
+    await backend.writeBlob('delme', 'old', 'base')
+    await (v as any)._handleRemoteDeletion('delme', ie2, {}, conflicts)
+    const info2Txt = await backend.readBlob('delme', 'info')
+    expect(info2Txt).toBeNull()
 
     // case: entry with baseSha but workspace different sha -> conflict
-    ;(await v.getIndex()).entries['c'] = { path: 'c', state: 'base', baseSha: 'b1', updatedAt: Date.now() }
-    ;(v as any).workspace.set('c', { sha: 'different', content: 'x' })
+    const ie3: any = { path: 'c', state: 'base', baseSha: 'b1', updatedAt: Date.now() }
+    await backend.writeBlob('c', JSON.stringify(ie3), 'info')
+    await backend.writeBlob('c', 'x', 'workspace')
     const conflicts2: any[] = []
-    await (v as any)._handleRemoteDeletion('c', (await v.getIndex()).entries['c'], {}, conflicts2)
+    await (v as any)._handleRemoteDeletion('c', ie3, {}, conflicts2)
     expect(conflicts2.length).toBeGreaterThan(0)
   })
 })

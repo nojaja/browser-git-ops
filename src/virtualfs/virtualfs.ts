@@ -1,4 +1,4 @@
-import { IndexFile, TombstoneEntry } from './types'
+import { IndexFile } from './types'
 import { StorageBackend } from './storageBackend'
 import { OpfsStorage } from './opfsStorage'
 
