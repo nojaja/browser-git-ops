@@ -48,7 +48,7 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
           if (entry && typeof entry.name === 'string') names.push(entry.name)
         }
         const unique = Array.from(new Set(names))
-        try { g.__indexeddb_names__ = unique } catch (_) { /* ignore */ }
+        if (typeof g === 'object' && g !== null) Reflect.set(g, '__indexeddb_names__', unique)
         return unique
       } catch (_) {
         return []

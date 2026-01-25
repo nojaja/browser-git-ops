@@ -344,7 +344,7 @@ async function main() {
           appendOutput('[connectOpfsBtn]VirtualFS.init()/IO で例外: ' + String(e))
         }
         // 接続後に OPFS の availableRoots を再取得して UI を更新
-        try { if (typeof opfsRootsBtn !== 'undefined' && opfsRootsBtn) opfsRootsBtn.click() } catch (_e) { }
+        if (typeof opfsRootsBtn !== 'undefined' && opfsRootsBtn) opfsRootsBtn.click()
       } catch (e) {
         appendOutput('[connectOpfsBtn]OpfsStorage 接続で例外: ' + String(e))
       }
@@ -384,7 +384,7 @@ async function main() {
           appendOutput('[connectIndexedDbBtn]VirtualFS.init()/IO で例外: ' + String(e))
         }
         // 接続後に IndexedDB の availableRoots を再取得して UI を更新
-        try { if (typeof indexedDbRootsBtn !== 'undefined' && indexedDbRootsBtn) indexedDbRootsBtn.click() } catch (_e) { }
+        if (typeof indexedDbRootsBtn !== 'undefined' && indexedDbRootsBtn) indexedDbRootsBtn.click()
       } catch (e) {
         appendOutput('[connectIndexedDbBtn]IndexedDatabaseStorage 接続で例外: ' + String(e))
       }
@@ -424,7 +424,7 @@ async function main() {
           appendOutput('[connectInMemoryBtn]VirtualFS.init()/IO で例外: ' + String(e))
         }
         // 接続後に InMemory の availableRoots を再取得して UI を更新
-        try { if (typeof inMemoryRootsBtn !== 'undefined' && inMemoryRootsBtn) inMemoryRootsBtn.click() } catch (_e) { }
+        if (typeof inMemoryRootsBtn !== 'undefined' && inMemoryRootsBtn) inMemoryRootsBtn.click()
       } catch (e) {
         appendOutput('[connectInMemoryBtn]InMemoryStorage 接続で例外: ' + String(e))
       }
@@ -515,7 +515,7 @@ async function main() {
   })
 
   // Select の選択で該当ストレージへ接続する（クリックで切替）
-  try {
+  if (typeof document !== 'undefined') {
     const opfsSel = document.getElementById('opfsRootsList') as HTMLSelectElement | null
     if (opfsSel) {
       opfsSel.addEventListener('change', async () => {
@@ -568,19 +568,13 @@ async function main() {
         } catch (e) { appendOutput('[inMemoryRoots]接続失敗: ' + String(e)) }
       })
     }
-  } catch (_e) {
-    // ignore
   }
 
   // 初期表示で自動的に各 Storage の availableRoots を取得して表示する
-  try {
-    // 要素が存在すれば click() でハンドラを起動
-    try { opfsRootsBtn.click() } catch (_e) { }
-    try { indexedDbRootsBtn.click() } catch (_e) { }
-    try { inMemoryRootsBtn.click() } catch (_e) { }
-  } catch (_e) {
-    // ignore
-  }
+  // 要素が存在すれば click() でハンドラを起動
+  if (opfsRootsBtn) opfsRootsBtn.click()
+  if (indexedDbRootsBtn) indexedDbRootsBtn.click()
+  if (inMemoryRootsBtn) inMemoryRootsBtn.click()
 
   const listAdaptersBtn = el('listAdapters') as HTMLButtonElement
   listAdaptersBtn.addEventListener('click', () => {

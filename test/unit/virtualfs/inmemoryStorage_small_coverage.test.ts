@@ -12,8 +12,8 @@ describe('InMemoryStorage small coverage targets', () => {
     const mod = await import('../../../src/virtualfs/inmemoryStorage')
     const InMemoryStorage = mod.InMemoryStorage || mod.default || mod
     // create instance with explicit dir which should register a new root
-    // eslint-disable-next-line no-new
-    new InMemoryStorage('my_test_root')
+    const tmp = new InMemoryStorage('my_test_root')
+    expect(tmp).toBeDefined()
     const roots = InMemoryStorage.availableRoots()
     expect(roots).toContain('my_test_root')
   })

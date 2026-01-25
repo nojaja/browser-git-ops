@@ -3,16 +3,16 @@ import { IndexedDatabaseStorage } from '../../../src/virtualfs/indexedDatabaseSt
 
 beforeEach(() => {
   // jest may be undefined or not provide clearAllMocks in some ESM setups
-  try { if (typeof jest !== 'undefined' && typeof jest.clearAllMocks === 'function') jest.clearAllMocks() } catch (_) {}
+  if (typeof (globalThis as any).jest === 'object' && typeof (globalThis as any).jest.clearAllMocks === 'function') (globalThis as any).jest.clearAllMocks()
   // ensure a fake indexedDB exists for each test (some files delete globals in afterEach)
   // @ts-ignore
   (globalThis as any).indexedDB = makeFakeIndexedDB()
 })
 
 afterEach(() => {
-  try { delete (globalThis as any).indexedDB } catch (e) { /* noop */ }
-  try { if (typeof jest !== 'undefined' && typeof jest.resetAllMocks === 'function') jest.resetAllMocks() } catch (_) {}
-  try { if (typeof jest !== 'undefined' && typeof jest.clearAllMocks === 'function') jest.clearAllMocks() } catch (_) {}
+  if ('indexedDB' in globalThis) { delete (globalThis as any).indexedDB }
+  if (typeof (globalThis as any).jest === 'object' && typeof (globalThis as any).jest.resetAllMocks === 'function') (globalThis as any).jest.resetAllMocks()
+  if (typeof (globalThis as any).jest === 'object' && typeof (globalThis as any).jest.clearAllMocks === 'function') (globalThis as any).jest.clearAllMocks()
 })
 
 // provide a minimal fake indexedDB so BrowserStorage.openDb succeeds
@@ -80,7 +80,8 @@ global.indexedDB = makeFakeIndexedDB()
 
 describe('BrowserStorage transaction/error branches', () => {
   it('tx rejects when transaction.onerror fires during writeIndex', async () => {
-    const bs = new IndexedDatabaseStorage()
+    const bs: any = Object.create((IndexedDatabaseStorage as any).prototype)
+    // avoid constructor-driven openDb; replace dbPromise with custom DB below
     // create custom DB that triggers tx.onerror after cb finishes
     const customDb: any = {
       /** @returns {any} */
@@ -112,7 +113,8 @@ describe('BrowserStorage transaction/error branches', () => {
   }, 30000)
 
   it('readIndex rejects when request.onerror fires', async () => {
-    const bs = new IndexedDatabaseStorage()
+    const bs: any = Object.create((IndexedDatabaseStorage as any).prototype)
+    // avoid constructor-driven openDb; replace dbPromise with custom DB below
     const customDb: any = {
       /** @returns {any} */
       transaction: (_: string, _mode: string) => {

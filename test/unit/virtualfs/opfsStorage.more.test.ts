@@ -5,18 +5,26 @@ let __origNavigator: any = undefined
 let __origOriginPrivateFileSystem: any = undefined
 
 beforeEach(() => {
-  jest.clearAllMocks()
+  if (typeof (globalThis as any).jest === 'object' && typeof (globalThis as any).jest.clearAllMocks === 'function') (globalThis as any).jest.clearAllMocks()
   // save and cleanup any globals to avoid cross-test pollution
   __origNavigator = (globalThis as any).navigator
   __origOriginPrivateFileSystem = (globalThis as any).originPrivateFileSystem
-  try { delete (globalThis as any).navigator } catch (_) {}
-  try { delete (globalThis as any).originPrivateFileSystem } catch (_) {}
+  if ('navigator' in globalThis) { delete (globalThis as any).navigator }
+  if ('originPrivateFileSystem' in globalThis) { delete (globalThis as any).originPrivateFileSystem }
 })
 
 afterEach(() => {
   // restore originals
-  try { (globalThis as any).navigator = __origNavigator } catch (_) {}
-  try { (globalThis as any).originPrivateFileSystem = __origOriginPrivateFileSystem } catch (_) {}
+  if (typeof __origNavigator !== 'undefined') {
+    (globalThis as any).navigator = __origNavigator
+  } else {
+    if ('navigator' in globalThis) delete (globalThis as any).navigator
+  }
+  if (typeof __origOriginPrivateFileSystem !== 'undefined') {
+    (globalThis as any).originPrivateFileSystem = __origOriginPrivateFileSystem
+  } else {
+    if ('originPrivateFileSystem' in globalThis) delete (globalThis as any).originPrivateFileSystem
+  }
   __origNavigator = undefined
   __origOriginPrivateFileSystem = undefined
 })

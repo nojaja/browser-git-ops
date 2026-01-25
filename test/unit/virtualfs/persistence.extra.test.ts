@@ -5,8 +5,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  try { delete (globalThis as any).indexedDB } catch (e) { /* noop */ }
-  try { delete (globalThis as any).navigator } catch (e) { /* noop */ }
+  if ('indexedDB' in globalThis) { delete (globalThis as any).indexedDB }
+  if ('navigator' in globalThis) { delete (globalThis as any).navigator }
   jest.resetAllMocks()
   jest.clearAllMocks()
 })
