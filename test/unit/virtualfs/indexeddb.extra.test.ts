@@ -1,9 +1,13 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
-import IndexedDbStorage from '../../../src/virtualfs/indexedDbStorage'
+import IndexedDbStorage from '../../../src/virtualfs/indexedDatabaseStorage'
 
 describe('IndexedDbStorage error and retry branches', () => {
   beforeEach(() => jest.clearAllMocks())
-  afterEach(() => jest.resetAllMocks())
+  afterEach(() => {
+    try { delete (globalThis as any).indexedDB } catch (e) { /* noop */ }
+    jest.resetAllMocks()
+    jest.clearAllMocks()
+  })
 
   // minimal fake IndexedDB used for tests
   function makeFakeIndexedDB() {
@@ -65,7 +69,7 @@ describe('IndexedDbStorage error and retry branches', () => {
 
   it('tx retries when InvalidStateError occurs', async () => {
     // ensure a fake indexedDB exists so constructor does not throw
-    ;(global as any).indexedDB = (global as any).indexedDB || makeFakeIndexedDB()
+    ;(global as any).indexedDB = makeFakeIndexedDB()
     const s = new IndexedDbStorage()
     const fakeTx = {
       objectStore: jest.fn(() => ({ put: jest.fn(), get: jest.fn() })),
@@ -82,13 +86,5 @@ describe('IndexedDbStorage error and retry branches', () => {
     // call internal tx wrapper which should resolve when tx works
     await expect((s as any).tx('index', 'readwrite', async () => true)).resolves.toBeUndefined()
   })
-
-  it('readBlob returns null when transaction throws', async () => {
-    ;(global as any).indexedDB = (global as any).indexedDB || makeFakeIndexedDB()
-    const s = new IndexedDbStorage()
-    const fakeDb = { transaction: jest.fn(() => { throw new Error('tx failure') }) }
-    ;(s as any).dbPromise = Promise.resolve(fakeDb as any)
-    const res = await s.readBlob('missing')
-    expect(res).toBeNull()
-  })
+  // NOTE: readBlob null-on-tx-exception covered in branches.test.ts; removed duplicate
 })

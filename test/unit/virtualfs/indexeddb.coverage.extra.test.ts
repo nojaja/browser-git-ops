@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals'
-import IndexedDbStorage from '../../../src/virtualfs/indexedDbStorage'
+import IndexedDbStorage from '../../../src/virtualfs/indexedDatabaseStorage'
 
 // This test provides a simple in-memory fake IndexedDB implementation
 // to exercise code paths in IndexedDbStorage that are hard to reach

@@ -4,6 +4,13 @@ beforeEach(() => {
   jest.clearAllMocks()
 })
 
+afterEach(() => {
+  try { delete (globalThis as any).indexedDB } catch (e) { /* noop */ }
+  try { delete (globalThis as any).navigator } catch (e) { /* noop */ }
+  jest.resetAllMocks()
+  jest.clearAllMocks()
+})
+
 // minimal fake IndexedDB used by other tests
 function makeFakeIndexedDB() {
   const stores = new Set<string>()

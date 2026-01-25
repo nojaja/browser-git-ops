@@ -39,14 +39,14 @@
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
     "pretest:e2e": "npm run build",
     "test:e2e": "playwright test --config=playwright.config.cjs",
-    "test:ci": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage --runInBand",
+    "test:ci": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage --coverageReporters=json --runInBand",
     "lint": "eslint \"src/**/*.{ts,js}\" --config .eslintrc.cjs",
     "lint2": "eslint \"src/**/*.{ts,js}\" --config .eslintrc.cjs --rule \"unicorn/prevent-abbreviations:off\" --rule \"unicorn/filename-case:off\" --rule \"unicorn/prefer-early-return:off\" --rule \"unicorn/no-duplicated-branches:off\"",
     "depcruise": "depcruise --config .dependency-cruiser.cjs src || exit 0",
     "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
     "build:browser": "esbuild ./src/index.ts --bundle --outfile=dist/index.js --format=iife --global-name=APIGitLib --platform=browser --sourcemap",
     "build:browser:esm": "esbuild ./src/index.ts --bundle --outfile=dist/index.mjs --format=esm --platform=browser --sourcemap",
-    "build": "npm run build:types && npm run build:browser && npm run build:browser:esm",
+    "build": "npm run build:browser && npm run build:browser:esm && npm run build:types",
     "docs": "typedoc --options typedoc.json && npx depcruise src --output-type dot > ./docs/dependency-cruiser.dot"
   },
   "devDependencies": {
@@ -65,6 +65,8 @@
     "typedoc-plugin-markdown": "^4.9.0",
     "typescript": "5.3.3",
     "esbuild": "^0.18.17",
-    "http-server": "^14.1.1"
+    "http-server": "^14.1.1",
+    "opfs-mock": "^2.5.1",
+    "fake-indexeddb": "^3.1.7"
   }
 }

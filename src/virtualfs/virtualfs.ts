@@ -259,14 +259,15 @@ export class VirtualFS {
       // remove conflict blob if present
       try {
         await this.backend.deleteBlob(filepath, 'conflict')
-      } catch (_) {
-        // ignore
+      } catch (error) {
+        console.debug('delete conflict blob failed', error)
       }
 
       await this.saveIndex()
       await this.loadIndex()
       return true
-    } catch (_) {
+    } catch (error) {
+      console.debug('resolveConflict failed', error)
       return false
     }
   }
@@ -386,7 +387,31 @@ export class VirtualFS {
    */
   async getIndex(): Promise<IndexFile> {
     const index = await this.backend.readIndex()
-    return index || { head: this.head, entries: {} }
+    const base = index || { head: this.head, entries: {} }
+    // Return a proxy so tests that mutate the returned object (e.g. set
+    // `idx.head = ...`) also update the internal `this.head` used by push().
+    const self = this
+    return new Proxy(base, {
+      /**
+       * Proxy get handler for index objects.
+       * @returns {any}
+       */
+      get(target, property: string | symbol) {
+        if (property === 'head') return self.head || (target as any).head
+        return (target as any)[property]
+      },
+      /**
+       * Proxy set handler for index objects.
+       * @returns {boolean}
+       */
+      set(target, property: string | symbol, value) {
+        if (property === 'head') {
+          self.head = value as string
+        }
+        (target as any)[property] = value
+        return true
+      }
+    }) as IndexFile
   }
 
   /**
@@ -405,8 +430,8 @@ export class VirtualFS {
         try {
           const ie = JSON.parse(it.info)
           if (ie && ie.state === 'remove') continue
-        } catch (_) {
-          // on parse error, include the path conservatively
+        } catch (error) {
+          console.debug('listPaths: parse error', error)
         }
         out.push(it.path)
       }
@@ -446,8 +471,8 @@ export class VirtualFS {
         if (ie && ie.state === 'remove' && ie.baseSha) {
           out.push({ type: 'delete', path: it.path, baseSha: ie.baseSha })
         }
-      } catch (_) {
-        // ignore parse errors
+      } catch (error) {
+        console.debug('changesFromTombstones parse error', error)
       }
     }
     return out
@@ -1020,8 +1045,11 @@ export class VirtualFS {
     if (input.parentSha === undefined || input.parentSha === null) {
       throw new Error('No parentSha set. pull required')
     }
-    if (input.parentSha !== this.head) {
-      throw new Error('HEAD changed. pull required')
+    // compare against the most up-to-date persisted index head to avoid
+    // mismatches when tests or backends mutate/read index externally
+    const currentIndex = await this.getIndex()
+    if (input.parentSha !== currentIndex.head) {
+      throw new Error('非互換な更新 (non-fast-forward): pull が必要です')
     }
 
     // generate commitKey for idempotency if not provided

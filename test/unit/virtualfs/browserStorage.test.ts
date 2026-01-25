@@ -2,6 +2,13 @@ import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals
 
 beforeEach(() => {
   jest.clearAllMocks()
+  try { (globalThis as any).indexedDB = makeFakeIndexedDB() } catch (e) { /* noop */ }
+})
+
+afterEach(() => {
+  try { delete (globalThis as any).indexedDB } catch (e) { /* noop */ }
+  jest.resetAllMocks()
+  jest.clearAllMocks()
 })
 
 // set up a fake indexedDB before importing BrowserStorage
@@ -128,12 +135,18 @@ function makeFakeIndexedDB() {
 global.indexedDB = makeFakeIndexedDB()
 
 // now import IndexedDbStorage
-import { IndexedDbStorage } from '../../../src/virtualfs/indexedDbStorage'
+import { IndexedDatabaseStorage } from '../../../src/virtualfs/indexedDatabaseStorage'
 
 describe('BrowserStorage (IndexedDB) flows', () => {
-  it.skip('writeIndex/readIndex via IndexedDB', async () => {
-    const bs = new IndexedDbStorage()
-    await bs.init()
+  it('writeIndex/readIndex via IndexedDB', async () => {
+    const bs = new IndexedDatabaseStorage()
+    try {
+      await bs.init()
+    } catch (err) {
+      // ensure fake indexedDB available and retry
+      ;(globalThis as any).indexedDB = makeFakeIndexedDB()
+      await bs.init()
+    }
     const idx = { head: 'h', entries: {} }
     await bs.writeIndex(idx as any)
     const got = await bs.readIndex()
@@ -142,8 +155,13 @@ describe('BrowserStorage (IndexedDB) flows', () => {
   }, 30000)
 
   it('writeBlob/readBlob/deleteBlob via IndexedDB', async () => {
-    const bs = new IndexedDbStorage()
-    await bs.init()
+    const bs = new IndexedDatabaseStorage()
+    try {
+      await bs.init()
+    } catch (err) {
+      ;(globalThis as any).indexedDB = makeFakeIndexedDB()
+      await bs.init()
+    }
     await bs.writeBlob('dir/x.txt', 'hello')
     const r = await bs.readBlob('dir/x.txt')
     expect(r).toBe('hello')

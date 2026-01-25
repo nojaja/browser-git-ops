@@ -1,11 +1,24 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals'
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 import { OpfsStorage } from '../../../src/virtualfs/opfsStorage'
+
+let __origNavigator: any = undefined
+let __origOriginPrivateFileSystem: any = undefined
 
 beforeEach(() => {
   jest.clearAllMocks()
-  // cleanup any globals
+  // save and cleanup any globals to avoid cross-test pollution
+  __origNavigator = (globalThis as any).navigator
+  __origOriginPrivateFileSystem = (globalThis as any).originPrivateFileSystem
   try { delete (globalThis as any).navigator } catch (_) {}
   try { delete (globalThis as any).originPrivateFileSystem } catch (_) {}
+})
+
+afterEach(() => {
+  // restore originals
+  try { (globalThis as any).navigator = __origNavigator } catch (_) {}
+  try { (globalThis as any).originPrivateFileSystem = __origOriginPrivateFileSystem } catch (_) {}
+  __origNavigator = undefined
+  __origOriginPrivateFileSystem = undefined
 })
 
 describe('OpfsStorage additional branches', () => {

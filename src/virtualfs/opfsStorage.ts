@@ -605,9 +605,11 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     const seg: 'workspace' | 'base' | 'conflict' | 'info' = segment ?? 'workspace'
     const segPrefix = seg === 'workspace' ? VAR_WORKSPACE : seg === 'base' ? VAR_BASE : seg === 'info' ? VAR_INFO : VAR_CONFLICT
 
+    // Return a plain array of relative file path strings; tests for OpfsStorage expect strings
     const keys = await this._safeListFilesAtPrefix(root, segPrefix)
     const p = prefix ? prefix.replace(/^\/+|\/+$/g, '') : ''
     const filtered = this._filterKeys(keys, p, recursive)
+    // Return array of objects { path, info } as required by StorageBackend interface
     return await this._collectInfoForKeys(root, filtered)
   }
 

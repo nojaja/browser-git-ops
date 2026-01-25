@@ -3,7 +3,7 @@ import VirtualFS from '../../../src/virtualfs/virtualfs'
 import { InMemoryStorage } from '../../../src/virtualfs/inmemoryStorage'
 
 describe('coverage fix: VirtualFS push cleanup', () => {
-  it.skip('applies create/update/delete and removes workspace blobs', async () => {
+  it('applies create/update/delete and removes workspace blobs', async () => {
     const vfs = new VirtualFS({ backend: new InMemoryStorage() })
     await vfs.init()
 

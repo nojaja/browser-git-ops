@@ -1,7 +1,19 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
-import { IndexedDbStorage } from '../../../src/virtualfs/indexedDbStorage'
+import { IndexedDatabaseStorage } from '../../../src/virtualfs/indexedDatabaseStorage'
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  // jest may be undefined or not provide clearAllMocks in some ESM setups
+  try { if (typeof jest !== 'undefined' && typeof jest.clearAllMocks === 'function') jest.clearAllMocks() } catch (_) {}
+  // ensure a fake indexedDB exists for each test (some files delete globals in afterEach)
+  // @ts-ignore
+  (globalThis as any).indexedDB = makeFakeIndexedDB()
+})
+
+afterEach(() => {
+  try { delete (globalThis as any).indexedDB } catch (e) { /* noop */ }
+  try { if (typeof jest !== 'undefined' && typeof jest.resetAllMocks === 'function') jest.resetAllMocks() } catch (_) {}
+  try { if (typeof jest !== 'undefined' && typeof jest.clearAllMocks === 'function') jest.clearAllMocks() } catch (_) {}
+})
 
 // provide a minimal fake indexedDB so BrowserStorage.openDb succeeds
 /** @returns {any} */
@@ -67,8 +79,8 @@ function makeFakeIndexedDB() {
 global.indexedDB = makeFakeIndexedDB()
 
 describe('BrowserStorage transaction/error branches', () => {
-  it.skip('tx rejects when transaction.onerror fires during writeIndex', async () => {
-    const bs = new IndexedDbStorage()
+  it('tx rejects when transaction.onerror fires during writeIndex', async () => {
+    const bs = new IndexedDatabaseStorage()
     // create custom DB that triggers tx.onerror after cb finishes
     const customDb: any = {
       /** @returns {any} */
@@ -100,7 +112,7 @@ describe('BrowserStorage transaction/error branches', () => {
   }, 30000)
 
   it('readIndex rejects when request.onerror fires', async () => {
-    const bs = new IndexedDbStorage()
+    const bs = new IndexedDatabaseStorage()
     const customDb: any = {
       /** @returns {any} */
       transaction: (_: string, _mode: string) => {

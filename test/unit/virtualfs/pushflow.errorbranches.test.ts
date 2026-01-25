@@ -10,7 +10,7 @@ afterEach(async () => {
 })
 
 describe('VirtualFS push error branches', () => {
-  it.skip('throws when updateRef indicates non-fast-forward (contains 422)', async () => {
+  it('throws when updateRef indicates non-fast-forward (contains 422)', async () => {
     const storage = new InMemoryStorage()
     const vfs = new VirtualFS({ backend: storage })
     await vfs.init()
@@ -36,7 +36,7 @@ describe('VirtualFS push error branches', () => {
     await expect(vfs.push(input, adapter as any)).rejects.toThrow('非互換な更新')
   })
 
-  it.skip('continues locally when updateRef throws non-422 error', async () => {
+  it('continues locally when updateRef throws non-422 error', async () => {
     const storage = new InMemoryStorage()
     const vfs = new VirtualFS({ backend: storage })
     await vfs.init()

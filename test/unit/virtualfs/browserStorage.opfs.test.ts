@@ -4,6 +4,12 @@ beforeEach(() => {
   jest.clearAllMocks()
 })
 
+afterEach(() => {
+  try { delete (globalThis as any).indexedDB } catch (e) { /* noop */ }
+  try { delete (globalThis as any).navigator } catch (e) { /* noop */ }
+  jest.resetAllMocks()
+  jest.clearAllMocks()
+})
 // minimal fake IndexedDB (same shape used by other tests)
 /**
  * Create a minimal fake indexedDB for tests
