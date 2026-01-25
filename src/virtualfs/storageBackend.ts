@@ -78,7 +78,7 @@ export interface StorageBackendConstructor {
    * このストレージ実装で利用可能なルートパスあるいはDB名の一覧を返す。
    * 例えばローカルFS実装ならベースディレクトリ名、IndexedDB実装ならDB名候補を返す等。
    */
-  availableRoots(): string[]
+  availableRoots(): string[] | Promise<string[]>
 }
 
 export default StorageBackend

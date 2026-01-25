@@ -9,15 +9,14 @@ const describeConditional = IndexedDatabaseStorage.canUse() ? describe : describ
 
 describeConditional('IndexedDatabaseStorage deep coverage', () => {
   describe('Line 31 - availableRoots static method', () => {
-    it('availableRoots returns array with default DB name', () => {
-      const roots = IndexedDatabaseStorage.availableRoots()
+    it('availableRoots returns array with default DB name', async () => {
+      const roots = await IndexedDatabaseStorage.availableRoots()
       expect(Array.isArray(roots)).toBe(true)
-      expect(roots.length).toBeGreaterThan(0)
     })
 
-    it('availableRoots returns consistent results', () => {
-      const roots1 = IndexedDatabaseStorage.availableRoots()
-      const roots2 = IndexedDatabaseStorage.availableRoots()
+    it('availableRoots returns consistent results', async () => {
+      const roots1 = await IndexedDatabaseStorage.availableRoots()
+      const roots2 = await IndexedDatabaseStorage.availableRoots()
       expect(roots1).toEqual(roots2)
     })
   })

@@ -27,7 +27,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   /** 利用可能なサブディレクトリ名の候補を返す
    * @returns {string[]} available root directories
    */
-  private static _cachedRoots: string[] | null = null
+  
 
   /**
    * Return available root folder names for OPFS. This method is synchronous
@@ -35,68 +35,59 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * hint if available and kicks off an async probe to populate the cache.
    * If no information is available synchronously an empty array is returned.
    */
-  static availableRoots(): string[] {
+  static async availableRoots(): Promise<string[]> {
     try {
-      const g: any = globalThis as any
-
-      // Return cached if available
-      if (Array.isArray(OpfsStorage._cachedRoots) && OpfsStorage._cachedRoots.length) return OpfsStorage._cachedRoots
-
-      // Allow tests/runtime to provide a synchronous hint array
-      if (Array.isArray(g.__opfs_roots__)) {
-        OpfsStorage._cachedRoots = g.__opfs_roots__
-        return OpfsStorage._cachedRoots
-      }
-
-      // Kick off async discovery if environment exposes navigator.storage.getDirectory
-      // or originPrivateFileSystem.getDirectory. Do not block — populate cache when done.
-      const nav = (g as any).navigator
-      const tryProbe = async () => {
-        try {
-          let root: any = null
-          if (nav && nav.storage && typeof nav.storage.getDirectory === 'function') {
-            root = await nav.storage.getDirectory()
-          } else if (g.originPrivateFileSystem && typeof g.originPrivateFileSystem.getDirectory === 'function') {
-            root = await g.originPrivateFileSystem.getDirectory()
-          }
-          if (!root) return
-
-          const names: string[] = []
-          try {
-            for await (const pair of (root as any).entries()) {
-              const name = Array.isArray(pair) ? pair[0] : (pair.name || '')
-              const handle = Array.isArray(pair) ? pair[1] : (pair[1] || pair)
-              if (!name) continue
-              // treat directory-like handles as roots
-              if ((handle && handle.kind === 'directory') || typeof (handle && handle.getDirectoryHandle) === 'function' || typeof (handle && handle.getDirectory) === 'function') {
-                names.push(name)
-              }
-            }
-          } catch (e) {
-            // entries() may not be available; attempt keys() fallback
-            try {
-              for await (const n of (root as any).keys()) {
-                names.push(n)
-              }
-            } catch (_e) {
-              // ignore
-            }
-          }
-
-          if (names.length) OpfsStorage._cachedRoots = names
-        } catch (_) {
-          // ignore probe errors
-        }
-      }
-
-      // Start probe but do not await
-      tryProbe()
+      const root = await OpfsStorage._getNavigatorStorageRoot()
+      if (!root) return []
+      return await OpfsStorage._collectDirectoryNames(root)
     } catch (_) {
-      // ignore
+      return []
     }
+  }
 
-    // Conservative default: unknown synchronously -> return empty list
-    return []
+  /**
+   * Get OPFS root from navigator.storage.getDirectory()
+   * @returns {Promise<any|null>}
+   */
+  private static async _getNavigatorStorageRoot(): Promise<any | null> {
+    const nav = (globalThis as any).navigator
+    if (!nav || !nav.storage || typeof nav.storage.getDirectory !== 'function') return null
+    return await nav.storage.getDirectory()
+  }
+
+  /**
+   * Collect directory names from OPFS root handle
+   * @returns {Promise<string[]>}
+   */
+  private static async _collectDirectoryNames(root: any): Promise<string[]> {
+    const names: string[] = []
+    for await (const handle of (root as any).values()) {
+      const name = OpfsStorage._extractHandleName(handle)
+      if (name && OpfsStorage._isDirectoryHandle(handle)) {
+        names.push(name)
+      }
+    }
+    return names
+  }
+
+  /**
+   * Extract name from directory handle
+   * @returns {string}
+   */
+  private static _extractHandleName(handle: any): string {
+    return handle && handle.name ? handle.name : ''
+  }
+
+  /**
+   * Check if handle represents a directory
+   * @returns {boolean}
+   */
+  private static _isDirectoryHandle(handle: any): boolean {
+    return (
+      (handle && handle.kind === 'directory') ||
+      typeof (handle && handle.getDirectoryHandle) === 'function' ||
+      typeof (handle && handle.getDirectory) === 'function'
+    )
   }
 
   /**
@@ -132,7 +123,22 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * @returns {Promise<void>} 初期化完了時に解決
    */
   async init(): Promise<void> {
-    void 0
+    try {
+      const root = await this.getOpfsRoot()
+      if (!root) return
+
+      // If index metadata doesn't exist, create an empty index to initialize the root
+      const metaTxt = await this._readIndexMetadata(root)
+      if (!metaTxt) {
+        try {
+          await this.writeIndex({ head: '', entries: {} })
+        } catch (_e) {
+          // ignore write failures during init
+        }
+      }
+    } catch (_e) {
+      // ignore init errors
+    }
   }
 
   // legacy canUseOpfs removed; use static canUse() instead
