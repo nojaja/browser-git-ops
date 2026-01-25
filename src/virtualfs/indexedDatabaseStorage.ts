@@ -29,33 +29,38 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
    * @returns {string[]} available root names
    */
   static async availableRoots(): Promise<string[]> {
+    const g: any = globalThis as any
+    // If tests/runtime already provided a synchronous hint, return it.
+    if (Array.isArray(g.__indexeddb_names__)) return g.__indexeddb_names__
+
+    const idb = g.indexedDB
+    if (!idb) return []
+
+    // If indexedDB.databases is not supported, return empty list
+    if (typeof idb.databases !== 'function') return []
+
+    // Delegate the actual retrieval to a helper to keep cognitive complexity low
     try {
-      const g: any = globalThis as any
-
-      // If tests/runtime already provided a synchronous hint, return it.
-      if (Array.isArray(g.__indexeddb_names__)) return g.__indexeddb_names__
-
-      const idb = g.indexedDB
-      if (!idb) return []
-
-      // If indexedDB.databases is not supported, return empty list
-      if (typeof idb.databases !== 'function') return []
-
-      try {
-        const databases = await idb.databases()
-        const names: string[] = []
-        for await (const entry of (databases as any)) {
-          if (entry && typeof entry.name === 'string') names.push(entry.name)
-        }
-        const unique = Array.from(new Set(names))
-        if (typeof g === 'object' && g !== null) Reflect.set(g, '__indexeddb_names__', unique)
-        return unique
-      } catch (_) {
-        return []
-      }
-    } catch (_) {
+      const unique = await IndexedDatabaseStorage._namesFromDatabases(idb)
+      if (typeof g === 'object' && g !== null) Reflect.set(g, '__indexeddb_names__', unique)
+      return unique
+    } catch (error) {
       return []
     }
+  }
+
+  /**
+   * Retrieve unique database names from `indexedDB.databases()` result.
+   * @param idb IndexedDB global object
+   * @returns {Promise<string[]>} unique database names
+   */
+  private static async _namesFromDatabases(idb: any): Promise<string[]> {
+    const databases = await idb.databases()
+    const names: string[] = []
+    for await (const entry of (databases as any)) {
+      if (entry && typeof entry.name === 'string') names.push(entry.name)
+    }
+    return Array.from(new Set(names))
   }
  
 

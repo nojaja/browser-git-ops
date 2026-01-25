@@ -25,15 +25,15 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   }
 
   /** 利用可能なサブディレクトリ名の候補を返す
-   * @returns {string[]} available root directories
+   * @returns {Promise<string[]>} available root directories
    */
-  
 
   /**
    * Return available root folder names for OPFS. This method is synchronous
    * to satisfy the StorageBackendConstructor contract; it returns a cached
    * hint if available and kicks off an async probe to populate the cache.
    * If no information is available synchronously an empty array is returned.
+    * @returns {Promise<string[]>} available root directories
    */
   static async availableRoots(): Promise<string[]> {
     try {
@@ -123,21 +123,14 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * @returns {Promise<void>} 初期化完了時に解決
    */
   async init(): Promise<void> {
-    try {
-      const root = await this.getOpfsRoot()
-      if (!root) return
+    const root = await this.getOpfsRoot()
+    if (!root) return
 
-      // If index metadata doesn't exist, create an empty index to initialize the root
-      const metaTxt = await this._readIndexMetadata(root)
-      if (!metaTxt) {
-        try {
-          await this.writeIndex({ head: '', entries: {} })
-        } catch (_e) {
-          // ignore write failures during init
-        }
-      }
-    } catch (_e) {
-      // ignore init errors
+    // If index metadata doesn't exist, create an empty index to initialize the root
+    const metaTxt = await this._readIndexMetadata(root)
+    if (!metaTxt) {
+      const canWriteIndex = typeof (root as any).getDirectoryHandle === 'function' || typeof (root as any).getDirectory === 'function' || typeof (root as any).getFileHandle === 'function'
+      if (canWriteIndex) await this.writeIndex({ head: '', entries: {} })
     }
   }
 
