@@ -2,8 +2,9 @@ import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals
 import OpfsStorage from '../../../src/virtualfs/opfsStorage'
 
 describe('OpfsStorage additional failure branches', () => {
-  beforeEach(() => jest.clearAllMocks())
-  afterEach(() => jest.resetAllMocks())
+  let getOpfsRootSpy: any = null
+  beforeEach(() => { jest.clearAllMocks(); getOpfsRootSpy = null })
+  afterEach(() => { if (getOpfsRootSpy) { getOpfsRootSpy.mockRestore(); getOpfsRootSpy = null } ; jest.resetAllMocks() })
 
   it('deleteBlob uses fileHandle.remove when removeEntry not present', async () => {
     const storage = new OpfsStorage()
@@ -15,8 +16,8 @@ describe('OpfsStorage additional failure branches', () => {
         name
       }))
     } as any
-    // mock getOpfsRoot to return our dir
-    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => dir
+    // mock getOpfsRoot to return our dir (use spy so we can restore)
+    getOpfsRootSpy = jest.spyOn(OpfsStorage.prototype as any, 'getOpfsRoot').mockImplementation(async () => dir)
 
     // should not throw
     await expect(storage.deleteBlob('a/b/c.txt')).resolves.toBeUndefined()
@@ -25,15 +26,26 @@ describe('OpfsStorage additional failure branches', () => {
 
   it('writeBlob/readBlob handles nested path creation', async () => {
     const storage = new OpfsStorage()
-    const created: Record<string, string> = {}
-    const dir = {
-      getDirectory: jest.fn(async (name: string) => dir),
-      getFileHandle: jest.fn(async (name: string, opts?: any) => ({
-        createWritable: jest.fn(async () => ({ write: async (d: any) => { created[name] = d }, close: async () => {} })),
-        getFile: jest.fn(async () => ({ text: async () => created[name] || '' }))
-      }))
-    } as any
-    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => dir
+    const allFiles = new Map<string, string>()
+    
+    function makeDir(pathPrefix: string): any {
+      return {
+        getDirectory: jest.fn(async (name: string) => makeDir(pathPrefix ? `${pathPrefix}/${name}` : name)),
+        getFileHandle: jest.fn(async (name: string, opts?: any) => {
+          const fullKey = pathPrefix ? `${pathPrefix}/${name}` : name
+          return {
+            createWritable: jest.fn(async () => ({ 
+              write: async (d: any) => { allFiles.set(fullKey, d) }, 
+              close: async () => {} 
+            })),
+            getFile: jest.fn(async () => ({ text: async () => allFiles.get(fullKey) || '' }))
+          }
+        })
+      }
+    }
+    
+    const dir = makeDir('')
+    getOpfsRootSpy = jest.spyOn(OpfsStorage.prototype as any, 'getOpfsRoot').mockImplementation(async () => dir)
 
     await storage.writeBlob('nested/dir/f.txt', 'ok data')
     const buf = await storage.readBlob('nested/dir/f.txt')
@@ -45,7 +57,7 @@ describe('OpfsStorage additional failure branches', () => {
   it('writeBlob falls back to IndexedDB when OPFS write throws', async () => {
     const storage = new OpfsStorage()
     // mock getOpfsRoot to throw to force fallback
-    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => { throw new Error('opfs unavailable') }
+    getOpfsRootSpy = jest.spyOn(OpfsStorage.prototype as any, 'getOpfsRoot').mockImplementation(async () => { throw new Error('opfs unavailable') })
     // provide a fake indexedDB backend used by OpfsStorage internals
     const indexedFallback = {
       writeBlob: jest.fn(async (_p: string, _b: any) => true),
@@ -64,7 +76,7 @@ describe('OpfsStorage additional failure branches', () => {
     recursiveDir.getDirectoryHandle = jest.fn(async () => recursiveDir)
     recursiveDir.getFileHandle = jest.fn(async () => { throw new Error('boom') })
 
-    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => recursiveDir
+    getOpfsRootSpy = jest.spyOn(OpfsStorage.prototype as any, 'getOpfsRoot').mockImplementation(async () => recursiveDir)
 
     // Should not throw and should resolve (errors are swallowed)
     await expect(storage.deleteBlob('x/y/z.txt')).resolves.toBeUndefined()
@@ -74,7 +86,7 @@ describe('OpfsStorage additional failure branches', () => {
     const storage = new OpfsStorage()
     // root without any directory/file APIs
     const badRoot: any = {}
-    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => badRoot
+    getOpfsRootSpy = jest.spyOn(OpfsStorage.prototype as any, 'getOpfsRoot').mockImplementation(async () => badRoot)
 
     await expect(storage.writeBlob('a/b/c.txt', 'x')).rejects.toThrow()
   })
@@ -84,22 +96,35 @@ describe('OpfsStorage additional failure branches', () => {
     const root = {
       getFileHandle: jest.fn(async () => ({ getFile: async () => { throw new Error('nope') } }))
     } as any
-    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => root
+    getOpfsRootSpy = jest.spyOn(OpfsStorage.prototype as any, 'getOpfsRoot').mockImplementation(async () => root)
 
     const res = await storage.readIndex()
-    expect(res).toBeNull()
+    // When error occurs, readIndex returns default empty index
+    expect(res).toEqual({ head: '', entries: {} })
   })
 
   it('writeBlob/readBlob works with getDirectoryHandle API', async () => {
     const storage = new OpfsStorage()
-    const created: Record<string, string> = {}
-    const root: any = {}
-    root.getDirectoryHandle = jest.fn(async (p: string) => root)
-    root.getFileHandle = jest.fn(async (name: string, opts?: any) => ({
-      createWritable: jest.fn(async () => ({ write: async (d: any) => { created[name] = d }, close: async () => {} })),
-      getFile: jest.fn(async () => ({ text: async () => created[name] || '' }))
-    }))
-    ;(OpfsStorage.prototype as any).getOpfsRoot = async () => root
+    const allFiles = new Map<string, string>()
+    
+    function makeDir(pathPrefix: string): any {
+      return {
+        getDirectoryHandle: jest.fn(async (name: string, opts?: any) => makeDir(pathPrefix ? `${pathPrefix}/${name}` : name)),
+        getFileHandle: jest.fn(async (name: string, opts?: any) => {
+          const fullKey = pathPrefix ? `${pathPrefix}/${name}` : name
+          return {
+            createWritable: jest.fn(async () => ({ 
+              write: async (d: any) => { allFiles.set(fullKey, d) }, 
+              close: async () => {} 
+            })),
+            getFile: jest.fn(async () => ({ text: async () => allFiles.get(fullKey) || '' }))
+          }
+        })
+      }
+    }
+    
+    const root = makeDir('')
+    getOpfsRootSpy = jest.spyOn(OpfsStorage.prototype as any, 'getOpfsRoot').mockImplementation(async () => root)
 
     await storage.writeBlob('dir1/dir2/f.txt', 'hello-handle')
     const out = await storage.readBlob('dir1/dir2/f.txt')

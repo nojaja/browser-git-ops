@@ -470,9 +470,9 @@ test.describe('VirtualFS E2E (mocked API)', () => {
       if (first) { first = false; await route.fulfill({ status: 500, body: 'fail' }); }
       else { await route.continue(); }
     });
-    // attempt push and then retry (both attempts tolerated)
-    try { await page.evaluate(() => window.vfs.push()); } catch (e) {}
-    try { await page.evaluate(() => window.vfs.push()); } catch (e) {}
+    // attempt push and then retry (first attempt should fail, second should succeed)
+    await expect(page.evaluate(() => window.vfs.push())).rejects.toBeDefined();
+    await expect(page.evaluate(() => window.vfs.push())).resolves.toBeUndefined();
 
     // Then: no duplicate commits created (at most one successful commit)
     const commits = api.getCommits();

@@ -15,7 +15,8 @@ describe('VirtualFS push error branches', () => {
     const vfs = new VirtualFS({ backend: storage })
     await vfs.init()
     // set head so parentSha check passes
-    vfs.getIndex().head = 'parent'
+    const idx1 = await vfs.getIndex()
+    idx1.head = 'parent'
 
     const adapter = {
       createCommitWithActions: async (branch: string, message: string, changes: any[]) => {
@@ -39,7 +40,8 @@ describe('VirtualFS push error branches', () => {
     const storage = new InMemoryStorage()
     const vfs = new VirtualFS({ backend: storage })
     await vfs.init()
-    vfs.getIndex().head = 'parent2'
+    const idx2 = await vfs.getIndex()
+    idx2.head = 'parent2'
     const adapter = {
       createCommitWithActions: async (branch: string, message: string, changes: any[]) => {
         return 'commit-sha-ok'
@@ -58,6 +60,6 @@ describe('VirtualFS push error branches', () => {
     const res = await vfs.push(input, adapter as any)
     expect(res.commitSha).toBe('commit-sha-ok')
     // index should be updated even when updateRef warned
-    expect(vfs.getIndex().head).toBe('commit-sha-ok')
+    expect((await vfs.getIndex()).head).toBe('commit-sha-ok')
   })
 })

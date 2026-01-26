@@ -8,7 +8,8 @@ describe('coverage fix: VirtualFS push cleanup', () => {
     await vfs.init()
 
     // set head so push pre-checks pass
-    vfs.getIndex().head = 'parent'
+    const idx = await vfs.getIndex()
+    idx.head = 'parent'
 
     const input: any = {
       parentSha: 'parent',

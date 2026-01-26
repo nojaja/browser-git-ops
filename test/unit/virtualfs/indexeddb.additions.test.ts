@@ -1,9 +1,13 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
-import IndexedDbStorage from '../../../src/virtualfs/indexedDbStorage'
+import IndexedDbStorage from '../../../src/virtualfs/indexedDatabaseStorage'
 
 describe('IndexedDbStorage basic open/init branches', () => {
   beforeEach(() => jest.clearAllMocks())
-  afterEach(() => jest.resetAllMocks())
+  afterEach(() => {
+    try { delete (globalThis as any).indexedDB } catch (e) { /* noop */ }
+    jest.resetAllMocks()
+    jest.clearAllMocks()
+  })
 
   function makeFakeIndexedDB() {
     const db: any = {

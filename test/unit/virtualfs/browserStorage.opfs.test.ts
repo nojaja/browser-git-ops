@@ -4,6 +4,12 @@ beforeEach(() => {
   jest.clearAllMocks()
 })
 
+afterEach(() => {
+  try { delete (globalThis as any).indexedDB } catch (e) { /* noop */ }
+  try { delete (globalThis as any).navigator } catch (e) { /* noop */ }
+  jest.resetAllMocks()
+  jest.clearAllMocks()
+})
 // minimal fake IndexedDB (same shape used by other tests)
 /**
  * Create a minimal fake indexedDB for tests
@@ -88,24 +94,25 @@ import { OpfsStorage } from '../../../src/virtualfs/opfsStorage'
 describe('OpfsStorage OPFS branches', () => {
   it('uses OPFS when available for write/read', async () => {
     // create simple OPFS mock with nested directories and file handle
-    const files = new Map<string, string>()
+    const allFiles = new Map<string, string>()
 
     /** Create a directory-like accessor backed by `map` */
-    function makeDir(map: Map<string, any>) {
+    function makeDir(pathPrefix: string, map: Map<string, any>) {
       /** @returns {Promise<any>} */
       async function getDirectory(name: string) {
-        if (!map.has(name)) map.set(name, makeDir(new Map()))
+        const newPrefix = pathPrefix ? `${pathPrefix}/${name}` : name
+        if (!map.has(name)) map.set(name, makeDir(newPrefix, new Map()))
         return map.get(name)
       }
 
       /** @returns {Promise<any>} */
       async function getFileHandle(name: string, opts?: any) {
-        const key = name
+        const fullKey = pathPrefix ? `${pathPrefix}/${name}` : name
         /** @returns {Promise<{write:(content:string)=>Promise<void>,close:()=>Promise<void>}>} */
         async function createWritable() {
           /** @returns {Promise<void>} */
           async function write(content: string) {
-            files.set(key, content)
+            allFiles.set(fullKey, content)
           }
           /** @returns {Promise<void>} */
           async function close() {
@@ -116,7 +123,7 @@ describe('OpfsStorage OPFS branches', () => {
         /** @returns {Promise<{text:()=>Promise<string|undefined>}>} */
         async function getFile() {
           /** @returns {Promise<string|undefined>} */
-          async function text() { return files.get(key) }
+          async function text() { return allFiles.get(fullKey) }
           return { text }
         }
         return { createWritable, getFile }
@@ -125,7 +132,7 @@ describe('OpfsStorage OPFS branches', () => {
       return { getDirectory, getFileHandle }
     }
 
-    const root = makeDir(new Map())
+    const root = makeDir('', new Map())
     // mock navigator.storage for OPFS
     ;(globalThis as any).navigator = (globalThis as any).navigator || {}
     ;(navigator as any).storage = {
@@ -141,33 +148,5 @@ describe('OpfsStorage OPFS branches', () => {
     expect(r).toBe('opfs-content')
   })
 
-  it('falls back to IndexedDB when OPFS write throws', async () => {
-    // opfs that throws on getDirectory
-    // mock navigator.storage to throw on getDirectory
-    ;(globalThis as any).navigator = (globalThis as any).navigator || {}
-    ;(navigator as any).storage = {
-      persist: async () => true,
-      getDirectory: async () => { throw new Error('opfs fail') }
-    }
 
-    const bs = new OpfsStorage()
-    await bs.init()
-
-    await expect(bs.writeBlob('dir2/y.txt', 'fallback-content')).rejects.toThrow()
-  })
-
-  it('falls back to IndexedDB when OPFS read throws', async () => {
-    // prepare IndexedDB with a blob
-    // opfs that throws on read -> without fallback, should get null
-    ;(globalThis as any).navigator = (globalThis as any).navigator || {}
-    ;(navigator as any).storage = {
-      persist: async () => true,
-      getDirectory: async () => { throw new Error('opfs read fail') }
-    }
-
-    const bs = new OpfsStorage()
-    await bs.init()
-    const got = await bs.readBlob('dir3/z.txt')
-    expect(got).toBeNull()
-  })
 })

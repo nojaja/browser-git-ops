@@ -11,7 +11,7 @@ type AnyLib = any;
 // Import library source directly so esbuild will include it in the examples bundle.
 // Import library source so esbuild bundles proper ESM exports (GitHubAdapter/GitLabAdapter/VirtualFS)
 // Import named exports and assemble a `lib` object so properties are present at runtime.
-import { GitHubAdapter, GitLabAdapter, VirtualFS, OpfsStorage, IndexedDbStorage } from 'browser-git-ops';
+import * as GitOpsLib from 'browser-git-ops';
 
 function el(id: string) { return document.getElementById(id)! }
 
@@ -21,6 +21,24 @@ function renderUI() {
       <h1>browser-git-ops - サンプル UI</h1>
       <p>GitHub/GitLab のリポジトリ情報と Personal Access Token を入力してライブラリを試せます。</p>
 
+      <section style="margin-top:18px">
+        <h2>Storage: availableRoots</h2>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="flex:1">
+            <h3 style="margin:6px 0">OPFS</h3>
+            <select id="opfsRootsList" multiple size="6" style="background:#fff;border:1px solid #ddd;padding:6px;min-height:80px;margin:0;width:100%"></select>
+          </div>
+          <div style="flex:1">
+            <h3 style="margin:6px 0">IndexedDB</h3>
+            <select id="indexedDbRootsList" multiple size="6" style="background:#fff;border:1px solid #ddd;padding:6px;min-height:80px;margin:0;width:100%"></select>
+          </div>
+          <div style="flex:1">
+            <h3 style="margin:6px 0">InMemory</h3>
+            <select id="inMemoryRootsList" multiple size="6" style="background:#fff;border:1px solid #ddd;padding:6px;min-height:80px;margin:0;width:100%"></select>
+          </div>
+        </div>
+      </section>
+      
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
         <label>Repository URL: <input id="repoInput" style="width:420px" placeholder="https://github.com/owner/repo"/></label>
         <label>Token: <input id="tokenInput" style="width:300px" placeholder="ghp_xxx or glpat_xxx"/></label>
@@ -35,14 +53,13 @@ function renderUI() {
       </div>
 
       <section style="margin-top:18px">
-        <h2>結果</h2>
-        <pre id="output" style="background:#f7f7f8;padding:12px;border-radius:6px;min-height:120px;white-space:pre-wrap"></pre>
-      </section>
-
-      <section style="margin-top:18px">
         <h2>操作</h2>
           <button id="connectOpfs">opfsStorageを接続</button>
+          <button id="connectInMemory">InMemoryStorageを接続</button>
           <button id="connectIndexedDb">IndexedDbStorageを接続</button>
+          <button id="opfsRoots">opfs の availableRoots を表示</button>
+          <button id="indexedDbRoots">IndexedDb の availableRoots を表示</button>
+          <button id="inMemoryRoots">InMemory の availableRoots を表示</button>
           <button id="listAdapters">アダプタ情報を表示</button>
           <button id="fetchRemote">リモート一覧をfetch</button>
           <button id="resolveConflict">競合を解消済にする</button>
@@ -55,6 +72,11 @@ function renderUI() {
             <button id="renameAndPush">既存ファイルを名前変更</button>
           <button id="showSnapshot">スナップショット（ローカル）一覧表示</button>
       </section>
+
+      <section style="margin-top:18px">
+        <h2>結果</h2>
+        <pre id="output" style="background:#f7f7f8;padding:12px;border-radius:6px;min-height:120px;white-space:pre-wrap"></pre>
+      </section>
     </div>
   `
 }
@@ -62,6 +84,51 @@ function renderUI() {
 function appendOutput(text: string) {
   const out = el('output') as HTMLPreElement
   out.textContent = out.textContent + text + '\n'
+}
+
+function setListContents(id: string, items: any[] | null) {
+  try {
+    const container = document.getElementById(id)
+    if (!container) return
+    // Clear existing contents
+    if ((container as HTMLSelectElement).options) {
+      const sel = container as HTMLSelectElement
+      // remove all options
+      while (sel.options.length) sel.remove(0)
+      if (!items || items.length === 0) {
+        const opt = document.createElement('option')
+        opt.disabled = true
+        opt.selected = true
+        opt.textContent = '（なし）'
+        sel.appendChild(opt)
+        return
+      }
+      for (const it of items) {
+        const opt = document.createElement('option')
+        const v = typeof it === 'string' || typeof it === 'number' ? String(it) : JSON.stringify(it)
+        opt.value = v
+        opt.textContent = v
+        sel.appendChild(opt)
+      }
+      return
+    }
+    // Fallback for non-select containers (kept for compatibility)
+    container.innerHTML = ''
+    if (!items || items.length === 0) {
+      const li = document.createElement('li')
+      li.style.color = '#777'
+      li.textContent = '（なし）'
+      container.appendChild(li)
+      return
+    }
+    for (const it of items) {
+      const li = document.createElement('li')
+      li.textContent = String(it)
+      container.appendChild(li)
+    }
+  } catch (_e) {
+    // ignore DOM errors
+  }
 }
 
 async function main() {
@@ -127,14 +194,15 @@ async function main() {
   })
 
   // Use the bundled library at build time. This replaces runtime dynamic loading.
-    // Use the bundled library at build time. Assemble `lib` from named imports.
-    const lib: AnyLib = {
-      GitHubAdapter: GitHubAdapter,
-      GitLabAdapter: GitLabAdapter,
-      VirtualFS: VirtualFS,
-      OpfsStorage: OpfsStorage,
-      IndexedDbStorage: IndexedDbStorage,
-    }
+  // Use the bundled library at build time. Assemble `lib` from named imports.
+  const lib: AnyLib = {
+    GitHubAdapter: (GitOpsLib as any).GitHubAdapter,
+    GitLabAdapter: (GitOpsLib as any).GitLabAdapter,
+    VirtualFS: (GitOpsLib as any).VirtualFS,
+    OpfsStorage: (GitOpsLib as any).OpfsStorage,
+    InMemoryStorage: (GitOpsLib as any).InMemoryStorage,
+    IndexedDatabaseStorage: (GitOpsLib as any).IndexedDatabaseStorage,
+  }
 
   // keep a reference to the created vfs so other buttons reuse it
   let currentVfs: any | null = null
@@ -164,7 +232,7 @@ async function main() {
       }
 
       // Normalize path segments and strip trailing .git
-        const path = parsed.pathname.replace(/(^\/+|\/+$)/g, '')
+      const path = parsed.pathname.replace(/(^\/+|\/+$)/g, '')
       const rawSegments = path ? path.split('/') : []
       const segments = rawSegments.map((s) => s.replace(/\.git$/i, ''))
 
@@ -245,7 +313,7 @@ async function main() {
 
   const connectOpfsBtn = el('connectOpfs') as HTMLButtonElement
   connectOpfsBtn.addEventListener('click', () => {
-    ;(async () => {
+    ; (async () => {
       try {
         if (!lib.VirtualFS) {
           appendOutput('[connectOpfsBtn]バンドルに VirtualFS が含まれていません')
@@ -255,16 +323,28 @@ async function main() {
           appendOutput('[connectOpfsBtn]バンドルに OpfsStorage が含まれていません')
           return
         }
-        const backend = new lib.OpfsStorage()
+        const rootNameInput = (prompt('OPFS のルート名を入力してください（空欄でデフォルト）') || '').trim()
+        const backend = rootNameInput ? new lib.OpfsStorage(rootNameInput) : new lib.OpfsStorage()
         const vfs = new lib.VirtualFS({ backend })
+        if (currentVfs) {
+          appendOutput('[connectOpfsBtn]既存の VirtualFS を新しいものに切り替えます')
+          try {
+            if (typeof (currentVfs as any).close === 'function') await (currentVfs as any).close()
+            else if (typeof (currentVfs as any).dispose === 'function') await (currentVfs as any).dispose()
+          } catch (e) {
+            appendOutput('[connectOpfsBtn]既存 VirtualFS のクリーンアップで例外: ' + String(e))
+          }
+        }
         currentVfs = vfs
-        appendOutput('[connectOpfsBtn]VirtualFS を作成し OpfsStorage を接続しました')
+        appendOutput('[connectOpfsBtn]VirtualFS を作成し OpfsStorage を接続しました' + (rootNameInput ? ` (root=${rootNameInput})` : ''))
         try {
           await vfs.init()
           appendOutput('[connectOpfsBtn]VirtualFS.init() 実行済み (OpfsStorage)')
         } catch (e) {
           appendOutput('[connectOpfsBtn]VirtualFS.init()/IO で例外: ' + String(e))
         }
+        // 接続後に OPFS の availableRoots を再取得して UI を更新
+        if (typeof opfsRootsBtn !== 'undefined' && opfsRootsBtn) opfsRootsBtn.click()
       } catch (e) {
         appendOutput('[connectOpfsBtn]OpfsStorage 接続で例外: ' + String(e))
       }
@@ -273,31 +353,228 @@ async function main() {
 
   const connectIndexedDbBtn = el('connectIndexedDb') as HTMLButtonElement
   connectIndexedDbBtn.addEventListener('click', () => {
-    ;(async () => {
+    ; (async () => {
       try {
         if (!lib.VirtualFS) {
           appendOutput('[connectIndexedDbBtn]バンドルに VirtualFS が含まれていません')
           return
         }
-        if (!lib.IndexedDbStorage) {
-          appendOutput('[connectIndexedDbBtn]バンドルに IndexedDbStorage が含まれていません')
+        if (!lib.IndexedDatabaseStorage) {
+          appendOutput('[connectIndexedDbBtn]バンドルに IndexedDatabaseStorage が含まれていません')
           return
         }
-        const backend = new lib.IndexedDbStorage()
+        const dbNameInput = (prompt('IndexedDB の DB 名を入力してください（空欄でデフォルト）') || '').trim()
+        const backend = dbNameInput ? new lib.IndexedDatabaseStorage(dbNameInput) : new lib.IndexedDatabaseStorage()
         const vfs = new lib.VirtualFS({ backend })
+        if (currentVfs) {
+          appendOutput('[connectIndexedDbBtn]既存の VirtualFS を新しいものに切り替えます')
+          try {
+            if (typeof (currentVfs as any).close === 'function') await (currentVfs as any).close()
+            else if (typeof (currentVfs as any).dispose === 'function') await (currentVfs as any).dispose()
+          } catch (e) {
+            appendOutput('[connectIndexedDbBtn]既存 VirtualFS のクリーンアップで例外: ' + String(e))
+          }
+        }
         currentVfs = vfs
-        appendOutput('[connectIndexedDbBtn]VirtualFS を作成し IndexedDbStorage を接続しました')
+        appendOutput('[connectIndexedDbBtn]VirtualFS を作成し IndexedDatabaseStorage を接続しました' + (dbNameInput ? ` (db=${dbNameInput})` : ''))
         try {
           await vfs.init()
-          appendOutput('[connectIndexedDbBtn]VirtualFS.init() 実行済み (IndexedDbStorage)')
+          appendOutput('[connectIndexedDbBtn]VirtualFS.init() 実行済み (IndexedDatabaseStorage)')
         } catch (e) {
           appendOutput('[connectIndexedDbBtn]VirtualFS.init()/IO で例外: ' + String(e))
         }
+        // 接続後に IndexedDB の availableRoots を再取得して UI を更新
+        if (typeof indexedDbRootsBtn !== 'undefined' && indexedDbRootsBtn) indexedDbRootsBtn.click()
       } catch (e) {
-        appendOutput('[connectIndexedDbBtn]IndexedDbStorage 接続で例外: ' + String(e))
+        appendOutput('[connectIndexedDbBtn]IndexedDatabaseStorage 接続で例外: ' + String(e))
       }
     })()
   })
+
+  const connectInMemoryBtn = el('connectInMemory') as HTMLButtonElement
+  connectInMemoryBtn.addEventListener('click', () => {
+    ; (async () => {
+      try {
+        if (!lib.VirtualFS) {
+          appendOutput('[connectInMemoryBtn]バンドルに VirtualFS が含まれていません')
+          return
+        }
+        if (!lib.InMemoryStorage) {
+          appendOutput('[connectInMemoryBtn]バンドルに InMemoryStorage が含まれていません')
+          return
+        }
+        const rootNameInput = (prompt('InMemory のルート名を入力してください（空欄でデフォルト）') || '').trim()
+        const backend = rootNameInput ? new lib.InMemoryStorage(rootNameInput) : new lib.InMemoryStorage()
+        const vfs = new lib.VirtualFS({ backend })
+        if (currentVfs) {
+          appendOutput('[connectInMemoryBtn]既存の VirtualFS を新しいものに切り替えます')
+          try {
+            if (typeof (currentVfs as any).close === 'function') await (currentVfs as any).close()
+            else if (typeof (currentVfs as any).dispose === 'function') await (currentVfs as any).dispose()
+          } catch (e) {
+            appendOutput('[connectInMemoryBtn]既存 VirtualFS のクリーンアップで例外: ' + String(e))
+          }
+        }
+        currentVfs = vfs
+        appendOutput('[connectInMemoryBtn]VirtualFS を作成し InMemoryStorage を接続しました' + (rootNameInput ? ` (root=${rootNameInput})` : ''))
+        try {
+          await vfs.init()
+          appendOutput('[connectInMemoryBtn]VirtualFS.init() 実行済み (InMemoryStorage)')
+        } catch (e) {
+          appendOutput('[connectInMemoryBtn]VirtualFS.init()/IO で例外: ' + String(e))
+        }
+        // 接続後に InMemory の availableRoots を再取得して UI を更新
+        if (typeof inMemoryRootsBtn !== 'undefined' && inMemoryRootsBtn) inMemoryRootsBtn.click()
+      } catch (e) {
+        appendOutput('[connectInMemoryBtn]InMemoryStorage 接続で例外: ' + String(e))
+      }
+    })()
+  })
+
+  const opfsRootsBtn = el('opfsRoots') as HTMLButtonElement
+  opfsRootsBtn.addEventListener('click', async () => {
+    appendOutput('[opfsRoots]availableRoots を取得します...')
+    try {
+      const OpfsCtor: any = lib.OpfsStorage
+      if (!OpfsCtor) {
+        appendOutput('[opfsRoots]バンドルに OpfsStorage が含まれていません')
+        setListContents('opfsRootsList', [])
+        return
+      }
+      if (OpfsCtor && typeof OpfsCtor.availableRoots === 'function') {
+        let roots: any = OpfsCtor.availableRoots()
+        if (roots && typeof roots.then === 'function') {
+          try {
+            roots = await roots
+          } catch (_e) {
+            roots = []
+          }
+        }
+        if (Array.isArray(roots) && roots.length) {
+          appendOutput('[opfsRoots]availableRoots: ' + JSON.stringify(roots))
+          setListContents('opfsRootsList', roots)
+          return
+        }
+        appendOutput('[opfsRoots]availableRoots: []')
+      }
+
+      appendOutput('[opfsRoots]availableRoots: []')
+      setListContents('opfsRootsList', [])
+    } catch (e) {
+      appendOutput('[opfsRoots]取得失敗: ' + String(e))
+      setListContents('opfsRootsList', [])
+    }
+  })
+
+  const indexedDbRootsBtn = el('indexedDbRoots') as HTMLButtonElement
+  indexedDbRootsBtn.addEventListener('click', async () => {
+    appendOutput('[indexedDbRoots]availableRoots を取得します...')
+    try {
+      const IdxCtor: any = lib.IndexedDatabaseStorage
+      if (!IdxCtor) {
+        appendOutput('[indexedDbRoots]バンドルに IndexedDbStorage が含まれていません')
+        setListContents('indexedDbRootsList', [])
+        return
+      }
+      if (IdxCtor && typeof IdxCtor.availableRoots === 'function') {
+        let roots: any = IdxCtor.availableRoots()
+        if (roots && typeof roots.then === 'function') {
+          try {
+            roots = await roots
+          } catch (_e) {
+            roots = []
+          }
+        }
+        appendOutput('[indexedDbRoots]availableRoots: ' + JSON.stringify(roots))
+        setListContents('indexedDbRootsList', Array.isArray(roots) ? roots : [])
+      } else {
+        appendOutput('[indexedDbRoots]IndexedDbStorage に availableRoots() が実装されていません')
+        setListContents('indexedDbRootsList', [])
+      }
+    } catch (e) {
+      appendOutput('[indexedDbRoots]取得失敗: ' + String(e))
+      setListContents('indexedDbRootsList', [])
+    }
+  })
+
+  const inMemoryRootsBtn = el('inMemoryRoots') as HTMLButtonElement
+  inMemoryRootsBtn.addEventListener('click', async () => {
+    appendOutput('[inMemoryRoots]availableRoots を取得します...')
+    try {
+      let MemCtor: any = lib.InMemoryStorage
+      let roots: any[] = []
+      if (MemCtor && typeof MemCtor.availableRoots === 'function') {
+        roots = MemCtor.availableRoots() || []
+      }
+      appendOutput('[inMemoryRoots]availableRoots: ' + JSON.stringify(roots))
+      setListContents('inMemoryRootsList', Array.isArray(roots) ? roots : [])
+    } catch (e) {
+      appendOutput('[inMemoryRoots]取得失敗: ' + String(e))
+      setListContents('inMemoryRootsList', [])
+    }
+  })
+
+  // Select の選択で該当ストレージへ接続する（クリックで切替）
+  if (typeof document !== 'undefined') {
+    const opfsSel = document.getElementById('opfsRootsList') as HTMLSelectElement | null
+    if (opfsSel) {
+      opfsSel.addEventListener('change', async () => {
+        try {
+          const val = opfsSel.value
+          if (!val) return
+          if (!lib.VirtualFS || !lib.OpfsStorage) { appendOutput('[opfsRoots]OpfsStorage/VirtualFS が見つかりません'); return }
+          const backend = new (lib.OpfsStorage as any)(val)
+          const vfs = new (lib.VirtualFS as any)({ backend })
+          if (currentVfs) appendOutput('[opfsRoots]既存の VirtualFS を新しいものに切り替えます')
+          currentVfs = vfs
+          appendOutput('[opfsRoots]VirtualFS を作成し OpfsStorage を接続しました (root=' + val + ')')
+          try { await vfs.init(); appendOutput('[opfsRoots]VirtualFS.init() 実行済み (OpfsStorage)') } catch (e) { appendOutput('[opfsRoots]VirtualFS.init() で例外: ' + String(e)) }
+        } catch (e) { appendOutput('[opfsRoots]接続失敗: ' + String(e)) }
+      })
+    }
+
+    const idxSel = document.getElementById('indexedDbRootsList') as HTMLSelectElement | null
+    if (idxSel) {
+      idxSel.addEventListener('change', async () => {
+        try {
+          const val = idxSel.value
+          if (!val) return
+          const IdxCtor: any = lib.IndexedDatabaseStorage
+          if (!IdxCtor || !lib.VirtualFS) { appendOutput('[indexedDbRoots]IndexedDbStorage/VirtualFS が見つかりません'); return }
+          const backend = new IdxCtor(val)
+          const vfs = new (lib.VirtualFS as any)({ backend })
+          if (currentVfs) appendOutput('[indexedDbRoots]既存の VirtualFS を新しいものに切り替えます')
+          currentVfs = vfs
+          appendOutput('[indexedDbRoots]VirtualFS を作成し IndexedDbStorage を接続しました (db=' + val + ')')
+          try { await vfs.init(); appendOutput('[indexedDbRoots]VirtualFS.init() 実行済み (IndexedDbStorage)') } catch (e) { appendOutput('[indexedDbRoots]VirtualFS.init() で例外: ' + String(e)) }
+        } catch (e) { appendOutput('[indexedDbRoots]接続失敗: ' + String(e)) }
+      })
+    }
+
+    const memSel = document.getElementById('inMemoryRootsList') as HTMLSelectElement | null
+    if (memSel) {
+      memSel.addEventListener('change', async () => {
+        try {
+          const val = memSel.value
+          if (!val) return
+          let MemCtor: any = lib.InMemoryStorage
+          if (!MemCtor || !lib.VirtualFS) { appendOutput('[inMemoryRoots]InMemoryStorage/VirtualFS が見つかりません'); return }
+          const backend = new MemCtor(val)
+          const vfs = new (lib.VirtualFS as any)({ backend })
+          if (currentVfs) appendOutput('[inMemoryRoots]既存の VirtualFS を新しいものに切り替えます')
+          currentVfs = vfs
+          appendOutput('[inMemoryRoots]VirtualFS を作成し InMemoryStorage を接続しました (root=' + val + ')')
+          try { await vfs.init(); appendOutput('[inMemoryRoots]VirtualFS.init() 実行済み (InMemoryStorage)') } catch (e) { appendOutput('[inMemoryRoots]VirtualFS.init() で例外: ' + String(e)) }
+        } catch (e) { appendOutput('[inMemoryRoots]接続失敗: ' + String(e)) }
+      })
+    }
+  }
+
+  // 初期表示で自動的に各 Storage の availableRoots を取得して表示する
+  // 要素が存在すれば click() でハンドラを起動
+  if (opfsRootsBtn) opfsRootsBtn.click()
+  if (indexedDbRootsBtn) indexedDbRootsBtn.click()
+  if (inMemoryRootsBtn) inMemoryRootsBtn.click()
 
   const listAdaptersBtn = el('listAdapters') as HTMLButtonElement
   listAdaptersBtn.addEventListener('click', () => {
@@ -324,9 +601,10 @@ async function main() {
       if (remotePaths.length > 0) {
         const first = remotePaths.slice(0, 20)
         appendOutput('[fetchRemoteBtn]リモート先頭ファイル: ' + first.join(', '))
-        if (remotePaths.length > 20) appendOutput(`[fetchRemoteBtn]... 他 ${remotePaths.length - 20} 件`) 
+        if (remotePaths.length > 20) appendOutput(`[fetchRemoteBtn]... 他 ${remotePaths.length - 20} 件`)
       }
-      const preIndexKeys = Object.keys(currentVfs.getIndex().entries)
+      const preIndex = await currentVfs.getIndex()
+      const preIndexKeys = Object.keys(preIndex.entries)
       const res = await currentVfs.pull(data)
       const fetchedPaths = (res as any).fetchedPaths || []
       const reconciledPaths = (res as any).reconciledPaths || []
@@ -379,7 +657,7 @@ async function main() {
       }
 
       try {
-        const postIndex = currentVfs.getIndex()
+        const postIndex = await currentVfs.getIndex()
         const postKeys = Object.keys(postIndex.entries)
         // newly added index entries
         const preSet = new Set(preIndexKeys)
@@ -398,7 +676,7 @@ async function main() {
     }
   })
 
-  
+
 
   const resolveConflictBtn = el('resolveConflict') as HTMLButtonElement
   resolveConflictBtn.addEventListener('click', async () => {
@@ -430,8 +708,8 @@ async function main() {
       } else {
         appendOutput('[remoteChangesBtn]アダプタに fetchSnapshot() が実装されていません'); return
       }
-      const remoteShas: Record<string,string> = data.shas || {}
-      const idx = currentVfs.getIndex()
+      const remoteShas: Record<string, string> = data.shas || {}
+      const idx = await currentVfs.getIndex()
       const diffs: string[] = []
       for (const [p, sha] of Object.entries(remoteShas)) {
         const entry = idx.entries[p]
@@ -451,7 +729,7 @@ async function main() {
     const path = prompt('作成するファイル名を入力してください（例: examples/new.txt）')
     if (!path) return
     const content = prompt('ファイル内容を入力してください', 'hello') || ''
-      try {
+    try {
       await currentVfs.writeFile(path, content)
       appendOutput(`[addLocalFileBtn]ローカルにファイルを追加しました: ${path}`)
     } catch (e) { appendOutput('[addLocalFileBtn]addLocalFile 失敗: ' + String(e)) }
@@ -474,7 +752,7 @@ async function main() {
     try {
       const changes = await currentVfs.getChangeSet()
       if (!changes || changes.length === 0) { appendOutput('[pushLocalBtn]Push する変更がありません'); return }
-      const idx = currentVfs.getIndex()
+      const idx = await currentVfs.getIndex()
       const input = { parentSha: idx.head || '', message: 'Example push from UI', changes }
       const res = await currentVfs.push(input, currentAdapter)
       appendOutput('[pushLocalBtn]push 成功: ' + JSON.stringify(res))
@@ -545,7 +823,7 @@ async function main() {
 
   const showSnapshotBtn = el('showSnapshot') as HTMLButtonElement
   showSnapshotBtn.addEventListener('click', () => {
-    ;(async () => {
+    ; (async () => {
       try {
         if (!currentVfs) {
           appendOutput('[showSnapshotBtn]スナップショットがロードされていません（先に接続して repository を読み込んでください）')
