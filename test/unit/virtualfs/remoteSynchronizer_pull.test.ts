@@ -16,6 +16,11 @@ describe('RemoteSynchronizer pull via VirtualFS', () => {
     const res: any = await vfs.pull('remote-head-1', snapshot)
     expect(res.conflicts).toBeDefined()
     expect(res.conflicts).toHaveLength(0)
+    // new VirtualFS.pull enriches result with remote metadata and index diffs
+    expect(res.remote).toBeDefined()
+    expect(res.remotePaths).toBeDefined()
+    expect(res.addedPaths).toBeDefined()
+    expect(res.addedPaths).toContain('p.txt')
     // index head should be updated
     expect(vfs.head).toBe('remote-head-1')
     // base blob should be written

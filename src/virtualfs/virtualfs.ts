@@ -125,9 +125,9 @@ export class VirtualFS {
   private async loadIndex() {
     await this.indexManager.loadIndex()
     try {
-      const idx = await this.indexManager.getIndex()
-      this.adapterMeta = (idx as any).adapter || null
-    } catch (_e) {
+      const index = await this.indexManager.getIndex()
+      this.adapterMeta = (index as any).adapter || null
+    } catch (_error) {
       this.adapterMeta = null
     }
     // end
@@ -148,11 +148,11 @@ export class VirtualFS {
     this.adapter = adapter
     this.adapterMeta = meta || null
     try {
-      const idx = await this.indexManager.getIndex()
-      if (this.adapterMeta) (idx as any).adapter = this.adapterMeta
-      else delete (idx as any).adapter
-      await this.backend.writeIndex(idx)
-    } catch (_e) {
+      const index = await this.indexManager.getIndex()
+      if (this.adapterMeta) (index as any).adapter = this.adapterMeta
+      else delete (index as any).adapter
+      await this.backend.writeIndex(index)
+    } catch (_error) {
       // best-effort persistence; ignore failures here
     }
   }
@@ -170,10 +170,10 @@ export class VirtualFS {
   async getAdapter(): Promise<any | null> {
     if (this.adapterMeta) return this.adapterMeta
     try {
-      const idx = await this.indexManager.getIndex()
-      this.adapterMeta = (idx as any).adapter || null
+      const index = await this.indexManager.getIndex()
+      this.adapterMeta = (index as any).adapter || null
       return this.adapterMeta
-    } catch (_e) {
+    } catch (_error) {
       return null
     }
   }
@@ -192,17 +192,17 @@ export class VirtualFS {
     // ensure adapterMeta populated from loaded index
     if (!this.adapterMeta) {
       try {
-        const idx = await this.indexManager.getIndex()
-        this.adapterMeta = (idx as any).adapter || null
-      } catch (_e) {
+        const index = await this.indexManager.getIndex()
+        this.adapterMeta = (index as any).adapter || null
+      } catch (_error) {
         this.adapterMeta = null
       }
     }
     if (!this.adapterMeta || !this.adapterMeta.type) return null
     const type = this.adapterMeta.type
-    const opts = this.adapterMeta.opts || {}
+    const options = this.adapterMeta.opts || {}
     // instantiate via helper to reduce cognitive complexity for linter
-    const created = this._instantiateAdapter(type, opts)
+    const created = this._instantiateAdapter(type, options)
     if (created) this.adapter = created
     return this.adapter || null
   }
@@ -213,10 +213,10 @@ export class VirtualFS {
    * @param opts adapter options
    * @returns {any|null}
    */
-  private _instantiateAdapter(type: string, opts: any): any | null {
+  private _instantiateAdapter(type: string, options: any): any | null {
     try {
-      if (type === 'github') return new GitHubAdapter(opts)
-      if (type === 'gitlab') return new GitLabAdapter(opts)
+      if (type === 'github') return new GitHubAdapter(options)
+      if (type === 'gitlab') return new GitLabAdapter(options)
     } catch (_error) {
       return null
     }
@@ -927,8 +927,33 @@ export class VirtualFS {
    * @param {{[path:string]:string}} baseSnapshot path->content マップ
    * @returns {Promise<{conflicts:Array<import('./types').ConflictEntry>}>}
    */
-  async pull(remote: RemoteSnapshotDescriptor | string, baseSnapshot?: Record<string, string>) {
-    return await this.remoteSynchronizer.pull(remote, baseSnapshot)
+  async pull(
+    remote: RemoteSnapshotDescriptor | string | { fetchSnapshot: () => Promise<RemoteSnapshotDescriptor> },
+    baseSnapshot?: Record<string, string>
+  ) {
+    const descriptorRaw = await this._resolveDescriptor(remote, baseSnapshot)
+    const normalized: RemoteSnapshotDescriptor =
+      typeof descriptorRaw === 'string' ? await this._normalizeRemoteInput(descriptorRaw, baseSnapshot) : (descriptorRaw as RemoteSnapshotDescriptor)
+
+    const preIndex = await this.getIndex()
+    const preIndexKeys = Object.keys(preIndex.entries)
+
+    const pullResult: any = await this.remoteSynchronizer.pull(normalized, baseSnapshot)
+
+    const postIndex = await this.getIndex()
+    const postIndexKeys = Object.keys(postIndex.entries)
+    const preSet = new Set(preIndexKeys)
+    const addedPaths = postIndexKeys.filter((k) => !preSet.has(k))
+    const remotePaths = Object.keys(normalized.shas || {})
+
+    return {
+      ...pullResult,
+      remote: normalized,
+      remotePaths,
+      preIndexKeys,
+      postIndexKeys,
+      addedPaths
+    }
   }
 
   /**
@@ -968,6 +993,52 @@ export class VirtualFS {
       remoteShas[p] = await shaOf(c)
     }
     return remoteShas
+  }
+
+  /**
+   * Resolve the provided `remote` parameter into either a headSha string or a full
+   * `RemoteSnapshotDescriptor`. Centralizes adapter fetching and fallback behavior
+   * to keep `pull()` small and easier to lint.
+   * @param remote remote descriptor or adapter-like object or headSha
+   * @param baseSnapshot optional snapshot used when normalizing a headSha
+   * @returns {Promise<RemoteSnapshotDescriptor|string>} resolved descriptor or headSha
+   */
+  private async _resolveDescriptor(
+    remote: RemoteSnapshotDescriptor | string | { fetchSnapshot: () => Promise<RemoteSnapshotDescriptor> } | undefined,
+    baseSnapshot?: Record<string, string>
+  ): Promise<RemoteSnapshotDescriptor | string> {
+    const remoteLike: any = remote as any
+    const isAdapterLike = remoteLike && typeof remoteLike === 'object' && typeof remoteLike.fetchSnapshot === 'function' && !('headSha' in remoteLike)
+
+    if (isAdapterLike) {
+      const fromAdapter = await this._fetchSnapshotFromAdapterInstance()
+      if (!fromAdapter) throw new Error('Adapter instance not available')
+      return fromAdapter
+    }
+
+    if (remote === undefined || remote === null) {
+      const fromAdapter = await this._fetchSnapshotFromAdapterInstance()
+      if (fromAdapter) return fromAdapter
+      return await this._normalizeRemoteInput('', baseSnapshot || {})
+    }
+
+    return remote as any
+  }
+
+  /**
+   * Try to obtain a snapshot descriptor from the persisted adapter instance.
+   * @returns {Promise<RemoteSnapshotDescriptor|null>} snapshot descriptor or null when unavailable
+   */
+  private async _fetchSnapshotFromAdapterInstance(): Promise<RemoteSnapshotDescriptor | null> {
+    try {
+      const adapterInstance = await this.getAdapterInstance()
+      if (adapterInstance && typeof adapterInstance.fetchSnapshot === 'function') {
+        return await adapterInstance.fetchSnapshot()
+      }
+    } catch (_error) {
+      // ignore
+    }
+    return null
   }
 
   /**

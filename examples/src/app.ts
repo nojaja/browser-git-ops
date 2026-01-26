@@ -707,25 +707,17 @@ async function main() {
     appendOutput('[fetchRemoteBtn]リモートスナップショットを取得します...')
     if (!currentVfs) { appendOutput('[fetchRemoteBtn]先に VirtualFS を初期化してください'); return }
     try {
-      let data: any
       const adapter = await getCurrentAdapter()
-    if (!adapter) { appendOutput('[fetchRemoteBtn]先に接続してください'); return }
-      if (adapter && typeof adapter.fetchSnapshot === 'function') {
-        data = await adapter.fetchSnapshot()
-      } else {
-        appendOutput('[fetchRemoteBtn]アダプタに fetchSnapshot() が実装されていません'); return
-      }
-      // show remote snapshot summary
-      const remotePaths = Object.keys(data.shas || {})
+      if (!adapter) { appendOutput('[fetchRemoteBtn]先に接続してください'); return }
+      const res = await currentVfs.pull()
+      const remote = (res as any).remote
+      const remotePaths = (res as any).remotePaths || Object.keys(remote?.shas || {})
       appendOutput(`[fetchRemoteBtn]リモートファイル数: ${remotePaths.length}`)
       if (remotePaths.length > 0) {
         const first = remotePaths.slice(0, 20)
         appendOutput('[fetchRemoteBtn]リモート先頭ファイル: ' + first.join(', '))
         if (remotePaths.length > 20) appendOutput(`[fetchRemoteBtn]... 他 ${remotePaths.length - 20} 件`)
       }
-      const preIndex = await currentVfs.getIndex()
-      const preIndexKeys = Object.keys(preIndex.entries)
-      const res = await currentVfs.pull(data)
       const fetchedPaths = (res as any).fetchedPaths || []
       const reconciledPaths = (res as any).reconciledPaths || []
       const totalConflicts = res.conflicts ? res.conflicts.length : 0
@@ -762,7 +754,7 @@ async function main() {
             }
             // remote snapshot content if available in fetched data
             try {
-              const fetched = data && typeof data.fetchContent === 'function' ? await data.fetchContent([path]) : {}
+              const fetched = remote && typeof remote.fetchContent === 'function' ? await remote.fetchContent([path]) : {}
               const remoteContent = fetched[path] || null
               const rsn = remoteContent === null ? '<取得不可>' : (typeof remoteContent === 'string' ? remoteContent.slice(0, 400).replace(/\r?\n/g, '\\n') : String(remoteContent))
               appendOutput(`[fetchRemoteBtn]  remote snippet: ${rsn}`)
@@ -777,11 +769,8 @@ async function main() {
       }
 
       try {
-        const postIndex = await currentVfs.getIndex()
-        const postKeys = Object.keys(postIndex.entries)
-        // newly added index entries
-        const preSet = new Set(preIndexKeys)
-        const added = postKeys.filter((k) => !preSet.has(k))
+        const postKeys = (res as any).postIndexKeys || []
+        const added = (res as any).addedPaths || []
         appendOutput(`[fetchRemoteBtn]インデックス内ファイル数: ` + postKeys.length)
         if (postKeys.length > 0) {
           const first = postKeys.slice(0, 50)
