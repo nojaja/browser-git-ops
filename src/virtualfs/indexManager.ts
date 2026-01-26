@@ -40,8 +40,12 @@ export class IndexManager {
    * @returns {Promise<void>}
    */
   async saveIndex(): Promise<void> {
-    const index: IndexFile = { head: this.head, entries: {} }
+    // Preserve existing top-level fields (such as adapter metadata) when saving
+    const existing = (await this.backend.readIndex()) || { head: this.head, entries: {} }
+    const index: IndexFile = { ...(existing as any) }
+    index.head = this.head
     if (this.lastCommitKey) (index as any).lastCommitKey = this.lastCommitKey
+    else delete (index as any).lastCommitKey
     await this.backend.writeIndex(index)
   }
 

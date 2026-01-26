@@ -1,6 +1,8 @@
 import { IndexFile } from './types'
 import { StorageBackend } from './storageBackend'
 import { OpfsStorage } from './opfsStorage'
+import { GitHubAdapter } from '../git/githubAdapter'
+import { GitLabAdapter } from '../git/gitlabAdapter'
 import { shaOf, shaOfGitBlob } from './hashUtils'
 import { LocalChangeApplier } from './localChangeApplier'
 import { LocalFileManager } from './localFileManager'
@@ -18,6 +20,10 @@ type RemoteSnapshotDescriptor = {
 /** Virtual file system - 永続化バックエンドを抽象化した仮想ファイルシステム */
 export class VirtualFS {
   private storageDir: string | undefined
+  // adapter instance managed by VirtualFS
+  private adapter: any | null = null
+  // adapter metadata persisted in index
+  private adapterMeta: any | null = null
   // `workspace` state moved to StorageBackend implementations; tombstones are
   // persisted in the backend as `info` entries with `state: 'remove'`.
   private indexManager: IndexManager
@@ -117,7 +123,112 @@ export class VirtualFS {
    * @returns {Promise<void>}
    */
   private async loadIndex() {
-    return this.indexManager.loadIndex()
+    await this.indexManager.loadIndex()
+    try {
+      const idx = await this.indexManager.getIndex()
+      this.adapterMeta = (idx as any).adapter || null
+    } catch (_e) {
+      this.adapterMeta = null
+    }
+    // end
+  }
+
+  /**
+   * Set adapter instance and persist adapter metadata into index file.
+   * @param adapter adapter instance (or null to clear)
+   * @param meta metadata to persist (e.g. { type:'github', opts: {...} })
+   */
+  /**
+   * Set adapter instance and persist adapter metadata into index file.
+   * @param adapter adapter instance (or null to clear)
+   * @param meta metadata to persist (e.g. { type:'github', opts: {...} })
+   * @returns {Promise<void>}
+   */
+  async setAdapter(adapter: any | null, meta?: any) {
+    this.adapter = adapter
+    this.adapterMeta = meta || null
+    try {
+      const idx = await this.indexManager.getIndex()
+      if (this.adapterMeta) (idx as any).adapter = this.adapterMeta
+      else delete (idx as any).adapter
+      await this.backend.writeIndex(idx)
+    } catch (_e) {
+      // best-effort persistence; ignore failures here
+    }
+  }
+  /**
+   * Return persisted adapter metadata from the index (or cached meta).
+   * This does not necessarily instantiate the adapter instance; use
+   * `getAdapterInstance()` to obtain an instantiated adapter.
+   */
+  /**
+   * Return persisted adapter metadata from the index (or cached meta).
+   * This does not necessarily instantiate the adapter instance; use
+   * `getAdapterInstance()` to obtain an instantiated adapter.
+   * @returns {Promise<any|null>}
+   */
+  async getAdapter(): Promise<any | null> {
+    if (this.adapterMeta) return this.adapterMeta
+    try {
+      const idx = await this.indexManager.getIndex()
+      this.adapterMeta = (idx as any).adapter || null
+      return this.adapterMeta
+    } catch (_e) {
+      return null
+    }
+  }
+  /**
+   * Return or lazily create the adapter instance based on persisted metadata.
+   * If an adapter instance already exists, it is returned. Otherwise, if
+   * adapter metadata is present in the index it will be used to construct
+   * a new adapter instance and return it.
+   */
+  /**
+   * Return or lazily create the adapter instance based on persisted metadata.
+   * @returns {Promise<any|null>}
+   */
+  async getAdapterInstance(): Promise<any | null> {
+    if (this.adapter) return this.adapter
+    // ensure adapterMeta populated from loaded index
+    if (!this.adapterMeta) {
+      try {
+        const idx = await this.indexManager.getIndex()
+        this.adapterMeta = (idx as any).adapter || null
+      } catch (_e) {
+        this.adapterMeta = null
+      }
+    }
+    if (!this.adapterMeta || !this.adapterMeta.type) return null
+    const type = this.adapterMeta.type
+    const opts = this.adapterMeta.opts || {}
+    // instantiate via helper to reduce cognitive complexity for linter
+    const created = this._instantiateAdapter(type, opts)
+    if (created) this.adapter = created
+    return this.adapter || null
+  }
+
+  /**
+   * Create adapter instance for given type and options. Returns null on failure.
+   * @param type adapter type string
+   * @param opts adapter options
+   * @returns {any|null}
+   */
+  private _instantiateAdapter(type: string, opts: any): any | null {
+    try {
+      if (type === 'github') return new GitHubAdapter(opts)
+      if (type === 'gitlab') return new GitLabAdapter(opts)
+    } catch (_error) {
+      return null
+    }
+    return null
+  }
+
+  /**
+   * Return persisted adapter metadata (if any).
+   * @returns {any|null}
+   */
+  getAdapterMeta(): any | null {
+    return this.adapterMeta
   }
 
   /**

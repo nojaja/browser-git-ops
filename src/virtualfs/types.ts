@@ -14,6 +14,11 @@ export interface IndexFile {
   head: string
   // 最後にプッシュしたコミットの commitKey（任意）
   lastCommitKey?: string
+  // adapter metadata persisted by VirtualFS (optional)
+  adapter?: {
+    type: 'github' | 'gitlab' | string
+    opts?: any
+  }
   entries: Record<string, IndexEntry>
 }
 

@@ -296,40 +296,44 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   async readIndex(): Promise<IndexFile | null> {
     const database = await this.dbPromise
     // Read meta from 'index' store then reconstruct entries from VAR_INFO
-    const meta: IndexFile | null = await new Promise<IndexFile | null>((resolve) => {
-      try {
-        const tx = database.transaction('index', 'readonly')
-        const store = tx.objectStore('index')
-        const request = store.get('index')
-        /**
-         * Success handler for index get.
-         * @returns {void}
-         */
-        request.onsuccess = () => { resolve(request.result ?? null) }
-        /**
-         * Error handler for index get.
-         * @returns {void}
-         */
-        request.onerror = () => { resolve(null) }
-      } catch (_) { resolve(null) }
-    })
+    const meta: IndexFile | null = await this._readIndexMeta(database)
     const result: IndexFile = { head: '', entries: {} }
     if (meta) {
       result.head = meta.head || ''
       if ((meta as any).lastCommitKey) result.lastCommitKey = (meta as any).lastCommitKey
+      // Preserve adapter metadata if present
+      if ((meta as any).adapter) result.adapter = (meta as any).adapter
     }
 
     // enumerate keys in info store and assemble entries
-  
-      const keys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_INFO)
-      for (const k of keys) {
-          const txt = await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, k)
-          if (!txt) continue
-          const entry = JSON.parse(txt)
-          result.entries[k] = entry
-      }
+    const keys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_INFO)
+    for (const k of keys) {
+      const txt = await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, k)
+      if (!txt) continue
+      const entry = JSON.parse(txt)
+      result.entries[k] = entry
+    }
 
     return result
+  }
+
+  /**
+   * Read the index metadata entry from the 'index' object store.
+   * @param database open IDBDatabase instance
+   * @returns {Promise<IndexFile|null>} parsed index metadata or null on error
+   */
+  private async _readIndexMeta(database: IDBDatabase): Promise<IndexFile | null> {
+    return await new Promise<IndexFile | null>((resolve) => {
+      try {
+        const tx = database.transaction('index', 'readonly')
+        const store = tx.objectStore('index')
+        const request = store.get('index')
+        /** Success handler for index get. @returns {void} */
+        request.onsuccess = () => { resolve(request.result ?? null) }
+        /** Error handler for index get. @returns {void} */
+        request.onerror = () => { resolve(null) }
+      } catch (_) { resolve(null) }
+    })
   }
 
   /**
@@ -344,7 +348,12 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
         store.put(JSON.stringify(entries[filepath]), filepath)
       }
     })
-    await this.tx('index', 'readwrite', (store) => { store.put({ head: index.head, lastCommitKey: (index as any).lastCommitKey }, 'index') })
+    await this.tx('index', 'readwrite', (store) => {
+      const payload: any = { head: index.head }
+      if ((index as any).lastCommitKey) payload.lastCommitKey = (index as any).lastCommitKey
+      if ((index as any).adapter) payload.adapter = (index as any).adapter
+      store.put(payload, 'index')
+    })
   }
 
   /**

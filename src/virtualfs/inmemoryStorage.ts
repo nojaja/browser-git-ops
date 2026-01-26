@@ -73,6 +73,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
       result.entries[k] = JSON.parse(v)
     }
     if ((store.index as any).lastCommitKey) result.lastCommitKey = (store.index as any).lastCommitKey
+    // Preserve adapter metadata if present
+    if ((store.index as any).adapter) result.adapter = (store.index as any).adapter
     return result
   }
 
@@ -87,8 +89,10 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     for (const filepath of Object.keys(entries)) {
       store.infoBlobs.set(filepath, JSON.stringify(entries[filepath]))
     }
-    store.index = { head: index.head, entries: {} }
-    if ((index as any).lastCommitKey) (store.index as any).lastCommitKey = (index as any).lastCommitKey
+    const meta: any = { head: index.head }
+    if ((index as any).lastCommitKey) meta.lastCommitKey = (index as any).lastCommitKey
+    if ((index as any).adapter) meta.adapter = (index as any).adapter
+    store.index = Object.assign({}, meta, { entries: {} })
   }
 
   /**
