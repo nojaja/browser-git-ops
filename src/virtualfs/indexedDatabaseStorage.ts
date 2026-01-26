@@ -590,17 +590,17 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
-   * 指定された DB 名を削除します
-   * @param dbName 削除する DB 名
-   * @returns {Promise<void>}
-   */
-  static async delete(dbName: string): Promise<void> {
+  * 指定された DB 名を削除します
+  * @param databaseName 削除する DB 名
+  * @returns {Promise<void>}
+  */
+  static async delete(databaseName: string): Promise<void> {
     try {
       const idb = (globalThis as any).indexedDB
       if (!idb) throw new Error('IndexedDB is not available')
       
       return new Promise((resolve, reject) => {
-        const request = idb.deleteDatabase(dbName)
+        const request = idb.deleteDatabase(databaseName)
         if (!request) return reject(new Error('indexedDB.deleteDatabase returned falsy request'))
         
         /** Success handler for deleteDatabase. @returns {void} */
@@ -610,11 +610,11 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
         /** Blocked handler for deleteDatabase. @returns {void} */
         request.onblocked = function () {
           // DB is still in use, but allow the deletion to proceed
-          console.warn(`IndexedDB deletion is blocked for "${dbName}", but proceeding`)
+          console.warn(`IndexedDB deletion is blocked for "${databaseName}", but proceeding`)
         }
       })
-    } catch (e) {
-      throw new Error(`Failed to delete IndexedDB "${dbName}": ${String(e)}`)
+    } catch (error) {
+      throw new Error(`Failed to delete IndexedDB "${databaseName}": ${String(error)}`)
     }
   }
 }

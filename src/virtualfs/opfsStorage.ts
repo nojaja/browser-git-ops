@@ -731,8 +731,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       } else {
         throw new Error('removeEntry not supported')
       }
-    } catch (e) {
-      throw new Error(`Failed to delete OPFS root "${rootName}": ${String(e)}`)
+    } catch (error) {
+      throw new Error(`Failed to delete OPFS root "${rootName}": ${String(error)}`)
     }
   }
 }

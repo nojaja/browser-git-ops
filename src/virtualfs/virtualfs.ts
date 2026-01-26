@@ -983,6 +983,60 @@ export class VirtualFS {
   }
 
   /**
+   * Obtain remote snapshot (via persisted adapter if available) and
+   * compute simple diffs against the current index.
+   * Returns an object containing the resolved `remote` descriptor (or null),
+   * `remoteShas` map and `diffs` array (strings like `added: path` / `updated: path`).
+   */
+  /**
+   * Obtain remote snapshot (via persisted adapter if available) and
+   * compute simple diffs against the current index.
+   * Returns an object containing the resolved `remote` descriptor (or null),
+   * `remoteShas` map and `diffs` array (strings like `added: path` / `updated: path`).
+   * @returns {Promise<{remote: RemoteSnapshotDescriptor|null, remoteShas: Record<string,string>, diffs: string[]}>}
+   */
+  async getRemoteDiffs(
+    remote?: RemoteSnapshotDescriptor | string | { fetchSnapshot: () => Promise<RemoteSnapshotDescriptor> }
+  ): Promise<{ remote: RemoteSnapshotDescriptor | null; remoteShas: Record<string, string>; diffs: string[] } > {
+    let resolved: RemoteSnapshotDescriptor | string | null = null
+    try {
+      resolved = await this._resolveDescriptor(remote as any, undefined)
+    } catch (_error) {
+      resolved = null
+    }
+
+    const normalized = await this._toNormalizedDescriptor(resolved)
+    const remoteShas: Record<string, string> = normalized?.shas || {}
+
+    const diffs: string[] = []
+    const index = await this.getIndex().catch(() => null)
+    if (!index) return { remote: normalized, remoteShas, diffs }
+
+    for (const [p, sha] of Object.entries(remoteShas)) {
+      const entry = index.entries[p]
+      if (!entry) diffs.push(`added: ${p}`)
+      else if (entry.baseSha !== sha) diffs.push(`updated: ${p}`)
+    }
+
+    return { remote: normalized, remoteShas, diffs }
+  }
+
+  /**
+   * Normalize a resolved descriptor (string headSha or object) into a
+   * RemoteSnapshotDescriptor or null. Helper to reduce cognitive complexity.
+   * @returns {Promise<RemoteSnapshotDescriptor|null>} 正規化された descriptor または null
+   */
+  private async _toNormalizedDescriptor(resolved: RemoteSnapshotDescriptor | string | null): Promise<RemoteSnapshotDescriptor | null> {
+    if (!resolved) return null
+    if (typeof resolved !== 'string') return resolved as RemoteSnapshotDescriptor
+    try {
+      return await this._normalizeRemoteInput(resolved, {})
+    } catch (_error) {
+      return null
+    }
+  }
+
+  /**
    * snapshot から remote shas を計算して返す
    * @param baseSnapshot スナップショット
     * @returns {Promise<Record<string,string>>}

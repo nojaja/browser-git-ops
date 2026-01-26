@@ -810,22 +810,12 @@ async function main() {
     appendOutput('[remoteChangesBtn]リモートとローカルの差分を取得します...')
     if (!currentVfs) { appendOutput('[remoteChangesBtn]先に VirtualFS を初期化してください'); return }
     try {
-      let data: any
-      const adapter = await getCurrentAdapter()
-      if (!adapter) { appendOutput('[remoteChangesBtn]先に接続してください'); return }
-      if (adapter && typeof adapter.fetchSnapshot === 'function') {
-        data = await adapter.fetchSnapshot()
-      } else {
-        appendOutput('[remoteChangesBtn]アダプタに fetchSnapshot() が実装されていません'); return
+      if (!currentVfs || typeof currentVfs.getRemoteDiffs !== 'function') {
+        appendOutput('[remoteChangesBtn] VirtualFS に getRemoteDiffs() が存在しません');
+        return
       }
-      const remoteShas: Record<string, string> = data.shas || {}
-      const idx = await currentVfs.getIndex()
-      const diffs: string[] = []
-      for (const [p, sha] of Object.entries(remoteShas)) {
-        const entry = idx.entries[p]
-        if (!entry) diffs.push(`added: ${p}`)
-        else if (entry.baseSha !== sha) diffs.push(`updated: ${p}`)
-      }
+      const res = await currentVfs.getRemoteDiffs()
+      const diffs: string[] = res?.diffs || []
       appendOutput('[remoteChangesBtn]リモート差分ファイル数: ' + diffs.length)
       if (diffs.length > 0) appendOutput(diffs.join('\n'))
     } catch (e) {
@@ -858,14 +848,13 @@ async function main() {
   pushLocalBtn.addEventListener('click', async () => {
     appendOutput('[pushLocalBtn]ローカルのチェンジセットをリモートに push します...')
     if (!currentVfs) { appendOutput('[pushLocalBtn]先に VirtualFS を初期化してください'); return }
-    const adapter = await getCurrentAdapter()
-    if (!adapter) { appendOutput('[pushLocalBtn]先にアダプタを接続してください'); return }
+    if (!(await getCurrentAdapter())) { appendOutput('[pushLocalBtn]先にアダプタを接続してください'); return }
     try {
       const changes = await currentVfs.getChangeSet()
       if (!changes || changes.length === 0) { appendOutput('[pushLocalBtn]Push する変更がありません'); return }
       const idx = await currentVfs.getIndex()
       const input = { parentSha: idx.head || '', message: 'Example push from UI', changes }
-      const res = await currentVfs.push(input, adapter)
+      const res = await currentVfs.push(input)
       appendOutput('[pushLocalBtn]push 成功: ' + JSON.stringify(res))
     } catch (e) { appendOutput('[pushLocalBtn]pushLocal 失敗: ' + String(e)) }
   })
