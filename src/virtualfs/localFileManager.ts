@@ -30,10 +30,23 @@ export class LocalFileManager {
    * @returns {Promise<void>}
    */
   async deleteFile(filepath: string): Promise<void> {
-    // Previously we used tombstones (`info` entry with state='remove').
-    // Tombstone approach removed: always clean workspace cache and info blob.
+    // Create a tombstone in the info segment to record an explicit local
+    // deletion. Keeping a tombstone allows getChangeSet() to distinguish
+    // between files that are present only in base (e.g. after pull) and
+    // files that were intentionally removed by the user.
+    try {
+      let existing: any = undefined
+      const infoTxt = await this.backend.readBlob(filepath, 'info')
+      if (infoTxt) existing = JSON.parse(infoTxt)
+      const tomb: any = { path: filepath, state: 'deleted', updatedAt: Date.now() }
+      if (existing && existing.baseSha) tomb.baseSha = existing.baseSha
+      // write tombstone into info segment
+      await this.backend.writeBlob(filepath, JSON.stringify(tomb), 'info')
+    } catch (_e) {
+      // best-effort: if writing tombstone fails, still try to remove workspace
+    }
+    // remove workspace cache if present
     await this.backend.deleteBlob(`${filepath}`, 'workspace')
-    await this.backend.deleteBlob(`${filepath}`, 'info')
   }
 
   /**

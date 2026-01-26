@@ -1,5 +1,6 @@
 import { IndexFile } from './types'
 import { StorageBackend, StorageBackendConstructor } from './storageBackend'
+import { updateInfoForWrite } from './metadataManager'
 
 /**
  * テストや軽量動作検証用のインメモリ実装。
@@ -99,15 +100,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     const seg = segment || 'workspace'
     const store = InMemoryStorage.stores.get(this.rootKey)!
     this._applyBlobToStore(store, seg, filepath, content)
-
     // update info metadata when writing to workspace/base/conflict
-    if (seg === 'info') return
-    const sha = await this.shaOf(content)
-    const now = Date.now()
-    const existingTxt = store.infoBlobs.get(filepath)
-    const existing: any = existingTxt ? JSON.parse(existingTxt) : {}
-    const entry = this._buildInfoEntryForSeg(seg, existing, filepath, sha, now)
-    store.infoBlobs.set(filepath, JSON.stringify(entry))
+    await updateInfoForWrite(store, filepath, seg, content)
   }
 
   /**
