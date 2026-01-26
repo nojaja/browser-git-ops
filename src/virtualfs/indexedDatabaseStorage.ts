@@ -30,9 +30,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
    */
   static async availableRoots(): Promise<string[]> {
     const g: any = globalThis as any
-    // If tests/runtime already provided a synchronous hint, return it.
-    if (Array.isArray(g.__indexeddb_names__)) return g.__indexeddb_names__
-
     const idb = g.indexedDB
     if (!idb) return []
 
@@ -41,9 +38,7 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
 
     // Delegate the actual retrieval to a helper to keep cognitive complexity low
     try {
-      const unique = await IndexedDatabaseStorage._namesFromDatabases(idb)
-      if (typeof g === 'object' && g !== null) Reflect.set(g, '__indexeddb_names__', unique)
-      return unique
+      return await IndexedDatabaseStorage._namesFromDatabases(idb)
     } catch (error) {
       return []
     }
@@ -296,40 +291,44 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   async readIndex(): Promise<IndexFile | null> {
     const database = await this.dbPromise
     // Read meta from 'index' store then reconstruct entries from VAR_INFO
-    const meta: IndexFile | null = await new Promise<IndexFile | null>((resolve) => {
-      try {
-        const tx = database.transaction('index', 'readonly')
-        const store = tx.objectStore('index')
-        const request = store.get('index')
-        /**
-         * Success handler for index get.
-         * @returns {void}
-         */
-        request.onsuccess = () => { resolve(request.result ?? null) }
-        /**
-         * Error handler for index get.
-         * @returns {void}
-         */
-        request.onerror = () => { resolve(null) }
-      } catch (_) { resolve(null) }
-    })
+    const meta: IndexFile | null = await this._readIndexMeta(database)
     const result: IndexFile = { head: '', entries: {} }
     if (meta) {
       result.head = meta.head || ''
       if ((meta as any).lastCommitKey) result.lastCommitKey = (meta as any).lastCommitKey
+      // Preserve adapter metadata if present
+      if ((meta as any).adapter) result.adapter = (meta as any).adapter
     }
 
     // enumerate keys in info store and assemble entries
-  
-      const keys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_INFO)
-      for (const k of keys) {
-          const txt = await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, k)
-          if (!txt) continue
-          const entry = JSON.parse(txt)
-          result.entries[k] = entry
-      }
+    const keys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_INFO)
+    for (const k of keys) {
+      const txt = await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, k)
+      if (!txt) continue
+      const entry = JSON.parse(txt)
+      result.entries[k] = entry
+    }
 
     return result
+  }
+
+  /**
+   * Read the index metadata entry from the 'index' object store.
+   * @param database open IDBDatabase instance
+   * @returns {Promise<IndexFile|null>} parsed index metadata or null on error
+   */
+  private async _readIndexMeta(database: IDBDatabase): Promise<IndexFile | null> {
+    return await new Promise<IndexFile | null>((resolve) => {
+      try {
+        const tx = database.transaction('index', 'readonly')
+        const store = tx.objectStore('index')
+        const request = store.get('index')
+        /** Success handler for index get. @returns {void} */
+        request.onsuccess = () => { resolve(request.result ?? null) }
+        /** Error handler for index get. @returns {void} */
+        request.onerror = () => { resolve(null) }
+      } catch (_) { resolve(null) }
+    })
   }
 
   /**
@@ -344,7 +343,12 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
         store.put(JSON.stringify(entries[filepath]), filepath)
       }
     })
-    await this.tx('index', 'readwrite', (store) => { store.put({ head: index.head, lastCommitKey: (index as any).lastCommitKey }, 'index') })
+    await this.tx('index', 'readwrite', (store) => {
+      const payload: any = { head: index.head }
+      if ((index as any).lastCommitKey) payload.lastCommitKey = (index as any).lastCommitKey
+      if ((index as any).adapter) payload.adapter = (index as any).adapter
+      store.put(payload, 'index')
+    })
   }
 
   /**
@@ -585,6 +589,34 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     return this.tx(storeName, 'readwrite', (store) => { store.delete(filepath) })
   }
 
+  /**
+  * 指定された DB 名を削除します
+  * @param databaseName 削除する DB 名
+  * @returns {Promise<void>}
+  */
+  static async delete(databaseName: string): Promise<void> {
+    try {
+      const idb = (globalThis as any).indexedDB
+      if (!idb) throw new Error('IndexedDB is not available')
+      
+      return new Promise((resolve, reject) => {
+        const request = idb.deleteDatabase(databaseName)
+        if (!request) return reject(new Error('indexedDB.deleteDatabase returned falsy request'))
+        
+        /** Success handler for deleteDatabase. @returns {void} */
+        request.onsuccess = function () { resolve() }
+        /** Error handler for deleteDatabase. @returns {void} */
+        request.onerror = function () { reject(new Error(`Failed to delete IndexedDB: ${request.error?.message}`)) }
+        /** Blocked handler for deleteDatabase. @returns {void} */
+        request.onblocked = function () {
+          // DB is still in use, but allow the deletion to proceed
+          console.warn(`IndexedDB deletion is blocked for "${databaseName}", but proceeding`)
+        }
+      })
+    } catch (error) {
+      throw new Error(`Failed to delete IndexedDB "${databaseName}": ${String(error)}`)
+    }
+  }
 }
 
 export default IndexedDatabaseStorage

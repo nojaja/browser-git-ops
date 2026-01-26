@@ -1,5 +1,6 @@
 import { IndexFile } from './types'
 import { StorageBackend, StorageBackendConstructor } from './storageBackend'
+import { updateInfoForWrite } from './metadataManager'
 
 /**
  * テストや軽量動作検証用のインメモリ実装。
@@ -72,6 +73,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
       result.entries[k] = JSON.parse(v)
     }
     if ((store.index as any).lastCommitKey) result.lastCommitKey = (store.index as any).lastCommitKey
+    // Preserve adapter metadata if present
+    if ((store.index as any).adapter) result.adapter = (store.index as any).adapter
     return result
   }
 
@@ -86,8 +89,10 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     for (const filepath of Object.keys(entries)) {
       store.infoBlobs.set(filepath, JSON.stringify(entries[filepath]))
     }
-    store.index = { head: index.head, entries: {} }
-    if ((index as any).lastCommitKey) (store.index as any).lastCommitKey = (index as any).lastCommitKey
+    const meta: any = { head: index.head }
+    if ((index as any).lastCommitKey) meta.lastCommitKey = (index as any).lastCommitKey
+    if ((index as any).adapter) meta.adapter = (index as any).adapter
+    store.index = Object.assign({}, meta, { entries: {} })
   }
 
   /**
@@ -99,15 +104,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     const seg = segment || 'workspace'
     const store = InMemoryStorage.stores.get(this.rootKey)!
     this._applyBlobToStore(store, seg, filepath, content)
-
     // update info metadata when writing to workspace/base/conflict
-    if (seg === 'info') return
-    const sha = await this.shaOf(content)
-    const now = Date.now()
-    const existingTxt = store.infoBlobs.get(filepath)
-    const existing: any = existingTxt ? JSON.parse(existingTxt) : {}
-    const entry = this._buildInfoEntryForSeg(seg, existing, filepath, sha, now)
-    store.infoBlobs.set(filepath, JSON.stringify(entry))
+    await updateInfoForWrite(store, filepath, seg, content)
   }
 
   /**
@@ -280,6 +278,19 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     const hashBuffer = await crypto.subtle.digest('SHA-1', data)
     const hashArray = Array.from(new Uint8Array(hashBuffer))
     return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+  }
+
+  /**
+   * 指定されたルート名を削除します
+   * @param rootName 削除するルート名
+   * @returns {void}
+   */
+  static delete(rootName: string): void {
+    if (InMemoryStorage.stores.has(rootName)) {
+      InMemoryStorage.stores.delete(rootName)
+    } else {
+      throw new Error(`InMemory root "${rootName}" not found`)
+    }
   }
 
 }

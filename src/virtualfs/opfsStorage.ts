@@ -239,6 +239,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
         const parsed = JSON.parse(metaTxt) as any
         result.head = parsed.head || ''
         if (parsed.lastCommitKey) result.lastCommitKey = parsed.lastCommitKey
+        if (parsed.adapter) result.adapter = parsed.adapter
       }
 
       // Reconstruct entries by reading all files under the 'info' segment
@@ -285,9 +286,10 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       await this.writeBlob(filepath, JSON.stringify(entry), 'info')
     }
 
-    // Persist index metadata (without entries) as before
+    // Persist index metadata (without entries), include adapter meta when present
     const meta: any = { head: index.head }
     if (index.lastCommitKey) meta.lastCommitKey = index.lastCommitKey
+    if ((index as any).adapter) meta.adapter = (index as any).adapter
 
     const hasDirectoryApi = typeof (root as any).getDirectoryHandle === 'function' || typeof (root as any).getDirectory === 'function'
     const payload = JSON.stringify(meta)
@@ -711,6 +713,26 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     } catch (error) {
       // getFileHandle/remove が例外を投げた場合は削除できなかったと扱う
       return false
+    }
+  }
+
+  /**
+   * 指定されたルート名のディレクトリを削除します
+   * @param rootName 削除するルート名
+   * @returns {Promise<void>}
+   */
+  static async delete(rootName: string): Promise<void> {
+    try {
+      const root = await OpfsStorage._getNavigatorStorageRoot()
+      if (!root) throw new Error('OPFS root not available')
+
+      if (typeof (root as any).removeEntry === 'function') {
+        await (root as any).removeEntry(rootName, { recursive: true })
+      } else {
+        throw new Error('removeEntry not supported')
+      }
+    } catch (error) {
+      throw new Error(`Failed to delete OPFS root "${rootName}": ${String(error)}`)
     }
   }
 }

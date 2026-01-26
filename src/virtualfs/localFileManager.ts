@@ -30,10 +30,30 @@ export class LocalFileManager {
    * @returns {Promise<void>}
    */
   async deleteFile(filepath: string): Promise<void> {
-    // Previously we used tombstones (`info` entry with state='remove').
-    // Tombstone approach removed: always clean workspace cache and info blob.
+    // If an info entry exists and it has a baseSha, preserve a tombstone
+    // so the change-tracker can recognize an intentional deletion.
+    // If no base exists (file was only in workspace), remove the info
+    // entry entirely to reflect that the entry was never part of base.
+    try {
+      const infoTxt = await this.backend.readBlob(filepath, 'info')
+      if (infoTxt) {
+        const existing: any = JSON.parse(infoTxt)
+        if (existing && existing.baseSha) {
+          const tomb: any = { path: filepath, state: 'deleted', updatedAt: Date.now(), baseSha: existing.baseSha }
+          await this.backend.writeBlob(filepath, JSON.stringify(tomb), 'info')
+        } else {
+          // remove info entry when there is no baseSha (clean delete)
+          await this.backend.deleteBlob(filepath, 'info')
+        }
+      } else {
+        // ensure info store is cleared even when no info blob exists (best-effort)
+        await this.backend.deleteBlob(filepath, 'info')
+      }
+    } catch (_error) {
+      // best-effort: if any info ops fail, continue to remove workspace
+    }
+    // remove workspace cache if present
     await this.backend.deleteBlob(`${filepath}`, 'workspace')
-    await this.backend.deleteBlob(`${filepath}`, 'info')
   }
 
   /**

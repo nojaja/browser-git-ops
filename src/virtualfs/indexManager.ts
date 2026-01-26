@@ -40,8 +40,12 @@ export class IndexManager {
    * @returns {Promise<void>}
    */
   async saveIndex(): Promise<void> {
-    const index: IndexFile = { head: this.head, entries: {} }
+    // Preserve existing top-level fields (such as adapter metadata) when saving
+    const existing = (await this.backend.readIndex()) || { head: this.head, entries: {} }
+    const index: IndexFile = { ...(existing as any) }
+    index.head = this.head
     if (this.lastCommitKey) (index as any).lastCommitKey = this.lastCommitKey
+    else delete (index as any).lastCommitKey
     await this.backend.writeIndex(index)
   }
 
@@ -121,7 +125,15 @@ export class IndexManager {
     const infos = await this.backend.listFiles(undefined, 'info')
     const out: string[] = []
     for (const it of infos) {
-      // Include all paths present in info; tombstone state not used anymore
+      // Exclude explicit tombstones (state: 'deleted') from visible paths
+      try {
+        if (it.info) {
+          const parsed = JSON.parse(it.info)
+          if (parsed && parsed.state === 'deleted') continue
+        }
+      } catch (_error) {
+        // ignore parse errors and include the path
+      }
       out.push(it.path)
     }
     return out

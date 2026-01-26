@@ -1,6 +1,5 @@
 import { StorageBackend } from './storageBackend'
 import { IndexManager } from './indexManager'
-import { IndexFile } from './types'
 
 /**
  * 変更追跡を行うユーティリティクラス
@@ -48,16 +47,31 @@ export class ChangeTracker {
     const index = await this.indexManager.getIndex()
     for (const [p, entry] of Object.entries(index.entries || {})) {
       try {
-        const ie: any = entry as any
-        if (!ie || !ie.baseSha) continue
-        const ws = await this.backend.readBlob(p, 'workspace')
-        if (ws !== null) continue
-        out.push({ type: 'delete', path: p, baseSha: ie.baseSha })
+        if (await this._isIndexEntryDeleted(entry as any, p)) {
+          const ie: any = entry as any
+          out.push({ type: 'delete', path: p, baseSha: ie.baseSha })
+        }
       } catch (error) {
         continue
       }
     }
     return out
+  }
+
+  /**
+   * Determine whether an index entry should be considered a local delete.
+   * - explicit deleted/remove state -> true
+   * - only if workspaceSha existed previously and workspace blob now missing
+   * @param ie index entry
+   * @param p file path
+   * @returns true when entry represents a local deletion
+   */
+  private async _isIndexEntryDeleted(ie: any, p: string): Promise<boolean> {
+    if (!ie || !ie.baseSha) return false
+    if (ie.state === 'deleted' || ie.state === 'remove') return true
+    if (!ie.workspaceSha) return false
+    const ws = await this.backend.readBlob(p, 'workspace')
+    return ws === null
   }
 
   /**
