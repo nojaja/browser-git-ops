@@ -715,6 +715,26 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       return false
     }
   }
+
+  /**
+   * 指定されたルート名のディレクトリを削除します
+   * @param rootName 削除するルート名
+   * @returns {Promise<void>}
+   */
+  static async delete(rootName: string): Promise<void> {
+    try {
+      const root = await OpfsStorage._getNavigatorStorageRoot()
+      if (!root) throw new Error('OPFS root not available')
+
+      if (typeof (root as any).removeEntry === 'function') {
+        await (root as any).removeEntry(rootName, { recursive: true })
+      } else {
+        throw new Error('removeEntry not supported')
+      }
+    } catch (e) {
+      throw new Error(`Failed to delete OPFS root "${rootName}": ${String(e)}`)
+    }
+  }
 }
 
 export default OpfsStorage

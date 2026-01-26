@@ -25,15 +25,15 @@ function renderUI() {
         <h2>Storage: availableRoots</h2>
         <div style="display:flex;gap:12px;align-items:flex-start;">
           <div style="flex:1">
-            <h3 style="margin:6px 0">OPFS</h3><button id="connectOpfs">opfsStorageを追加</button><button id="opfsRoots">opfs の availableRoots を更新</button>
+            <h3 style="margin:6px 0">OPFS</h3><button id="connectOpfs">opfsStorageを追加</button><button id="opfsRoots">opfs の availableRoots を更新</button><button id="deleteOpfs">OPFSを削除</button>
             <select id="opfsRootsList" multiple size="6" style="background:#fff;border:1px solid #ddd;padding:6px;min-height:80px;margin:0;width:100%"></select>
           </div>
           <div style="flex:1">
-            <h3 style="margin:6px 0">IndexedDB</h3><button id="connectIndexedDb">IndexedDbStorageを追加</button><button id="indexedDbRoots">IndexedDb の availableRoots を更新</button>
+            <h3 style="margin:6px 0">IndexedDB</h3><button id="connectIndexedDb">IndexedDbStorageを追加</button><button id="indexedDbRoots">IndexedDb の availableRoots を更新</button><button id="deleteIndexedDb">IndexedDbを削除</button>
             <select id="indexedDbRootsList" multiple size="6" style="background:#fff;border:1px solid #ddd;padding:6px;min-height:80px;margin:0;width:100%"></select>
           </div>
           <div style="flex:1">
-            <h3 style="margin:6px 0">InMemory</h3><button id="connectInMemory">InMemoryStorageを追加</button><button id="inMemoryRoots">InMemory の availableRoots を更新</button>
+            <h3 style="margin:6px 0">InMemory</h3><button id="connectInMemory">InMemoryStorageを追加</button><button id="inMemoryRoots">InMemory の availableRoots を更新</button><button id="deleteInMemory">InMemoryを削除</button>
             <select id="inMemoryRootsList" multiple size="6" style="background:#fff;border:1px solid #ddd;padding:6px;min-height:80px;margin:0;width:100%"></select>
           </div>
         </div>
@@ -349,6 +349,8 @@ async function main() {
           appendOutput('[connectIndexedDbBtn]VirtualFS.init()/IO で例外: ' + String(e))
         }
         // 接続後に IndexedDB の availableRoots を再取得して UI を更新
+        // DBの永続化完了を待つため、少し遅延させる
+        await new Promise(resolve => setTimeout(resolve, 100))
         if (typeof indexedDbRootsBtn !== 'undefined' && indexedDbRootsBtn) indexedDbRootsBtn.click()
       } catch (e) {
         appendOutput('[connectIndexedDbBtn]IndexedDatabaseStorage 接続で例外: ' + String(e))
@@ -441,6 +443,9 @@ async function main() {
         setListContents('indexedDbRootsList', [])
         return
       }
+      // フォーカスが当たるたびに最新の状態を取得するため、少し待機してから取得
+      await new Promise(resolve => setTimeout(resolve, 50))
+      
       if (IdxCtor && typeof IdxCtor.availableRoots === 'function') {
         let roots: any = IdxCtor.availableRoots()
         if (roots && typeof roots.then === 'function') {
@@ -548,8 +553,13 @@ async function main() {
 
   if (typeof document !== 'undefined') {
     const opfsSel = document.getElementById('opfsRootsList') as HTMLSelectElement | null
+    const idxSel = document.getElementById('indexedDbRootsList') as HTMLSelectElement | null
+    const memSel = document.getElementById('inMemoryRootsList') as HTMLSelectElement | null
+
     if (opfsSel) {
       opfsSel.addEventListener('change', async () => {
+        if (idxSel) idxSel.selectedIndex = -1
+        if (memSel) memSel.selectedIndex = -1
         try {
           const val = opfsSel.value
           if (!val) return
@@ -558,9 +568,10 @@ async function main() {
       })
     }
 
-    const idxSel = document.getElementById('indexedDbRootsList') as HTMLSelectElement | null
     if (idxSel) {
       idxSel.addEventListener('change', async () => {
+        if (opfsSel) opfsSel.selectedIndex = -1
+        if (memSel) memSel.selectedIndex = -1
         try {
           const val = idxSel.value
           if (!val) return
@@ -569,9 +580,10 @@ async function main() {
       })
     }
 
-    const memSel = document.getElementById('inMemoryRootsList') as HTMLSelectElement | null
     if (memSel) {
       memSel.addEventListener('change', async () => {
+        if (opfsSel) opfsSel.selectedIndex = -1
+        if (idxSel) idxSel.selectedIndex = -1
         try {
           const val = memSel.value
           if (!val) return
@@ -580,6 +592,102 @@ async function main() {
       })
     }
   }
+
+  // OPFS削除ボタン
+  const deleteOpfsBtn = el('deleteOpfs') as HTMLButtonElement
+  deleteOpfsBtn.addEventListener('click', async () => {
+    appendOutput('[deleteOpfsBtn]選択された OPFS のルートを削除します...')
+    const opfsSel = document.getElementById('opfsRootsList') as HTMLSelectElement | null
+    if (!opfsSel || opfsSel.selectedIndex === -1) {
+      appendOutput('[deleteOpfsBtn]削除対象のルートが選択されていません')
+      return
+    }
+    try {
+      const selectedVal = opfsSel.value
+      const OpfsCtor: any = lib.OpfsStorage
+      if (!OpfsCtor) {
+        appendOutput('[deleteOpfsBtn]OpfsStorage が見つかりません')
+        return
+      }
+      if (typeof OpfsCtor.delete === 'function') {
+        await OpfsCtor.delete(selectedVal)
+        appendOutput(`[deleteOpfsBtn]OPFS ルート "${selectedVal}" を削除しました`)
+        if (opfsRootsBtn) opfsRootsBtn.click()
+      } else if (typeof OpfsCtor.remove === 'function') {
+        await OpfsCtor.remove(selectedVal)
+        appendOutput(`[deleteOpfsBtn]OPFS ルート "${selectedVal}" を削除しました`)
+        if (opfsRootsBtn) opfsRootsBtn.click()
+      } else {
+        appendOutput('[deleteOpfsBtn]OpfsStorage に削除メソッドが実装されていません')
+      }
+    } catch (e) {
+      appendOutput('[deleteOpfsBtn]削除に失敗しました: ' + String(e))
+    }
+  })
+
+  // IndexedDB削除ボタン
+  const deleteIndexedDbBtn = el('deleteIndexedDb') as HTMLButtonElement
+  deleteIndexedDbBtn.addEventListener('click', async () => {
+    appendOutput('[deleteIndexedDbBtn]選択された IndexedDB を削除します...')
+    const idxSel = document.getElementById('indexedDbRootsList') as HTMLSelectElement | null
+    if (!idxSel || idxSel.selectedIndex === -1) {
+      appendOutput('[deleteIndexedDbBtn]削除対象の DB が選択されていません')
+      return
+    }
+    try {
+      const selectedVal = idxSel.value
+      const IdxCtor: any = lib.IndexedDatabaseStorage
+      if (!IdxCtor) {
+        appendOutput('[deleteIndexedDbBtn]IndexedDatabaseStorage が見つかりません')
+        return
+      }
+      if (typeof IdxCtor.delete === 'function') {
+        await IdxCtor.delete(selectedVal)
+        appendOutput(`[deleteIndexedDbBtn]IndexedDB "${selectedVal}" を削除しました`)
+        if (indexedDbRootsBtn) indexedDbRootsBtn.click()
+      } else if (typeof IdxCtor.remove === 'function') {
+        await IdxCtor.remove(selectedVal)
+        appendOutput(`[deleteIndexedDbBtn]IndexedDB "${selectedVal}" を削除しました`)
+        if (indexedDbRootsBtn) indexedDbRootsBtn.click()
+      } else {
+        appendOutput('[deleteIndexedDbBtn]IndexedDatabaseStorage に削除メソッドが実装されていません')
+      }
+    } catch (e) {
+      appendOutput('[deleteIndexedDbBtn]削除に失敗しました: ' + String(e))
+    }
+  })
+
+  // InMemory削除ボタン
+  const deleteInMemoryBtn = el('deleteInMemory') as HTMLButtonElement
+  deleteInMemoryBtn.addEventListener('click', async () => {
+    appendOutput('[deleteInMemoryBtn]選択された InMemory のルートを削除します...')
+    const memSel = document.getElementById('inMemoryRootsList') as HTMLSelectElement | null
+    if (!memSel || memSel.selectedIndex === -1) {
+      appendOutput('[deleteInMemoryBtn]削除対象のルートが選択されていません')
+      return
+    }
+    try {
+      const selectedVal = memSel.value
+      const MemCtor: any = lib.InMemoryStorage
+      if (!MemCtor) {
+        appendOutput('[deleteInMemoryBtn]InMemoryStorage が見つかりません')
+        return
+      }
+      if (typeof MemCtor.delete === 'function') {
+        await MemCtor.delete(selectedVal)
+        appendOutput(`[deleteInMemoryBtn]InMemory ルート "${selectedVal}" を削除しました`)
+        if (inMemoryRootsBtn) inMemoryRootsBtn.click()
+      } else if (typeof MemCtor.remove === 'function') {
+        await MemCtor.remove(selectedVal)
+        appendOutput(`[deleteInMemoryBtn]InMemory ルート "${selectedVal}" を削除しました`)
+        if (inMemoryRootsBtn) inMemoryRootsBtn.click()
+      } else {
+        appendOutput('[deleteInMemoryBtn]InMemoryStorage に削除メソッドが実装されていません')
+      }
+    } catch (e) {
+      appendOutput('[deleteInMemoryBtn]削除に失敗しました: ' + String(e))
+    }
+  })
 
   // 初期表示で自動的に各 Storage の availableRoots を取得して表示する
   // 要素が存在すれば click() でハンドラを起動

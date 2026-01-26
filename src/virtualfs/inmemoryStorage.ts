@@ -280,6 +280,19 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
   }
 
+  /**
+   * 指定されたルート名を削除します
+   * @param rootName 削除するルート名
+   * @returns {void}
+   */
+  static delete(rootName: string): void {
+    if (InMemoryStorage.stores.has(rootName)) {
+      InMemoryStorage.stores.delete(rootName)
+    } else {
+      throw new Error(`InMemory root "${rootName}" not found`)
+    }
+  }
+
 }
 
 export default InMemoryStorage
