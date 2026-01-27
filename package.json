@@ -39,7 +39,7 @@
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage --coverageReporters=json --runInBand",
     "pretest:e2e": "npm run build",
     "test:e2e": "playwright test --config=playwright.config.cjs",
-    "test:ci": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage --coverageReporters=json --runInBand",
+    "test:ci": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage --runInBand",
     "lint": "eslint \"src/**/*.{ts,js}\" --config .eslintrc.cjs",
     "lint2": "eslint \"src/**/*.{ts,js}\" --config .eslintrc.cjs --rule \"unicorn/prevent-abbreviations:off\" --rule \"unicorn/filename-case:off\" --rule \"unicorn/prefer-early-return:off\" --rule \"unicorn/no-duplicated-branches:off\"",
     "depcruise": "depcruise --config .dependency-cruiser.cjs src || exit 0",
