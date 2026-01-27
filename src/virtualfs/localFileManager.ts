@@ -30,30 +30,46 @@ export class LocalFileManager {
    * @returns {Promise<void>}
    */
   async deleteFile(filepath: string): Promise<void> {
-    // If an info entry exists and it has a baseSha, preserve a tombstone
-    // so the change-tracker can recognize an intentional deletion.
-    // If no base exists (file was only in workspace), remove the info
-    // entry entirely to reflect that the entry was never part of base.
+    // Ensure we create a workspace-info tombstone when the file exists in git-base.
+    // Do NOT modify git-scoped info; always write tombstones into workspace-info.
+    // Read bases first
+    const gitBase = await this.backend.readBlob(filepath, 'base')
+    const wsBase = await this.backend.readBlob(filepath, 'workspace')
+
+    // remove workspace cache first to avoid accidental deletion of newly written workspace-info
+    await this.backend.deleteBlob(`${filepath}`, 'workspace')
+
     try {
-      const infoTxt = await this.backend.readBlob(filepath, 'info')
-      if (infoTxt) {
-        const existing: any = JSON.parse(infoTxt)
-        if (existing && existing.baseSha) {
-          const tomb: any = { path: filepath, state: 'deleted', updatedAt: Date.now(), baseSha: existing.baseSha }
-          await this.backend.writeBlob(filepath, JSON.stringify(tomb), 'info')
+      if (gitBase !== null) {
+        // File exists in git base: derive tombstone from git-scoped info (if any)
+        const gitInfoTxt = await this.backend.readBlob(filepath, 'info-git')
+        let gitInfo: any = {}
+        if (gitInfoTxt) {
+          try { gitInfo = JSON.parse(gitInfoTxt) } catch (_) { gitInfo = {} }
+        }
+        gitInfo.state = 'remove'
+        gitInfo.updatedAt = Date.now()
+        await this.backend.writeBlob(filepath, JSON.stringify(gitInfo), 'info-workspace')
+      } else {
+        // No git base: if workspace-base existed, update/create workspace-info as tombstone
+        if (wsBase !== null) {
+          const existingWorkspaceInfoTxt = await this.backend.readBlob(filepath, 'info')
+          let existingWorkspaceInfo: any = {}
+          if (existingWorkspaceInfoTxt) {
+            try { existingWorkspaceInfo = JSON.parse(existingWorkspaceInfoTxt) } catch (_) { existingWorkspaceInfo = {} }
+          }
+          existingWorkspaceInfo.state = 'remove'
+          existingWorkspaceInfo.updatedAt = Date.now()
+          await this.backend.writeBlob(filepath, JSON.stringify(existingWorkspaceInfo), 'info-workspace')
         } else {
-          // remove info entry when there is no baseSha (clean delete)
+          // no base anywhere: remove any info entries (best-effort)
+          await this.backend.deleteBlob(filepath, 'info-workspace')
           await this.backend.deleteBlob(filepath, 'info')
         }
-      } else {
-        // ensure info store is cleared even when no info blob exists (best-effort)
-        await this.backend.deleteBlob(filepath, 'info')
       }
     } catch (_error) {
-      // best-effort: if any info ops fail, continue to remove workspace
+      // best-effort: ignore and finish
     }
-    // remove workspace cache if present
-    await this.backend.deleteBlob(`${filepath}`, 'workspace')
   }
 
   /**

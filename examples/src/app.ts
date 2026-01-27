@@ -50,6 +50,7 @@ function renderUI() {
           </select>
         </label>
         <label>Branch: <input id="branchInput" style="width:120px" placeholder="main"/></label>
+        <button id="switchBranch">Branch 切替</button>
         <button id="connectBtn">接続設定の更新</button>
       </div>
 
@@ -322,6 +323,47 @@ async function main() {
       appendTrace(`${JSON.stringify(e)}`)
     }
   })
+
+  const switchBranchBtn = el('switchBranch') as HTMLButtonElement | null
+  if (switchBranchBtn) {
+    switchBranchBtn.addEventListener('click', async () => {
+      const preferred = (branchInput && branchInput.value) ? branchInput.value.trim() : 'main'
+      const target = (prompt('切替先のブランチ名を入力してください', preferred) || '').trim() || 'main'
+      appendOutput(`[switchBranch]ブランチを ${target} に切り替えます...`)
+      try {
+        if (!currentVfs) { appendOutput('[switchBranch]VirtualFS が未接続です'); return }
+        // Try to set branch on backend if supported
+        try {
+          const backend = (currentVfs as any).backend as any
+          if (backend && typeof backend.setBranch === 'function') {
+            backend.setBranch(target)
+            appendOutput(`[switchBranch]バックエンドに branch=${target} を設定しました`)
+          } else {
+            appendOutput('[switchBranch]現在のバックエンドは branch 切替をサポートしていません')
+          }
+        } catch (e) {
+          appendOutput('[switchBranch]バックエンドの branch 設定で例外: ' + String(e))
+        }
+
+        // Update persisted adapter metadata (if present) so future instances/read will reflect branch
+        try {
+          if (typeof currentVfs.getAdapter === 'function') {
+            const meta = await currentVfs.getAdapter()
+            if (meta && meta.opts) {
+              meta.opts.branch = target
+              await currentVfs.setAdapter(null, meta)
+              appendOutput('[switchBranch]VirtualFS の adapter metadata を更新しました')
+              try { branchInput.value = target } catch (_) { /* ignore */ }
+            }
+          }
+        } catch (e) {
+          appendOutput('[switchBranch]adapter metadata 更新で例外: ' + String(e))
+        }
+      } catch (e) {
+        appendOutput('[switchBranch]例外: ' + String(e))
+      }
+    })
+  }
 
   const connectOpfsBtn = el('connectOpfs') as HTMLButtonElement
   connectOpfsBtn.addEventListener('click', () => {

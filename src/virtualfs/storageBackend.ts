@@ -3,7 +3,7 @@ import { IndexFile } from './types'
 /**
  * Storage セグメント
  */
-export type Segment = 'workspace' | 'base' | 'conflict' | 'info'
+export type Segment = 'workspace' | 'base' | 'conflict' | 'info' | 'info-workspace' | 'info-git'
 
 /**
  * 永続化レイヤーの抽象インターフェース
@@ -58,6 +58,13 @@ export interface StorageBackend {
    * @returns Promise<Array<{path:string, info:string|null}>>
    */
   listFiles(_prefix?: string, _segment?: Segment, _recursive?: boolean): Promise<Array<{ path: string; info: string | null }>>
+
+  /**
+   * Set the currently-active branch name for backends that scope data by branch.
+   * Implementations may ignore this call if branch-scoped storage is unsupported.
+   * @param branch branch name or undefined to clear
+   */
+  setBranch?(_branch?: string | null): void
 }
 
 /**
