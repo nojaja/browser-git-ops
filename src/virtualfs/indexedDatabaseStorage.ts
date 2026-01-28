@@ -306,12 +306,8 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
       if ((meta as any).lastCommitKey) result.lastCommitKey = (meta as any).lastCommitKey
       // Preserve adapter metadata if present
       if ((meta as any).adapter) result.adapter = (meta as any).adapter
-      // set current branch from persisted adapter metadata so we only load info for that branch
-      try {
-        this.currentBranch = (meta as any).adapter && (meta as any).adapter.opts && (meta as any).adapter.opts.branch ? (meta as any).adapter.opts.branch : null
-      } catch (_error) {
-        this.currentBranch = null
-      }
+      // extract branch info via helper to reduce complexity
+      this._setCurrentBranchFromMeta(meta)
     }
     // Merge workspace-local and git-scoped info into result via helpers
     await this._mergeWorkspaceInfo(result)
@@ -327,11 +323,11 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
    */
   private async _mergeWorkspaceInfo(result: IndexFile): Promise<void> {
     try {
-      const wsKeys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO).catch(() => [])
+      const wsKeys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO).catch(() => [] as string[])
       for (const k of wsKeys) {
-        const txt = await this._getFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, k)
-        if (!txt) continue
-        try { result.entries[k] = JSON.parse(txt) } catch (_) { continue }
+        const parsed = await this._safeGetAndParse(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, k)
+        if (parsed === null) continue
+        result.entries[k] = parsed
       }
     } catch (_) {
       // swallow errors: best-effort merge
@@ -346,15 +342,15 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
    */
   private async _mergeGitInfo(result: IndexFile): Promise<void> {
     try {
-      const keys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_INFO).catch(() => [])
+      const keys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_INFO).catch(() => [] as string[])
       const branch = this.currentBranch || 'main'
       for (const k of keys) {
         if (!k.startsWith(branch + '::')) continue
         const filepath = k.slice((branch + '::').length)
         if (result.entries[filepath]) continue
-        const txt = await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, k)
-        if (!txt) continue
-        try { result.entries[filepath] = JSON.parse(txt) } catch (_) { continue }
+        const parsed = await this._safeGetAndParse(IndexedDatabaseStorage.VAR_INFO, k)
+        if (parsed === null) continue
+        result.entries[filepath] = parsed
       }
     } catch (_) {
       // ignore
@@ -381,6 +377,39 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
+   * Safely parse JSON string, returning null on failure.
+    * @returns {any|null} Parsed object or null
+   */
+  private _safeParse(txt: string | null): any | null {
+    if (!txt) return null
+    try { return JSON.parse(txt) } catch (_) { return null }
+  }
+
+  /**
+   * Helper to get a value from store and parse it safely.
+    * @returns {Promise<any|null>} Parsed object or null
+   */
+  private async _safeGetAndParse(storeName: string, key: string): Promise<any | null> {
+    try {
+      const txt = await this._getFromStore(storeName, key).catch(() => null)
+      return this._safeParse(txt)
+    } catch (_) {
+      return null
+    }
+  }
+
+  /**
+   * Extract and set current branch from persisted metadata, if present.
+   */
+  private _setCurrentBranchFromMeta(meta: any): void {
+    try {
+      this.currentBranch = meta && meta.adapter && meta.adapter.opts && meta.adapter.opts.branch ? meta.adapter.opts.branch : null
+    } catch (_error) {
+      this.currentBranch = null
+    }
+  }
+
+  /**
    * index を書き込む
    * @returns {Promise<void>} 書込完了時に解決
    */
@@ -394,11 +423,24 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
       if (exists === null) continue
       toWrite.push({ k: filepath, v: entries[filepath] })
     }
-    if (toWrite.length > 0) {
-      await this.tx(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, 'readwrite', async (store) => {
-        for (const item of toWrite) store.put(JSON.stringify(item.v), item.k)
-      })
-    }
+    if (toWrite.length > 0) await this._persistWorkspaceInfoEntries(toWrite)
+    await this._persistIndexMeta(index)
+  }
+
+  /**
+   * Persist workspace info entries in a single transaction.
+   * @returns {Promise<void>} resolves when persisted
+   */
+  private async _persistWorkspaceInfoEntries(items: Array<{ k: string; v: any }>): Promise<void> {
+    await this.tx(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, 'readwrite', async (store) => {
+      for (const item of items) store.put(JSON.stringify(item.v), item.k)
+    })
+  }
+
+  /**
+   * Persist index metadata into 'index' store.
+   */
+  private async _persistIndexMeta(index: IndexFile): Promise<void> {
     await this.tx('index', 'readwrite', (store) => {
       const payload: any = { head: index.head }
       if ((index as any).lastCommitKey) payload.lastCommitKey = (index as any).lastCommitKey
@@ -418,10 +460,9 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
       await this.tx(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, 'readwrite', (store) => { store.put(content, filepath) })
       return
     }
-    const storeName = seg === 'workspace' ? IndexedDatabaseStorage.VAR_WORKSPACE_BASE : seg === 'base' ? IndexedDatabaseStorage.VAR_BASE : seg === 'info' ? IndexedDatabaseStorage.VAR_INFO : IndexedDatabaseStorage.VAR_CONFLICT
-    const branch = this.currentBranch || 'main'
-    const key = seg === 'workspace' ? filepath : `${branch}::${filepath}`
-    await this.tx(storeName, 'readwrite', (store) => { store.put(content, key) })
+
+    const { storeName, key } = this._determineStoreAndKey(seg, filepath)
+    await this._putToStore(storeName, key, content)
 
     // Do not recursively create info entry when writing into info store itself
     if (seg === 'info') return
@@ -433,29 +474,62 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
+   * Helper to put a value into a store via tx wrapper.
+   */
+  private async _putToStore(storeName: string, key: string, content: string): Promise<void> {
+    await this.tx(storeName, 'readwrite', (store) => { store.put(content, key) })
+  }
+
+  /**
+   * Determine concrete store name and key for a given logical segment and filepath.
+   * @returns {{storeName:string,key:string}}
+   */
+  private _determineStoreAndKey(seg: Segment, filepath: string): { storeName: string; key: string } {
+    const branch = this.currentBranch || 'main'
+    const storeName = seg === 'workspace' ? IndexedDatabaseStorage.VAR_WORKSPACE_BASE : seg === 'base' ? IndexedDatabaseStorage.VAR_BASE : seg === 'info' ? IndexedDatabaseStorage.VAR_INFO : IndexedDatabaseStorage.VAR_CONFLICT
+    const key = seg === 'workspace' ? filepath : `${branch}::${filepath}`
+    return { storeName, key }
+  }
+
+  /**
    * Update info store entry for a written blob.
    * @returns {Promise<void>}
    */
   private async _updateInfoForWrite(filepath: string, seg: Segment, sha: string, now: number): Promise<void> {
     const branch = this.currentBranch || 'main'
     const infoKey = seg === 'workspace' ? filepath : `${branch}::${filepath}`
-    // For workspace writes: if a git base exists, use git-scoped info as existing
-    let existingTxt: string | null = null
-    if (seg === 'workspace') {
-      const gitBase = await this._getFromStore(IndexedDatabaseStorage.VAR_BASE, `${branch}::${filepath}`).catch(() => null)
-      if (gitBase !== null) {
-        existingTxt = await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, `${branch}::${filepath}`).catch(() => null)
-      } else {
-        existingTxt = await this._getFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, infoKey).catch(() => null)
+    const existing = await this._resolveExistingForUpdate(seg, filepath, infoKey)
+    const entry = seg === 'workspace' ? this._buildWorkspaceEntry(existing, filepath, sha, now) : seg === 'base' ? this._buildBaseEntry(existing, filepath, sha, now) : this._buildConflictEntry(existing, filepath, now)
+    await this._persistInfoEntry(seg, infoKey, entry)
+  }
+
+  /**
+   * Resolve existing info JSON object to incorporate when updating info metadata.
+   * @returns {Promise<any>} parsed existing entry or {} if none
+   */
+  private async _resolveExistingForUpdate(seg: Segment, filepath: string, infoKey: string): Promise<any> {
+    try {
+      const branch = this.currentBranch || 'main'
+      if (seg === 'workspace') {
+        const gitBase = await this._getFromStore(IndexedDatabaseStorage.VAR_BASE, `${branch}::${filepath}`).catch(() => null)
+        if (gitBase !== null) {
+          const parsed = await this._safeGetAndParse(IndexedDatabaseStorage.VAR_INFO, `${branch}::${filepath}`)
+          return parsed || {}
+        }
+        const parsed = await this._safeGetAndParse(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, infoKey)
+        return parsed || {}
       }
-    } else {
-      existingTxt = await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, infoKey).catch(() => null)
+      const parsed = await this._safeGetAndParse(IndexedDatabaseStorage.VAR_INFO, infoKey)
+      return parsed || {}
+    } catch (_) {
+      return {}
     }
-    const existing: any = existingTxt ? JSON.parse(existingTxt) : {}
-    let entry: any = { path: filepath, updatedAt: now }
-    if (seg === 'workspace') entry = this._buildWorkspaceEntry(existing, filepath, sha, now)
-    else if (seg === 'base') entry = this._buildBaseEntry(existing, filepath, sha, now)
-    else if (seg === 'conflict') entry = this._buildConflictEntry(existing, filepath, now)
+  }
+
+  /**
+   * Persist an info entry into the appropriate store.
+   */
+  private async _persistInfoEntry(seg: Segment, infoKey: string, entry: any): Promise<void> {
     if (seg === 'workspace') {
       await this.tx(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, 'readwrite', (store) => { store.put(JSON.stringify(entry), infoKey) })
     } else {
@@ -505,29 +579,55 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
    * @returns {Promise<string|null>} ファイル内容、存在しなければ null
    */
   async readBlob(filepath: string, segment?: Segment): Promise<string | null> {
-    const branch = this.currentBranch || 'main'
-    if (segment !== undefined) {
-      if (segment === 'info-git') {
-        return await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, `${branch}::${filepath}`)
-      }
-      if (segment === 'info-workspace') {
-        return await this._getFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath)
-      }
-      if (segment === 'info') {
-        // prefer workspace-local info, then git-scoped
-        const ws = await this._getFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath)
-        if (ws !== null) return ws
-        return await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, `${branch}::${filepath}`)
-      }
-      const storeName = segment === 'workspace' ? IndexedDatabaseStorage.VAR_WORKSPACE_BASE : segment === 'base' ? IndexedDatabaseStorage.VAR_BASE : segment === 'conflict' ? IndexedDatabaseStorage.VAR_CONFLICT : IndexedDatabaseStorage.VAR_BASE
-      const key = segment === 'workspace' ? filepath : `${branch}::${filepath}`
-      return await this._getFromStore(storeName, key)
-    }
+    if (segment !== undefined) return await this._readBlobForSegment(segment, filepath)
+    return await this._readBlobDefault(filepath)
+  }
 
-    // segment未指定の場合はworkspace-base→git-baseの順で参照
+  /**
+   * Read a blob for a specific segment.
+   * @returns {Promise<string|null>} content or null
+   */
+  private async _readBlobForSegment(segment: Segment, filepath: string): Promise<string | null> {
+    if (segment === 'info-git') {
+      const branch = this.currentBranch || 'main'
+      return await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, `${branch}::${filepath}`)
+    }
+    if (segment === 'info-workspace') return await this._getFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath)
+    if (segment === 'info') return await this._readInfoPreferWorkspace(filepath)
+    return await this._readFromNonInfoSegment(segment, filepath)
+  }
+
+  /**
+   * Read blob for non-info segments (workspace/base/conflict).
+   * @returns {Promise<string|null>}
+   */
+  private async _readFromNonInfoSegment(segment: Segment, filepath: string): Promise<string | null> {
+    const branch = this.currentBranch || 'main'
+    const storeName = segment === 'workspace' ? IndexedDatabaseStorage.VAR_WORKSPACE_BASE : segment === 'base' ? IndexedDatabaseStorage.VAR_BASE : segment === 'conflict' ? IndexedDatabaseStorage.VAR_CONFLICT : IndexedDatabaseStorage.VAR_BASE
+    const key = segment === 'workspace' ? filepath : `${branch}::${filepath}`
+    return await this._getFromStore(storeName, key)
+  }
+
+  /**
+   * Default read (workspace -> base)
+   * @returns {Promise<string|null>} content or null
+   */
+  private async _readBlobDefault(filepath: string): Promise<string | null> {
+    const branch = this.currentBranch || 'main'
     const workspaceContent = await this._getFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_BASE, filepath)
     if (workspaceContent !== null) return workspaceContent
     return await this._getFromStore(IndexedDatabaseStorage.VAR_BASE, `${branch}::${filepath}`)
+  }
+
+  /**
+   * Prefer workspace-local info entry, falling back to git-scoped info for current branch.
+   * @returns {Promise<string|null>} info JSON text or null
+   */
+  private async _readInfoPreferWorkspace(filepath: string): Promise<string | null> {
+    const branch = this.currentBranch || 'main'
+    const ws = await this._getFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath)
+    if (ws !== null) return ws
+    return await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, `${branch}::${filepath}`)
   }
 
   /**
@@ -535,22 +635,34 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
    * @returns {Promise<void>} 削除完了時に解決
    */
   async deleteBlob(filepath: string, segment?: Segment): Promise<void> {
-    const branch = this.currentBranch || 'main'
-    if (segment === 'workspace') { await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_BASE, filepath); await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath); return }
-    if (segment === 'base') { await this._deleteFromStore(IndexedDatabaseStorage.VAR_BASE, `${branch}::${filepath}`); return }
-    if (segment === 'conflict') { await this._deleteFromStore(IndexedDatabaseStorage.VAR_CONFLICT, `${branch}::${filepath}`); return }
-    if (segment === 'info') {
-      // remove both workspace-local info and git-scoped info for current branch
-      await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath)
-      await this._deleteFromStore(IndexedDatabaseStorage.VAR_INFO, `${branch}::${filepath}`)
+    if (segment !== undefined) {
+      await this._deleteBlobForSegment(segment, filepath)
       return
     }
     // segment未指定の場合はすべてのセグメントから削除
     await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_BASE, filepath)
-    await this._deleteFromStore(IndexedDatabaseStorage.VAR_BASE, `${branch}::${filepath}`)
-    await this._deleteFromStore(IndexedDatabaseStorage.VAR_CONFLICT, `${branch}::${filepath}`)
-    await this._deleteFromStore(IndexedDatabaseStorage.VAR_INFO, `${branch}::${filepath}`)
+    await this._deleteFromStore(IndexedDatabaseStorage.VAR_BASE, `${this.currentBranch || 'main'}::${filepath}`)
+    await this._deleteFromStore(IndexedDatabaseStorage.VAR_CONFLICT, `${this.currentBranch || 'main'}::${filepath}`)
+    await this._deleteFromStore(IndexedDatabaseStorage.VAR_INFO, `${this.currentBranch || 'main'}::${filepath}`)
     await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath)
+  }
+
+  /**
+   * Delete blob for a specific segment.
+   */
+  private async _deleteBlobForSegment(segment: Segment, filepath: string): Promise<void> {
+    const branch = this.currentBranch || 'main'
+    if (segment === 'workspace') {
+      await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_BASE, filepath)
+      await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath)
+    } else if (segment === 'base') {
+      await this._deleteFromStore(IndexedDatabaseStorage.VAR_BASE, `${branch}::${filepath}`)
+    } else if (segment === 'conflict') {
+      await this._deleteFromStore(IndexedDatabaseStorage.VAR_CONFLICT, `${branch}::${filepath}`)
+    } else if (segment === 'info') {
+      await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath)
+      await this._deleteFromStore(IndexedDatabaseStorage.VAR_INFO, `${branch}::${filepath}`)
+    }
   }
 
   /**
@@ -599,11 +711,12 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
          */
         request.onsuccess = function (event: any) {
           const current = event.target.result
-            if (!current) { resolve(keys); return }
-            if (current.key !== undefined) {
-              keys.push(current.key as string)
-            }
-            current.continue()
+          if (!current) {
+            resolve(keys)
+          } else {
+            if (current.key !== undefined) keys.push(current.key as string)
+            try { current.continue() } catch (_) { resolve(keys) }
+          }
         }
         /**
          * Cursor error handler: resolve with collected keys so far.
@@ -612,6 +725,25 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
         request.onerror = function () { resolve(keys) }
       } catch (_) { resolve([]) }
     })
+  }
+
+  /**
+   * Return keys for the logical segment. For 'info' merges workspace and git-scoped keys.
+   * @returns {Promise<string[]>} Array of keys
+   */
+  private async _listKeysForSegment(storeName: string, seg: Segment): Promise<string[]> {
+    try {
+      if (seg === 'info') {
+        const wsKeys: string[] = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO).catch(() => [] as string[])
+        const gitKeys: string[] = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_INFO).catch(() => [] as string[])
+        const branch = this.currentBranch || 'main'
+        const gitStripped = gitKeys.filter(k => k.startsWith(branch + '::')).map(k => k.slice((branch + '::').length))
+        return Array.from(new Set(wsKeys.concat(gitStripped)))
+      }
+      return await this._listKeysFromStore(storeName)
+    } catch (_) {
+      return []
+    }
   }
 
   /**
@@ -625,31 +757,23 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     const seg: Segment = segment ?? 'workspace'
     const storeName = seg === 'workspace' ? IndexedDatabaseStorage.VAR_WORKSPACE_BASE : seg === 'base' ? IndexedDatabaseStorage.VAR_BASE : seg === 'info' ? IndexedDatabaseStorage.VAR_INFO : IndexedDatabaseStorage.VAR_CONFLICT
 
-    let keys: string[]
-    try {
-      if (seg === 'info') {
-        // Merge workspace-local info keys (unprefixed) and git-scoped info keys (branch-prefixed)
-        const wsKeys: string[] = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO).catch(() => [] as string[])
-        const gitKeys: string[] = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_INFO).catch(() => [] as string[])
-        const branch = this.currentBranch || 'main'
-        const gitStripped = gitKeys.filter(k => k.startsWith(branch + '::')).map(k => k.slice((branch + '::').length))
-        // workspace-local keys take precedence, keep order
-        keys = Array.from(new Set(wsKeys.concat(gitStripped)))
-      } else {
-        keys = await this._listKeysFromStore(storeName)
-      }
-    } catch (_) {
-      keys = []
-    }
+    let keys = await this._listKeysForSegment(storeName, seg)
 
     const p = prefix ? prefix.replace(/^\/+|\/+$/g, '') : ''
-    // For non-workspace, non-info stores, keys include branch prefix. Filter and strip it.
-    if (seg !== 'workspace' && seg !== 'info') {
-      const branch = this.currentBranch || 'main'
-      keys = keys.filter((k) => k.startsWith(branch + '::')).map((k) => k.slice((branch + '::').length))
-    }
+    // Strip branch prefix for non-workspace/non-info segments
+    keys = this._maybeStripBranchPrefix(keys, seg)
     keys = this._filterKeys(keys, p, recursive)
     return await this._collectFiles(keys, seg)
+  }
+
+  /**
+   * If segment is branch-scoped, filter keys to current branch and strip the prefix.
+   * @returns {string[]}
+   */
+  private _maybeStripBranchPrefix(keys: string[], seg: Segment): string[] {
+    if (seg === 'workspace' || seg === 'info') return keys
+    const branch = this.currentBranch || 'main'
+    return keys.filter((k) => k.startsWith(branch + '::')).map((k) => k.slice((branch + '::').length))
   }
 
   /**

@@ -86,22 +86,35 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     // Reconstruct entries from infoBlobs map
     const result: IndexFile = { head: store.index.head || '', entries: {} }
     const branch = this.currentBranch || 'main'
-    // First, load workspace-local info entries (unprefixed keys)
+    // Merge workspace-local info entries and branch-scoped info entries
+    this._mergeWorkspaceInfoFromStore(store, result, branch)
+    this._mergeBranchInfoFromStore(store, result, branch)
+    if ((store.index as any).lastCommitKey) result.lastCommitKey = (store.index as any).lastCommitKey
+    // Preserve adapter metadata if present
+    if ((store.index as any).adapter) result.adapter = (store.index as any).adapter
+    return result
+  }
+
+  /**
+   * Merge unprefixed (workspace-local) info entries into result.
+   */
+  private _mergeWorkspaceInfoFromStore(store: any, result: IndexFile, branch: string): void {
     for (const [k, v] of store.infoBlobs.entries()) {
       if (k.startsWith(branch + InMemoryStorage.BRANCH_SEP)) continue
       try { result.entries[k] = JSON.parse(v) } catch (_) { continue }
     }
-    // Then load branch-scoped info entries (keys prefixed with branch prefix), but do not overwrite workspace-local
+  }
+
+  /**
+   * Merge branch-prefixed info entries into result without overwriting workspace-local entries.
+   */
+  private _mergeBranchInfoFromStore(store: any, result: IndexFile, branch: string): void {
     for (const [k, v] of store.infoBlobs.entries()) {
       if (!k.startsWith(branch + InMemoryStorage.BRANCH_SEP)) continue
       const filepath = k.slice((branch + InMemoryStorage.BRANCH_SEP).length)
       if (result.entries[filepath]) continue
       try { result.entries[filepath] = JSON.parse(v) } catch (_) { continue }
     }
-    if ((store.index as any).lastCommitKey) result.lastCommitKey = (store.index as any).lastCommitKey
-    // Preserve adapter metadata if present
-    if ((store.index as any).adapter) result.adapter = (store.index as any).adapter
-    return result
   }
 
   /**
@@ -145,32 +158,39 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     const store = InMemoryStorage.stores.get(this.rootKey)!
     this._applyBlobToStore(store, seg, filepath, content)
     // update info metadata when writing to workspace/base/conflict
-    // For workspace writes, if a git base exists for this file, treat this
-    // update as coming from the git base and build workspace/info based on
-    // the git-scoped info; otherwise fall back to the default helper.
-    const branch = this.currentBranch || 'main'
-    if (seg === 'workspace') {
-      const gitBaseKey = `${branch}${InMemoryStorage.BRANCH_SEP}${filepath}`
-      if (store.baseBlobs.has(gitBaseKey)) {
-        // Build workspace info based on git-scoped info
-        const gitInfoTxt = store.infoBlobs.has(gitBaseKey) ? store.infoBlobs.get(gitBaseKey)! : null
-        let existing: any = undefined
-        if (gitInfoTxt) {
-          try { existing = JSON.parse(gitInfoTxt) } catch (_) { existing = undefined }
-        }
-        const sha = await this.shaOf(content)
-        const now = Date.now()
-        const entry = this._buildWorkspaceInfoEntry(existing, filepath, sha, now)
-        store.infoBlobs.set(filepath, JSON.stringify(entry))
-        return
-      }
-    }
+    // Delegate workspace-special handling to helper to reduce complexity
+    const handled = await this._handleWorkspaceWriteIfNeeded(store, seg, filepath, content)
+    if (handled) return
+
     // For explicit info-workspace/info-git writes, we've already stored
     // the provided content directly; skip the generic metadata updater
     if (seg === InMemoryStorage.SEG_INFO_WORKSPACE || seg === InMemoryStorage.SEG_INFO_GIT) return
 
     const wrapped = seg === 'workspace' ? this._wrapStoreForInfoNoPrefix(store) : this._wrapStoreForInfoPrefix(store)
     await updateInfoForWrite(wrapped, filepath, seg, content)
+  }
+
+  /**
+   * Handle the special case when writing to workspace and a git base exists.
+   * Returns true when the helper handled the update and caller should return early.
+    * @returns {Promise<boolean>} true if handled
+   */
+  private async _handleWorkspaceWriteIfNeeded(store: any, seg: string, filepath: string, content: string): Promise<boolean> {
+    if (seg !== 'workspace') return false
+    const branch = this.currentBranch || 'main'
+    const gitBaseKey = `${branch}${InMemoryStorage.BRANCH_SEP}${filepath}`
+    if (!store.baseBlobs.has(gitBaseKey)) return false
+    // Build workspace info based on git-scoped info
+    const gitInfoTxt = store.infoBlobs.has(gitBaseKey) ? store.infoBlobs.get(gitBaseKey)! : null
+    let existing: any = undefined
+    if (gitInfoTxt) {
+      try { existing = JSON.parse(gitInfoTxt) } catch (_) { existing = undefined }
+    }
+    const sha = await this.shaOf(content)
+    const now = Date.now()
+    const entry = this._buildWorkspaceInfoEntry(existing, filepath, sha, now)
+    store.infoBlobs.set(filepath, JSON.stringify(entry))
+    return true
   }
 
   /**
@@ -271,23 +291,16 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
    * @returns {Promise<string|null>}
    */
   private async _readBlobForSegment(store: any, filepath: string, seg: string): Promise<string | null> {
-    const segmentToStore = {
-      workspace: store.workspaceBlobs,
-      base: store.baseBlobs,
-      conflict: store.conflictBlobs,
-      info: store.infoBlobs,
-    } as Record<string, Map<string, string>>
-    const branch = this.currentBranch || 'main'
-    if (seg === InMemoryStorage.SEG_INFO_WORKSPACE) {
-      return store.infoBlobs.has(filepath) ? store.infoBlobs.get(filepath)! : null
-    }
-    if (seg === InMemoryStorage.SEG_INFO_GIT) {
-      const key = `${branch}${InMemoryStorage.BRANCH_SEP}${filepath}`
-      return store.infoBlobs.has(key) ? store.infoBlobs.get(key)! : null
-    }
-    const m = segmentToStore[seg]
-    if (!m) return null
-    if (seg === 'workspace') return m.has(filepath) ? m.get(filepath)! : null
+    if (seg === InMemoryStorage.SEG_INFO_WORKSPACE) return this._readInfoWorkspace(store, filepath)
+    if (seg === InMemoryStorage.SEG_INFO_GIT) return this._readInfoGit(store, filepath)
+    return this._readBlobForNonInfo(store, filepath, seg)
+  }
+
+  /**
+   * Read from a branch-prefixed Map for seg types base/conflict/info.
+   * @returns {string|null}
+   */
+  private _readFromPrefixedStore(m: Map<string,string>, filepath: string, branch: string, seg: string): string | null {
     if (seg === 'info') {
       if (m.has(filepath)) return m.get(filepath)!
       const key = `${branch}${InMemoryStorage.BRANCH_SEP}${filepath}`
@@ -295,6 +308,42 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     }
     const key = `${branch}${InMemoryStorage.BRANCH_SEP}${filepath}`
     return m.has(key) ? m.get(key)! : null
+  }
+
+  /**
+   * Read a workspace-local info entry from the store.
+   * @returns {string|null}
+   */
+  private _readInfoWorkspace(store: any, filepath: string): string | null {
+    return store.infoBlobs.has(filepath) ? store.infoBlobs.get(filepath)! : null
+  }
+
+  /**
+   * Read a branch-scoped info entry from the store for current branch.
+   * @returns {string|null}
+   */
+  private _readInfoGit(store: any, filepath: string): string | null {
+    const branch = this.currentBranch || 'main'
+    const key = `${branch}${InMemoryStorage.BRANCH_SEP}${filepath}`
+    return store.infoBlobs.has(key) ? store.infoBlobs.get(key)! : null
+  }
+
+  /**
+   * Read a blob for non-info segments (workspace/base/conflict), using branch-prefixed keys where appropriate.
+   * @returns {string|null}
+   */
+  private _readBlobForNonInfo(store: any, filepath: string, seg: string): string | null {
+    const segmentToStore = {
+      workspace: store.workspaceBlobs,
+      base: store.baseBlobs,
+      conflict: store.conflictBlobs,
+      info: store.infoBlobs,
+    } as Record<string, Map<string, string>>
+    const m = segmentToStore[seg]
+    if (!m) return null
+    const branch = this.currentBranch || 'main'
+    if (seg === 'workspace') return m.has(filepath) ? m.get(filepath)! : null
+    return this._readFromPrefixedStore(m, filepath, branch, seg)
   }
 
   /**
@@ -350,42 +399,46 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
   async listFiles(prefix?: string, segment?: any, recursive = true): Promise<Array<{ path: string; info: string | null }>> {
     const seg = segment || 'workspace'
     const store = InMemoryStorage.stores.get(this.rootKey)!
+    const p = prefix ? prefix.replace(/^\/+|\/+$/g, '') : ''
+    const keys = this._computeListKeys(store, String(seg), p, recursive)
+
+    const out: Array<{ path: string; info: string | null }> = []
+    for (const k of keys) {
+      const branch = this.currentBranch || 'main'
+      // prefer workspace-local info (unprefixed) then branch-prefixed info
+      let info: string | null = null
+      if (store.infoBlobs.has(k)) info = store.infoBlobs.get(k)!
+      else if (store.infoBlobs.has(`${branch}${InMemoryStorage.BRANCH_SEP}${k}`)) info = store.infoBlobs.get(`${branch}${InMemoryStorage.BRANCH_SEP}${k}`)!
+      out.push({ path: k, info })
+    }
+    return out
+  }
+
+  /**
+   * Compute merged and filtered keys for listFiles to keep logic small.
+    * @returns {string[]} merged keys
+   */
+  private _computeListKeys(store: any, seg: string, p: string, recursive: boolean): string[] {
     const segmentToStore = {
       workspace: store.workspaceBlobs,
       base: store.baseBlobs,
       conflict: store.conflictBlobs,
       info: store.infoBlobs,
     } as Record<string, Map<string, string>>
-
     const m = segmentToStore[String(seg)]
     if (!m) return []
-
-    const p = prefix ? prefix.replace(/^\/+|\/+$/g, '') : ''
     let keys = Array.from(m.keys())
     // For info store include both unprefixed (workspace-local) keys and branch-prefixed keys
     if (seg === 'info') {
       const branch = this.currentBranch || 'main'
       const unpref = keys.filter((k) => !k.startsWith(branch + InMemoryStorage.BRANCH_SEP))
       const pref = keys.filter((k) => k.startsWith(branch + InMemoryStorage.BRANCH_SEP)).map((k) => k.slice((branch + InMemoryStorage.BRANCH_SEP).length))
-      // merge with workspace-local keys first (they take precedence)
-      const merged = Array.from(new Set(unpref.concat(pref)))
-      keys = merged
+      keys = Array.from(new Set(unpref.concat(pref)))
     } else if (seg !== 'workspace') {
       const branch = this.currentBranch || 'main'
       keys = keys.filter((k) => k.startsWith(branch + InMemoryStorage.BRANCH_SEP)).map((k) => k.slice((branch + InMemoryStorage.BRANCH_SEP).length))
     }
-    keys = this._filterKeys(keys, p, recursive)
-
-    const out: Array<{ path: string; info: string | null }> = []
-    for (const k of keys) {
-      const branch = this.currentBranch || 'main'
-        // prefer workspace-local info (unprefixed) then branch-prefixed info
-        let info: string | null = null
-        if (store.infoBlobs.has(k)) info = store.infoBlobs.get(k)!
-        else if (store.infoBlobs.has(`${branch}${InMemoryStorage.BRANCH_SEP}${k}`)) info = store.infoBlobs.get(`${branch}${InMemoryStorage.BRANCH_SEP}${k}`)!
-      out.push({ path: k, info })
-    }
-    return out
+    return this._filterKeys(keys, p, recursive)
   }
 
   /**
