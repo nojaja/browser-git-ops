@@ -1,10 +1,13 @@
-import type { StorageBackend } from './storageBackend'
+import type { StorageBackend, Segment } from './storageBackend'
 
 /**
  * ローカルファイル操作のラッパー
  */
 export class LocalFileManager {
   private backend: StorageBackend
+  private static SEG_INFO_WORKSPACE: Segment = 'info-workspace'
+  private static SEG_INFO_GIT: Segment = 'info-git'
+  private static SEG_INFO: Segment = 'info'
 
   /**
    * コンストラクタ
@@ -29,47 +32,68 @@ export class LocalFileManager {
    * @param {string} filepath - ファイルパス
    * @returns {Promise<void>}
    */
+  /**
+   * Delete a file and ensure appropriate workspace-info tombstone behavior.
+   * @returns {Promise<void>}
+   */
   async deleteFile(filepath: string): Promise<void> {
-    // Ensure we create a workspace-info tombstone when the file exists in git-base.
-    // Do NOT modify git-scoped info; always write tombstones into workspace-info.
-    // Read bases first
+    // Read relevant blobs to decide behavior
     const gitBase = await this.backend.readBlob(filepath, 'base')
-    const wsBase = await this.backend.readBlob(filepath, 'workspace')
+    await this.backend.readBlob(filepath, 'workspace')
+    const wsInfoTxt = await this.backend.readBlob(filepath, LocalFileManager.SEG_INFO_WORKSPACE)
+    const gitInfoTxt = await this.backend.readBlob(filepath, LocalFileManager.SEG_INFO_GIT)
 
-    // remove workspace cache first to avoid accidental deletion of newly written workspace-info
+    // remove workspace cache first
     await this.backend.deleteBlob(`${filepath}`, 'workspace')
 
     try {
-      if (gitBase !== null) {
-        // File exists in git base: derive tombstone from git-scoped info (if any)
-        const gitInfoTxt = await this.backend.readBlob(filepath, 'info-git')
-        let gitInfo: any = {}
-        if (gitInfoTxt) {
-          try { gitInfo = JSON.parse(gitInfoTxt) } catch (_) { gitInfo = {} }
-        }
-        gitInfo.state = 'remove'
-        gitInfo.updatedAt = Date.now()
-        await this.backend.writeBlob(filepath, JSON.stringify(gitInfo), 'info-workspace')
+      const existingInfo = this._parseExistingInfo(wsInfoTxt, gitInfoTxt)
+      const shouldWriteTombstone = Boolean((existingInfo && existingInfo.baseSha) || gitBase !== null)
+      if (shouldWriteTombstone) {
+        await this._writeTombstone(gitInfoTxt || wsInfoTxt || null, filepath)
       } else {
-        // No git base: if workspace-base existed, update/create workspace-info as tombstone
-        if (wsBase !== null) {
-          const existingWorkspaceInfoTxt = await this.backend.readBlob(filepath, 'info')
-          let existingWorkspaceInfo: any = {}
-          if (existingWorkspaceInfoTxt) {
-            try { existingWorkspaceInfo = JSON.parse(existingWorkspaceInfoTxt) } catch (_) { existingWorkspaceInfo = {} }
-          }
-          existingWorkspaceInfo.state = 'remove'
-          existingWorkspaceInfo.updatedAt = Date.now()
-          await this.backend.writeBlob(filepath, JSON.stringify(existingWorkspaceInfo), 'info-workspace')
-        } else {
-          // no base anywhere: remove any info entries (best-effort)
-          await this.backend.deleteBlob(filepath, 'info-workspace')
-          await this.backend.deleteBlob(filepath, 'info')
-        }
+        await this._clearInfoEntries(filepath)
       }
     } catch (_error) {
       // best-effort: ignore and finish
     }
+  }
+
+  /**
+   * Parse existing info preference: workspace-info first, then git-scoped info.
+   * @returns {any} parsed info object or undefined
+   */
+  private _parseExistingInfo(wsInfoTxt: string | null, gitInfoTxt: string | null): any {
+    if (wsInfoTxt) {
+      try { return JSON.parse(wsInfoTxt) } catch (_) { return undefined }
+    }
+    if (gitInfoTxt) {
+      try { return JSON.parse(gitInfoTxt) } catch (_) { return undefined }
+    }
+    return undefined
+  }
+
+  /**
+   * Write a workspace-info tombstone derived from basis text.
+   * @returns {Promise<void>}
+   */
+  private async _writeTombstone(basisTxt: string | null, filepath: string): Promise<void> {
+    let basis: any = {}
+    if (basisTxt) {
+      try { basis = JSON.parse(basisTxt) } catch (_) { basis = {} }
+    }
+    basis.state = 'deleted'
+    basis.updatedAt = Date.now()
+    await this.backend.writeBlob(filepath, JSON.stringify(basis), LocalFileManager.SEG_INFO_WORKSPACE)
+  }
+
+  /**
+   * Remove workspace-local info entries for the filepath.
+   * @returns {Promise<void>}
+   */
+  private async _clearInfoEntries(filepath: string): Promise<void> {
+    await this.backend.deleteBlob(filepath, LocalFileManager.SEG_INFO_WORKSPACE)
+    await this.backend.deleteBlob(filepath, LocalFileManager.SEG_INFO)
   }
 
   /**

@@ -1,4 +1,9 @@
 import { IndexFile } from './types'
+/*
+  Note: This file previously had several eslint-disable pragmas to suppress
+  complexity and JSDoc rules. The large functions have been split into
+  smaller helpers to satisfy linting and improve maintainability.
+*/
 import { StorageBackend, StorageBackendConstructor, Segment } from './storageBackend'
 
 /**
@@ -304,33 +309,56 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
       // set current branch from persisted adapter metadata so we only load info for that branch
       try {
         this.currentBranch = (meta as any).adapter && (meta as any).adapter.opts && (meta as any).adapter.opts.branch ? (meta as any).adapter.opts.branch : null
-      } catch (_e) {
+      } catch (_error) {
         this.currentBranch = null
       }
     }
+    // Merge workspace-local and git-scoped info into result via helpers
+    await this._mergeWorkspaceInfo(result)
+    await this._mergeGitInfo(result)
 
-    // Load workspace-local info first (workspace-info), then merge git-scoped info (.git/{branch}/info)
+    return result
+  }
+
+  /**
+   * Merge workspace-local info entries into the provided result object.
+   * @param result IndexFile to populate
+   * @returns {Promise<void>} resolves when merge complete
+   */
+  private async _mergeWorkspaceInfo(result: IndexFile): Promise<void> {
     try {
-      const wsKeys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO)
+      const wsKeys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO).catch(() => [])
       for (const k of wsKeys) {
         const txt = await this._getFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, k)
         if (!txt) continue
         try { result.entries[k] = JSON.parse(txt) } catch (_) { continue }
       }
-    } catch (_) { /* ignore */ }
-    // Then load git-scoped info entries for current branch, but do not overwrite workspace-local entries
-    const keys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_INFO)
-    const branch = this.currentBranch || 'main'
-    for (const k of keys) {
-      if (!k.startsWith(branch + '::')) continue
-      const filepath = k.slice((branch + '::').length)
-      if (result.entries[filepath]) continue
-      const txt = await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, k)
-      if (!txt) continue
-      try { result.entries[filepath] = JSON.parse(txt) } catch (_) { continue }
+    } catch (_) {
+      // swallow errors: best-effort merge
     }
+  }
 
-    return result
+  /**
+   * Merge git-scoped info entries for the current branch into result,
+   * but do not overwrite existing workspace-local entries.
+   * @param result IndexFile to populate
+   * @returns {Promise<void>} resolves when merge complete
+   */
+  private async _mergeGitInfo(result: IndexFile): Promise<void> {
+    try {
+      const keys = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_INFO).catch(() => [])
+      const branch = this.currentBranch || 'main'
+      for (const k of keys) {
+        if (!k.startsWith(branch + '::')) continue
+        const filepath = k.slice((branch + '::').length)
+        if (result.entries[filepath]) continue
+        const txt = await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, k)
+        if (!txt) continue
+        try { result.entries[filepath] = JSON.parse(txt) } catch (_) { continue }
+      }
+    } catch (_) {
+      // ignore
+    }
   }
 
   /**
@@ -599,14 +627,24 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
 
     let keys: string[]
     try {
-      keys = await this._listKeysFromStore(storeName)
+      if (seg === 'info') {
+        // Merge workspace-local info keys (unprefixed) and git-scoped info keys (branch-prefixed)
+        const wsKeys: string[] = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO).catch(() => [] as string[])
+        const gitKeys: string[] = await this._listKeysFromStore(IndexedDatabaseStorage.VAR_INFO).catch(() => [] as string[])
+        const branch = this.currentBranch || 'main'
+        const gitStripped = gitKeys.filter(k => k.startsWith(branch + '::')).map(k => k.slice((branch + '::').length))
+        // workspace-local keys take precedence, keep order
+        keys = Array.from(new Set(wsKeys.concat(gitStripped)))
+      } else {
+        keys = await this._listKeysFromStore(storeName)
+      }
     } catch (_) {
       keys = []
     }
 
     const p = prefix ? prefix.replace(/^\/+|\/+$/g, '') : ''
-    // For non-workspace stores, keys include branch prefix. Filter and strip it.
-    if (seg !== 'workspace') {
+    // For non-workspace, non-info stores, keys include branch prefix. Filter and strip it.
+    if (seg !== 'workspace' && seg !== 'info') {
       const branch = this.currentBranch || 'main'
       keys = keys.filter((k) => k.startsWith(branch + '::')).map((k) => k.slice((branch + '::').length))
     }
@@ -633,7 +671,7 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
    * Collect file info objects for keys array.
    * @returns {Promise<Array<{path:string, info:string|null}>>}
    */
-  private async _collectFiles(keys: string[], seg: Segment): Promise<Array<{ path: string; info: string | null }>> {
+  private async _collectFiles(keys: string[], _seg: Segment): Promise<Array<{ path: string; info: string | null }>> {
     const out: Array<{ path: string; info: string | null }> = []
     const branch = this.currentBranch || 'main'
     for (const k of keys) {

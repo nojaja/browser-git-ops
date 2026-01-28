@@ -120,7 +120,6 @@ describe('VirtualFS conflict and edge cases', () => {
     await vfs.applyBaseSnapshot({ 'file.txt': 'content' }, 'h0')
 
     await vfs.deleteFile('file.txt')
-
     const paths = await vfs.listPaths()
     expect(paths).not.toContain('file.txt')
   })

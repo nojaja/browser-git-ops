@@ -8,7 +8,8 @@ import IndexedDbStorage from '../../../src/virtualfs/indexedDatabaseStorage'
 
 function makeFakeDB() {
   const stores: Record<string, Map<string, string>> = {
-    workspace: new Map(),
+    'workspace-base': new Map(),
+    'workspace-info': new Map(),
     'git-base': new Map(),
     'git-conflict': new Map(),
     'git-info': new Map(),
@@ -72,8 +73,10 @@ describe('IndexedDbStorage additional coverage', () => {
     await s.writeBlob('a/b/d.txt', 'base-content', 'base')
     await s.writeBlob('x/y/z.txt', 'conflict-content', 'conflict')
 
-    // info store should have entries for the three paths
-    const infoKeys = Array.from(stores['git-info'].keys())
+    // info store should have entries for the three paths (workspace-info + git-info)
+    const wsKeys = Array.from(stores['workspace-info'].keys())
+    const gitKeys = Array.from(stores['git-info'].keys()).map(k => k.startsWith('main::') ? k.slice('main::'.length) : k)
+    const infoKeys = wsKeys.concat(gitKeys)
     expect(infoKeys).toEqual(expect.arrayContaining(['a/b/c.txt', 'a/b/d.txt', 'x/y/z.txt']))
 
     // listFiles with prefix 'a' should include both files under a/, recursive true

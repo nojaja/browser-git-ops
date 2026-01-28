@@ -129,7 +129,7 @@ export class IndexManager {
       try {
         if (it.info) {
           const parsed = JSON.parse(it.info)
-          if (parsed && parsed.state === 'deleted') continue
+          if (parsed && (parsed.state === 'deleted' || parsed.state === 'remove')) continue
         }
       } catch (_error) {
         // ignore parse errors and include the path

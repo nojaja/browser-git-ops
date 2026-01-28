@@ -11,14 +11,16 @@ async function getStorageClass() {
 
 function makeFakeDBFor(kind: string) {
   const stores: Record<string, Map<string, any>> = {
-    workspace: new Map(),
+    'workspace-base': new Map(),
+    'workspace-info': new Map(),
     'git-base': new Map(),
     'git-conflict': new Map(),
     'git-info': new Map(),
     index: new Map(),
   }
-  if (kind === 'base-only') stores['git-base'].set('test.txt', 'base content')
-  if (kind === 'conflict-only') stores['git-conflict'].set('test.txt', 'conflict content')
+  // Use branch-prefixed keys for git stores to match storage implementation
+  if (kind === 'base-only') stores['git-base'].set('main::test.txt', 'base content')
+  if (kind === 'conflict-only') stores['git-conflict'].set('main::test.txt', 'conflict content')
 
   const db: any = {
     transaction: (storeName: string) => {
@@ -97,9 +99,15 @@ describe('indexeddb merged tests (consolidated + branches)', () => {
       return tx
     }
     await s.deleteBlob('test.txt', 'base')
-    expect(deletes).toEqual(['git-base:test.txt'])
+    expect(deletes).toEqual(['git-base:main::test.txt'])
     await s.deleteBlob('test.txt')
-    expect(deletes).toEqual(expect.arrayContaining(['workspace:test.txt','git-base:test.txt','git-conflict:test.txt']))
+    expect(deletes).toEqual(expect.arrayContaining([
+      'workspace-base:test.txt',
+      'git-base:main::test.txt',
+      'git-conflict:main::test.txt',
+      'git-info:main::test.txt',
+      'workspace-info:test.txt',
+    ]))
   })
 
   test.each([
