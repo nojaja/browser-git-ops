@@ -54,7 +54,7 @@ describe('LocalFileManager', () => {
     const wsInfoTxt = await backend.readBlob('tz.txt', 'info-workspace')
     expect(wsInfoTxt).not.toBeNull()
     const wsInfo = JSON.parse(wsInfoTxt!)
-    expect(wsInfo.state).toBe('remove')
+    expect(wsInfo.state).toBe('deleted')
     expect(wsInfo.baseSha).toBe('sha123')
 
     // git-scoped info must remain unchanged
@@ -62,7 +62,7 @@ describe('LocalFileManager', () => {
     expect(gitInfoTxt).not.toBeNull()
     const gitInfo = JSON.parse(gitInfoTxt!)
     expect(gitInfo.baseSha).toBe('sha123')
-    expect(gitInfo.state === 'remove').toBe(false)
+    expect(gitInfo.state === 'deleted').toBe(false)
   })
 
   it('renameFile copies content and deletes original', async () => {

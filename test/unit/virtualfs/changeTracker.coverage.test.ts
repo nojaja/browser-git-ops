@@ -9,7 +9,7 @@ describe('ChangeTracker branch coverage', () => {
     }
 
     const indexManager: any = {
-      getIndex: jest.fn().mockResolvedValue({ entries: { 'del.txt': { baseSha: 'b', state: 'remove' } } })
+      getIndex: jest.fn().mockResolvedValue({ entries: { 'del.txt': { baseSha: 'b', state: 'deleted' } } })
     }
 
     const ct = new ChangeTracker(backend, indexManager)

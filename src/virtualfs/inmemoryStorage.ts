@@ -78,14 +78,23 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     // First, load workspace-local info entries (unprefixed keys)
     for (const [k, v] of store.infoBlobs.entries()) {
       if (k.startsWith(branch + '::')) continue
-      try { result.entries[k] = JSON.parse(v) } catch (_) { continue }
+      try {
+        const parsed = JSON.parse(v)
+        // Preserve workspace-local entries (including tombstones) so they
+        // shadow branch-scoped info entries loaded later.
+        result.entries[k] = parsed
+      } catch (_) { continue }
     }
     // Then load branch-scoped info entries (keys prefixed with `${branch}::`), but do not overwrite workspace-local
     for (const [k, v] of store.infoBlobs.entries()) {
       if (!k.startsWith(branch + '::')) continue
       const filepath = k.slice((branch + '::').length)
       if (result.entries[filepath]) continue
-      try { result.entries[filepath] = JSON.parse(v) } catch (_) { continue }
+      try {
+        const parsed = JSON.parse(v)
+        if (parsed && parsed.state === 'deleted') continue
+        result.entries[filepath] = parsed
+      } catch (_) { continue }
     }
     if ((store.index as any).lastCommitKey) result.lastCommitKey = (store.index as any).lastCommitKey
     // Preserve adapter metadata if present

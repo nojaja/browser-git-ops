@@ -140,7 +140,7 @@ describe('VirtualFS conflict and edge cases', () => {
     const oldInfo = await backend.readBlob('oldname.txt', 'info')
     if (oldInfo) {
       const oldParsed = JSON.parse(oldInfo)
-      expect(oldParsed.state === 'remove' || oldParsed.state === 'deleted' || oldParsed.state === 'base' || true).toBeTruthy()
+      expect(oldParsed.state === 'deleted' || oldParsed.state === 'base' || true).toBeTruthy()
     } else {
       // no info entry is also acceptable under new spec
       expect(oldInfo).toBeNull()

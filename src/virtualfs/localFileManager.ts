@@ -47,7 +47,7 @@ export class LocalFileManager {
         if (gitInfoTxt) {
           try { gitInfo = JSON.parse(gitInfoTxt) } catch (_) { gitInfo = {} }
         }
-        gitInfo.state = 'remove'
+        gitInfo.state = 'deleted'
         gitInfo.updatedAt = Date.now()
         await this.backend.writeBlob(filepath, JSON.stringify(gitInfo), 'info-workspace')
       } else {
@@ -58,7 +58,7 @@ export class LocalFileManager {
           if (existingWorkspaceInfoTxt) {
             try { existingWorkspaceInfo = JSON.parse(existingWorkspaceInfoTxt) } catch (_) { existingWorkspaceInfo = {} }
           }
-          existingWorkspaceInfo.state = 'remove'
+          existingWorkspaceInfo.state = 'deleted'
           existingWorkspaceInfo.updatedAt = Date.now()
           await this.backend.writeBlob(filepath, JSON.stringify(existingWorkspaceInfo), 'info-workspace')
         } else {

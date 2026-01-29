@@ -66,7 +66,7 @@ describe('ChangeTracker - table-driven getChangeSet', () => {
   const cases: Array<any> = [
     {
       name: 'delete via explicit remove state',
-      index: { head: '', entries: { 'a.txt': { baseSha: 'b1', state: 'remove' } } },
+      index: { head: '', entries: { 'a.txt': { baseSha: 'b1', state: 'deleted' } } },
       workspace: {},
       expect: [{ type: 'delete', path: 'a.txt', baseSha: 'b1' }]
     },

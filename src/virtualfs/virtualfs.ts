@@ -24,7 +24,7 @@ export class VirtualFS {
   // adapter metadata persisted in index
   private adapterMeta: any | null = null
   // `workspace` state moved to StorageBackend implementations; tombstones are
-  // persisted in the backend as `info` entries with `state: 'remove'`.
+  // persisted in the backend as `info` entries with `state: 'deleted'.`.
   private indexManager: IndexManager
   private backend: StorageBackend
   private applier: LocalChangeApplier

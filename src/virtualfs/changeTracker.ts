@@ -60,7 +60,7 @@ export class ChangeTracker {
 
   /**
    * Determine whether an index entry should be considered a local delete.
-   * - explicit deleted/remove state -> true
+   * - explicit deleted state -> true
    * - only if workspaceSha existed previously and workspace blob now missing
    * @param ie index entry
    * @param p file path
@@ -68,7 +68,7 @@ export class ChangeTracker {
    */
   private async _isIndexEntryDeleted(ie: any, p: string): Promise<boolean> {
     if (!ie || !ie.baseSha) return false
-    if (ie.state === 'deleted' || ie.state === 'remove') return true
+    if (ie.state === 'deleted') return true
     if (!ie.workspaceSha) return false
     const ws = await this.backend.readBlob(p, 'workspace')
     return ws === null
