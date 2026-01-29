@@ -307,7 +307,21 @@ export class VirtualFS {
    * @returns {string[]}
    */
   async listPaths(): Promise<string[]> {
-    return this.indexManager.listPaths()
+    // Build paths from the reconstructed index so that workspace-local
+    // info (workspace/info) takes precedence over git-scoped info.
+    const index = await this.indexManager.getIndex()
+    const entries = (index && (index as any).entries) || {}
+    const out: string[] = []
+    for (const k of Object.keys(entries)) {
+      try {
+        const v = (entries as any)[k]
+        if (v && v.state === 'deleted') continue
+      } catch (_e) {
+        // ignore and include
+      }
+      out.push(k)
+    }
+    return out
   }
 
   /**

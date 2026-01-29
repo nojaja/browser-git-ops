@@ -762,9 +762,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   async listFiles(prefix?: string, segment?: any, recursive = true): Promise<Array<{ path: string; info: string | null }>> {
     const root = await this.getOpfsRoot()
     if (!root) return []
-
     const seg: 'workspace' | 'base' | 'conflict' | 'info' = segment ?? 'workspace'
-      const segPrefix = this._segmentToPrefix(seg) // modified line
+    const segPrefix = this._segmentToPrefix(seg)
 
     // Return a plain array of relative file path strings; tests for OpfsStorage expect strings
     const keys = await this._safeListFilesAtPrefix(root, segPrefix)
