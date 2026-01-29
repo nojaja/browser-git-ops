@@ -57,6 +57,7 @@ function renderUI() {
       <section style="margin-top:18px">
         <h2>操作</h2>
           <button id="showSnapshot">スナップショット（ローカル）一覧表示</button>
+          <button id="revertChange">変更を元に戻す</button>
           <button id="fetchRemote">リモート一覧をpull</button>
           <button id="resolveConflict">競合を解消済にする</button>
           <button id="remoteChanges">リモートで新しいファイル一覧 (チェンジセット)</button>
@@ -839,6 +840,50 @@ async function main() {
       appendOutput('[resolveConflictBtn]resolveConflict 失敗: ' + String(e))
     }
   })
+
+    const revertChangeBtn = el('revertChange') as HTMLButtonElement
+    if (revertChangeBtn) {
+      revertChangeBtn.addEventListener('click', async () => {
+        const path = (prompt('元に戻すファイルパスを入力してください（例: examples/new.txt）') || '').trim()
+        if (!path) return
+        if (!currentVfs) { appendOutput('[revertChangeBtn]先に VirtualFS を初期化してください'); return }
+        try {
+          const backend = (currentVfs as any).backend
+          if (!backend || typeof backend.deleteBlob !== 'function') {
+            appendOutput('[revertChangeBtn]バックエンドが deleteBlob をサポートしていません')
+            return
+          }
+          appendOutput(`[revertChangeBtn]ワークスペースの変更を削除します: ${path}`)
+          try {
+            await backend.deleteBlob(path, 'workspace')
+            appendTrace(`await backend.deleteBlob(${path}, 'workspace')`)
+          } catch (e) {
+            appendOutput('[revertChangeBtn]backend.deleteBlob で例外: ' + String(e))
+          }
+
+          // Reload VFS index/state so UI reflects the reverted state
+          try {
+            if (typeof currentVfs.init === 'function') {
+              await currentVfs.init()
+              appendTrace('await currentVfs.init()')
+            }
+          } catch (e) {
+            appendOutput('[revertChangeBtn]VirtualFS の再初期化で例外: ' + String(e))
+          }
+
+          // Show current content (workspace or base)
+          try {
+            const content = await currentVfs.readFile(path)
+            const snippet = content === null ? '<存在しない>' : (typeof content === 'string' ? content.slice(0, 400).replace(/\r?\n/g, '\\n') : String(content))
+            appendOutput(`[revertChangeBtn]操作完了: ${path} -> ${snippet}`)
+          } catch (e) {
+            appendOutput('[revertChangeBtn]ファイル読み取りで例外: ' + String(e))
+          }
+        } catch (e) {
+          appendOutput('[revertChangeBtn]変更の復元に失敗しました: ' + String(e))
+        }
+      })
+    }
 
   const remoteChangesBtn = el('remoteChanges') as HTMLButtonElement
   remoteChangesBtn.addEventListener('click', async () => {
