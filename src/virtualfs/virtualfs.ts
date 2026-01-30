@@ -316,7 +316,7 @@ export class VirtualFS {
       try {
         const v = (entries as any)[k]
         if (v && v.state === 'deleted') continue
-      } catch (_e) {
+      } catch (_error) {
         // ignore and include
       }
       out.push(k)

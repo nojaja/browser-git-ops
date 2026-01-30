@@ -42,7 +42,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       const root = await OpfsStorage._getNavigatorStorageRoot()
       if (!root) return []
       return await OpfsStorage._collectDirectoryNames(root)
-    } catch (_) {
+    } catch (_error) {
       return []
     }
   }
@@ -140,13 +140,15 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   /**
    * Set active branch for storage scoping. Backends that support branch scoping
    * should honor this to isolate base/conflict/info data per branch.
+   * @param {string | undefined | null} branch branch name or null
+   * @returns {void}
    */
   setBranch(branch?: string | null): void {
     this.currentBranch = branch || null
   }
-
   /**
    * Map logical segment to concrete prefix used on OPFS.
+    * @returns {string} concrete prefix path for the given segment
    */
   private _segmentToPrefix(segment: 'workspace' | 'base' | 'conflict' | 'info'): string {
     // Workspace content is now stored under workspace/base
@@ -172,7 +174,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       const maybe = nav.storage.getDirectory()
       const d = await Promise.resolve(maybe)
       return d || null
-    } catch (_) {
+    } catch (_error) {
       return null
     }
   }
@@ -188,7 +190,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     }
     try {
       return await opfs.getDirectory()
-    } catch (_) {
+    } catch (_error) {
       return null
     }
   }
@@ -241,7 +243,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       const fh = await (root as any).getFileHandle('index')
       const file = await fh.getFile()
       return await file.text()
-    } catch (_) {
+    } catch (_error) {
       return null
     }
   }
@@ -269,7 +271,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       await this._readInfoEntries(root, result)
 
       return result
-    } catch (_) {
+    } catch (_error) {
       return { head: '', entries: {} }
     }
   }
@@ -281,20 +283,29 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   private async _readInfoEntries(root: any, result: IndexFile): Promise<void> {
     // Load workspace-local info first (workspace/info), then merge git-scoped info (.git/{branch}/info)
     const workspaceInfoPrefix = `${VAR_WORKSPACE}/info`
-    const wsFiles = await this.listFilesAtPrefix(root, workspaceInfoPrefix).catch(() => [])
-    for (const fp of wsFiles) {
-      const txt = await this.readFromPrefix(root, workspaceInfoPrefix, fp).catch(() => null)
-      if (!txt) continue
-      try { result.entries[fp] = JSON.parse(txt) as any } catch (_) { continue }
-    }
+    await this._readFilesIntoEntries(root, workspaceInfoPrefix, result, true)
+
     // Load git-scoped info, but do not overwrite workspace-local entries
     const gitInfoPrefix = this._segmentToPrefix('info')
-    const gitFiles = await this.listFilesAtPrefix(root, gitInfoPrefix).catch(() => [])
-    for (const fp of gitFiles) {
-      if (result.entries[fp]) continue
-      const txt = await this.readFromPrefix(root, gitInfoPrefix, fp).catch(() => null)
+    await this._readFilesIntoEntries(root, gitInfoPrefix, result, false)
+  }
+
+  /**
+   * Read files at the given prefix and populate result.entries.
+   * If `overwrite` is true, entries will be overwritten; otherwise existing entries are preserved.
+   * @returns {Promise<void>}
+   */
+  private async _readFilesIntoEntries(root: any, prefix: string, result: IndexFile, overwrite: boolean): Promise<void> {
+    const files = await this.listFilesAtPrefix(root, prefix).catch(() => [])
+    for (const fp of files) {
+      if (!overwrite && result.entries[fp]) continue
+      const txt = await this.readFromPrefix(root, prefix, fp).catch(() => null)
       if (!txt) continue
-      try { result.entries[fp] = JSON.parse(txt) as any } catch (_) { continue }
+      try {
+        result.entries[fp] = JSON.parse(txt) as any
+      } catch (_error) {
+        continue
+      }
     }
   }
 
@@ -374,28 +385,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * @returns {Promise<void>}
    */
   private async _updateInfoForWrite(root: any, seg: 'workspace' | 'base' | 'conflict' | 'info', filepath: string, sha: string, now: number): Promise<void> {
-    // Attempt to read existing info metadata to preserve fields (e.g., baseSha)
-    let existing: any = {}
-    try {
-      if (seg === 'workspace') {
-        // If a git base exists for this file, treat the workspace write as
-        // an update from the git-managed base: prefer the git-scoped info
-        // as the "existing" basis. Otherwise use workspace-local info.
-        const gitBase = await this.readFromPrefix(root, this._segmentToPrefix('base'), filepath).catch(() => null)
-        if (gitBase !== null) {
-          const existingTxt = await this.readFromPrefix(root, this._segmentToPrefix('info'), filepath).catch(() => null)
-          if (existingTxt) existing = JSON.parse(existingTxt)
-        } else {
-          const existingTxt = await this.readFromPrefix(root, `${VAR_WORKSPACE}/info`, filepath).catch(() => null)
-          if (existingTxt) existing = JSON.parse(existingTxt)
-        }
-      } else {
-        const existingTxt = await this.readFromPrefix(root, this._segmentToPrefix('info'), filepath).catch(() => null)
-        if (existingTxt) existing = JSON.parse(existingTxt)
-      }
-    } catch (error) {
-      existing = {}
-    }
+    const existing = await this._getExistingInfo(root, seg, filepath)
 
     let entry: any = { path: filepath, updatedAt: now }
     if (seg === 'workspace') entry = this._buildWorkspaceEntry(existing, filepath, sha, now)
@@ -403,10 +393,29 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     else if (seg === 'conflict') entry = this._buildConflictEntry(existing, filepath, now)
 
     // Persist info: workspace writes go to workspace/info, other segments to git-scoped info
-    if (seg === 'workspace') {
-      await this._writeToPrefix(root, `${VAR_WORKSPACE}/info`, filepath, JSON.stringify(entry))
-    } else {
-      await this._writeToPrefix(root, this._segmentToPrefix('info'), filepath, JSON.stringify(entry))
+    const targetPrefix = seg === 'workspace' ? `${VAR_WORKSPACE}/info` : this._segmentToPrefix('info')
+    await this._writeToPrefix(root, targetPrefix, filepath, JSON.stringify(entry))
+  }
+
+  /**
+   * Attempt to load existing info metadata used as basis when updating info.
+   * @returns {Promise<any>} parsed existing info object or empty object
+   */
+  private async _getExistingInfo(root: any, seg: 'workspace' | 'base' | 'conflict' | 'info', filepath: string): Promise<any> {
+    try {
+      if (seg === 'workspace') {
+        const gitBase = await this.readFromPrefix(root, this._segmentToPrefix('base'), filepath).catch(() => null)
+        if (gitBase !== null) {
+          const existingTxt = await this.readFromPrefix(root, this._segmentToPrefix('info'), filepath).catch(() => null)
+          return existingTxt ? JSON.parse(existingTxt) : {}
+        }
+        const existingTxt = await this.readFromPrefix(root, `${VAR_WORKSPACE}/info`, filepath).catch(() => null)
+        return existingTxt ? JSON.parse(existingTxt) : {}
+      }
+      const existingTxt = await this.readFromPrefix(root, this._segmentToPrefix('info'), filepath).catch(() => null)
+      return existingTxt ? JSON.parse(existingTxt) : {}
+    } catch (_error) {
+      return {}
     }
   }
   /**
@@ -470,7 +479,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       const file = await fh.getFile()
       const txt = await file.text()
       return txt ?? null
-    } catch (_) {
+    } catch (_error) {
       return null
     }
   }
@@ -511,8 +520,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
         // prefer workspace-local info first, then git-scoped info
         const ws = await this.readFromPrefix(root, `${VAR_WORKSPACE}/info`, filepath).catch(() => null)
         if (ws !== null) return ws
-        const git = await this.readFromPrefix(root, this._segmentToPrefix('info'), filepath).catch(() => null)
-        return git
+        return await this.readFromPrefix(root, this._segmentToPrefix('info'), filepath).catch(() => null)
       }
       // read git-only info
       if (segment === 'info-git') {
@@ -587,14 +595,14 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     // ディレクトリが存在しない場合（NotFound）は削除対象なしとして終了
     try {
       directory = await this.traverseDir(root, parts.slice(0, parts.length - 1))
-    } catch (_) {
+    } catch (_error) {
       return
     }
     const name = parts[parts.length - 1]
     if (typeof directory.removeEntry === 'function') {
       try {
         await directory.removeEntry(name)
-      } catch (_) {
+      } catch (_error) {
         // removeEntryが失敗しても無視（存在しない等）
       }
       return
@@ -620,7 +628,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       const directory = await this.traverseDir(root, parts.slice(0, parts.length - 1))
       const fh = await directory.getFileHandle(parts[parts.length - 1])
       return await this._readFileFromHandle(fh)
-    } catch (_) {
+    } catch (_error) {
       return null
     }
   }
@@ -658,7 +666,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       const results: string[] = []
       await this._recurseListDir(directory, '', results)
       return results
-    } catch (_) {
+    } catch (_error) {
       return []
     }
   }
