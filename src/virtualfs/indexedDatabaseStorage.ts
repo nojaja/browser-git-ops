@@ -787,6 +787,98 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
+   * Raw listing that returns implementation-specific URIs and a normalized path.
+   */
+  /**
+   * Raw listing that returns implementation-specific URIs and a normalized path.
+   * @param prefix optional prefix to filter
+   * @param recursive whether to include subdirectories
+   * @returns {Promise<Array<{uri:string,path:string,info?:string|null}>>}
+   */
+  async listFilesRaw(prefix?: string, recursive = true): Promise<Array<{ uri: string; path: string; info?: string | null }>> {
+    const stores = [
+      IndexedDatabaseStorage.VAR_WORKSPACE_BASE,
+      IndexedDatabaseStorage.VAR_WORKSPACE_INFO,
+      IndexedDatabaseStorage.VAR_BASE,
+      IndexedDatabaseStorage.VAR_INFO,
+      IndexedDatabaseStorage.VAR_CONFLICT,
+    ]
+
+    const branch = this.currentBranch || 'main'
+    const p = prefix ? prefix.replace(/^\/+|\/+$/g, '') : ''
+
+    const out: Array<{ uri: string; path: string; info?: string | null }> = []
+
+    for (const storeName of stores) {
+      let keys: string[] = []
+      try {
+        keys = await this._listKeysFromStore(storeName)
+      } catch (error) {
+        keys = []
+      }
+
+      const entries = await this._entriesFromStoreKeys(storeName, keys, branch, p, recursive)
+      for (const entry of entries) out.push(entry)
+    }
+
+    return out
+  }
+
+  /**
+   * Helper: build entries from store keys with filtering and path normalization
+   */
+  /**
+   * Helper: build entries from store keys with filtering and path normalization
+   * @returns {Promise<Array<{uri:string,path:string,info?:string|null}>>}
+   */
+  private async _entriesFromStoreKeys(storeName: string, keys: string[], branch: string, prefix: string, recursive: boolean): Promise<Array<{ uri: string; path: string; info?: string | null }>> {
+    const mapped = await Promise.all(keys.map((originalKey) => this._entryFromStoreKey(storeName, originalKey, branch, prefix, recursive)))
+    return mapped.filter((x) => x !== null) as Array<{ uri: string; path: string; info?: string | null }>
+  }
+
+  /**
+   * Build a single entry object from a store key. Returns null when the key is filtered out.
+   * @returns {Promise<{uri:string,path:string,info?:string|null}|null>}
+   */
+  private async _entryFromStoreKey(storeName: string, originalKey: string, branch: string, prefix: string, recursive: boolean): Promise<{ uri: string; path: string; info?: string | null } | null> {
+    // Normalize may strip branch prefix for git-scoped stores
+    const normalizedKey = (storeName !== IndexedDatabaseStorage.VAR_WORKSPACE_BASE && storeName !== IndexedDatabaseStorage.VAR_WORKSPACE_INFO && originalKey.startsWith(branch + '::'))
+      ? originalKey.slice((branch + '::').length)
+      : originalKey
+
+    // Prefix filtering
+    if (prefix && !(normalizedKey === prefix || normalizedKey.startsWith(prefix + '/'))) return null
+
+    // Recursion filtering
+    if (!recursive) {
+      const rest = prefix ? normalizedKey.slice(prefix.length + 1) : normalizedKey
+      if (rest.includes('/')) return null
+    }
+
+    const uri = `${this.dbName}/${storeName}/${originalKey}`
+    const path = this._buildPathForStoreKey(storeName, normalizedKey, branch)
+    const info = await this._resolveInfoForKey(normalizedKey, branch)
+    return { uri, path, info }
+  }
+
+  /**
+   * Build normalized path string for a store key.
+   * @returns {string}
+   */
+  private _buildPathForStoreKey(storeName: string, normalizedKey: string, branch: string): string {
+    if (storeName === IndexedDatabaseStorage.VAR_WORKSPACE_BASE || storeName === IndexedDatabaseStorage.VAR_WORKSPACE_INFO) {
+      return `${this.dbName}/workspace/${normalizedKey}`
+    }
+    const tableMap: Record<string, string> = {
+      [IndexedDatabaseStorage.VAR_BASE]: 'base',
+      [IndexedDatabaseStorage.VAR_INFO]: 'info',
+      [IndexedDatabaseStorage.VAR_CONFLICT]: 'conflict',
+    }
+    const segName = tableMap[storeName] || 'base'
+    return `${this.dbName}/.git/${branch}/${segName}/${normalizedKey}`
+  }
+
+  /**
    * Normalize keys for a given segment: strip branch prefix for non-workspace stores.
    * @returns {string[]}
    */

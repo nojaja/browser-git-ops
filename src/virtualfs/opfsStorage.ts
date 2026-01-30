@@ -782,6 +782,64 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   }
 
   /**
+   * Raw listing that returns implementation-specific URIs and a normalized path.
+   * @param prefix optional prefix to filter
+   * @param recursive whether to include subdirectories
+   * @returns {Promise<Array<{uri:string,path:string,info?:string|null}>>} array of entries with uri/path/info
+   */
+  async listFilesRaw(prefix?: string, recursive = true): Promise<Array<{ uri: string; path: string; info?: string | null }>> {
+    const navRoot = await OpfsStorage._getNavigatorStorageRoot()
+    if (!navRoot) return []
+
+    const storageDirectory = await this._findStorageDirectory(navRoot)
+    if (!storageDirectory) return []
+
+    const results: string[] = []
+    await this._recurseListDir(storageDirectory, '', results)
+
+    const p = prefix ? prefix.replace(/^\/+|\/+$/g, '') : ''
+    const keys = this._filterKeys(results, p, recursive)
+
+    const out: Array<{ uri: string; path: string; info?: string | null }> = []
+    for (const k of keys) {
+      const uri = `${this.rootDir}/${k}`
+      const info = await this._getInfoForOpfsKey(navRoot, k)
+      out.push({ uri, path: uri, info })
+    }
+    return out
+  }
+
+  /**
+   * Locate the configured storage root directory handle under navigator.storage root.
+   * @returns {Promise<any|null>} directory handle or null when not found
+   */
+  private async _findStorageDirectory(navRoot: any): Promise<any | null> {
+    try {
+      for await (const handle of (navRoot as any).values()) {
+        const name = OpfsStorage._extractHandleName(handle)
+        if (name === this.rootDir && OpfsStorage._isDirectoryHandle(handle)) return handle
+      }
+      return null
+    } catch (error) {
+      return null
+    }
+  }
+
+  /**
+   * Read info metadata for a given key from workspace-local info or git-scoped info.
+   * @returns {Promise<string|null>} JSON string or null when absent
+   */
+  private async _getInfoForOpfsKey(navRoot: any, key: string): Promise<string | null> {
+    try {
+      const ws = await this.readFromPrefix(navRoot, `${VAR_WORKSPACE}/info`, key).catch(() => null)
+      if (ws !== null) return ws
+      return await this.readFromPrefix(navRoot, this._segmentToPrefix('info'), key).catch(() => null)
+    } catch (error) {
+      return null
+    }
+  }
+
+  /**
    * Filter keys by prefix and recursion flag for OPFS listing
    * @returns {string[]}
    */

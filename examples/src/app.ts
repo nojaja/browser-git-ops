@@ -67,6 +67,7 @@ function renderUI() {
           <button id="editAndPush">既存ファイルを編集</button>
           <button id="deleteAndPush">既存ファイルを削除</button>
           <button id="renameAndPush">既存ファイルを名前変更</button>
+          <button id="listFilesRaw">listFilesRaw() を実行</button>
       </section>
 
       <section style="margin-top:18px">
@@ -1046,6 +1047,39 @@ async function main() {
       }
     })()
   })
+
+  const listFilesRawBtn = el('listFilesRaw') as HTMLButtonElement | null
+  if (listFilesRawBtn) {
+    listFilesRawBtn.addEventListener('click', async () => {
+      appendOutput('[listFilesRaw]listFilesRaw() を実行します（引数省略）')
+      if (!currentVfs) { appendOutput('[listFilesRaw]先に VirtualFS を初期化してください'); return }
+      try {
+        if (typeof currentVfs.listFilesRaw === 'function') {
+          appendTrace('const files = await currentVfs.listFilesRaw()')
+          const files = await currentVfs.listFilesRaw()
+          appendTrace('files => ' + JSON.stringify(files))
+          const count = Array.isArray(files) ? files.length : 0
+          appendOutput(`[listFilesRaw]取得件数: ${count}`)
+          if (count > 0) appendOutput(JSON.stringify(files, null, 2))
+        } else {
+          // Try backend.listFilesRaw as a fallback
+          const backend = (currentVfs as any).backend
+          if (backend && typeof backend.listFilesRaw === 'function') {
+            appendTrace('const files = await backend.listFilesRaw()')
+            const files = await backend.listFilesRaw()
+            appendTrace('files => ' + JSON.stringify(files))
+            const count = Array.isArray(files) ? files.length : 0
+            appendOutput(`[listFilesRaw]取得件数 (backend): ${count}`)
+            if (count > 0) appendOutput(JSON.stringify(files, null, 2))
+          } else {
+            appendOutput('[listFilesRaw]listFilesRaw() が VirtualFS/Backend に実装されていません')
+          }
+        }
+      } catch (e) {
+        appendOutput('[listFilesRaw]listFilesRaw 実行で例外: ' + String(e))
+      }
+    })
+  }
 }
 
 // 自動起動

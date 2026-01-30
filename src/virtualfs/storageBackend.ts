@@ -60,11 +60,27 @@ export interface StorageBackend {
   listFiles(_prefix?: string, _segment?: Segment, _recursive?: boolean): Promise<Array<{ path: string; info: string | null }>>
 
   /**
+   * Raw listing that returns implementation-specific URIs and a normalized path.
+   * @returns Promise<Array<{ uri: string; path: string; info?: string | null }>>
+   */
+  listFilesRaw?(_prefix?: string, _recursive?: boolean): Promise<Array<{ uri: string; path: string; info?: string | null }>>
+
+  /**
    * Set the currently-active branch name for backends that scope data by branch.
    * Implementations may ignore this call if branch-scoped storage is unsupported.
    * @param branch branch name or undefined to clear
    */
   setBranch?(_branch?: string | null): void
+
+  /**
+   * 指定プレフィックス配下のファイル一覧を取得します。
+   * デバッグなどに利用する、segmentを使った出し分け処理を行わないより直接的な参照を行うためのメソッド
+   * @param prefix 取得対象のディレクトリプレフィックス（省略時はルート）
+   * @param recursive サブディレクトリも含める場合は true（デフォルト true）
+   * @returns Promise<Array<{path:string, info:string|null}>>
+   */
+  
+
 }
 
 /**
