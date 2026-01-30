@@ -3,6 +3,7 @@ import { StorageBackend } from './storageBackend'
 import { OpfsStorage } from './opfsStorage'
 import { GitHubAdapter } from '../git/githubAdapter'
 import { GitLabAdapter } from '../git/gitlabAdapter'
+import { Logger } from '../git/abstractAdapter'
 import { shaOf, shaOfGitBlob } from './hashUtils'
 import { LocalChangeApplier } from './localChangeApplier'
 import { LocalFileManager } from './localFileManager'
@@ -21,6 +22,8 @@ type RemoteSnapshotDescriptor = {
 export class VirtualFS {
   // adapter instance managed by VirtualFS
   private adapter: any | null = null
+  // optional logger injected via constructor options; propagated to adapters when present
+  private logger?: Logger
   // adapter metadata persisted in index
   private adapterMeta: any | null = null
   // `workspace` state moved to StorageBackend implementations; tombstones are
@@ -38,9 +41,11 @@ export class VirtualFS {
    * @param options オプション
    * @returns {void}
    */
-  constructor(options?: { backend?: StorageBackend }) {
+  constructor(options?: { backend?: StorageBackend; logger?: Logger }) {
     if (options?.backend) this.backend = options.backend
     else this.backend = new OpfsStorage()
+    // capture optional logger for adapter propagation
+    if (options && options.logger) this.logger = options.logger
     this.applier = new LocalChangeApplier(this.backend)
     this.localFileManager = new LocalFileManager(this.backend)
     this.indexManager = new IndexManager(this.backend)
@@ -131,6 +136,14 @@ export class VirtualFS {
   async setAdapter(adapter: any | null, meta?: any) {
     this.adapter = adapter
     this.adapterMeta = meta || null
+    // If adapter instance provided, propagate logger when available
+    try {
+      if (this.adapter && this.logger && typeof (this.adapter as any).setLogger === 'function') {
+        (this.adapter as any).setLogger(this.logger)
+      }
+    } catch (_error) {
+      // best-effort logging injection; ignore failures
+    }
     try {
       const index = await this.indexManager.getIndex()
       if (this.adapterMeta) (index as any).adapter = this.adapterMeta
@@ -190,8 +203,11 @@ export class VirtualFS {
    */
   private _instantiateAdapter(type: string, options: any): any | null {
     try {
-      if (type === 'github') return new GitHubAdapter(options)
-      if (type === 'gitlab') return new GitLabAdapter(options)
+      // Merge in logger if available so created adapters receive it via DI
+      const optionsWithLogger = { ...(options || {}) } as any
+      if (this.logger) optionsWithLogger.logger = this.logger
+      if (type === 'github') return new GitHubAdapter(optionsWithLogger)
+      if (type === 'gitlab') return new GitLabAdapter(optionsWithLogger)
     } catch (_error) {
       return null
     }

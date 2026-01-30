@@ -1,4 +1,5 @@
 import { GitAdapter } from './adapter'
+import AbstractGitAdapter, { fetchWithRetry, classifyStatus, getDelayForResponse, processResponseWithDelay, mapWithConcurrency, shaOf } from './abstractAdapter'
 // Use Web Crypto directly for SHA-1
 
 type GHOptions = {
@@ -22,81 +23,9 @@ export class NonRetryableError extends Error {}
  * 指定ミリ秒だけ sleep するユーティリティ
  * @param ms ミリ秒
  */
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+// helpers are provided by abstractAdapter
 
-/**
- * fetch を再試行付きで実行するユーティリティ。
- * 5xx や 429 はリトライ対象、それ以外は NonRetryableError を投げる。
- * @param input RequestInfo
- * @param init RequestInit
- * @param attempts 試行回数
- * @param baseDelay ベースの遅延(ms)
- */
-/* istanbul ignore next */
-async function fetchWithRetry(input: RequestInfo, init: RequestInit, attempts = 4, baseDelay = 300) {
-  let lastError: any
-  for (let index = 0; index < attempts; index++) {
-    try {
-      const response = await fetch(input, init)
-      return await processResponseWithDelay(response, index, baseDelay)
-    /* istanbul ignore next */
-    } catch (error) {
-      if (error instanceof NonRetryableError) throw error
-      lastError = error
-      await sleep(getDelayForResponse(null, index, baseDelay))
-    }
-  }
-  throw new RetryableError(`Failed after ${attempts} attempts: ${lastError}`)
-}
-
-function classifyStatus(status: number) {
-  return status >= 500 || status === 429
-}
-
-function getDelayForResponse(response: Response | null, index: number, baseDelay: number) {
-  if (!response) return baseDelay * Math.pow(2, index) + Math.random() * 100
-  const retryAfter = response.headers.get('Retry-After')
-  return retryAfter ? Number(retryAfter) * 1000 : baseDelay * Math.pow(2, index) + Math.random() * 100
-}
-
-async function processResponseWithDelay(response: Response, index: number, baseDelay: number) {
-  if (response.ok) return response
-  if (classifyStatus(response.status)) {
-    await sleep(getDelayForResponse(response, index, baseDelay))
-    throw new RetryableError(`HTTP ${response.status}`)
-  }
-  const txt = await response.text().catch(() => '')
-  throw new NonRetryableError(`HTTP ${response.status}: ${txt}`)
-}
-
-/**
- * 非同期マップを並列実行するユーティリティ
- * @param items 入力配列
- * @param mapper マッピング関数
- * @param concurrency 同時実行数
- */
-/* istanbul ignore next */
-function mapWithConcurrency<T, R>(items: T[], mapper: (_t: T) => Promise<R>, concurrency = 5) {
-  const results: R[] = []
-  let index = 0
-  const runners: Promise<void>[] = []
-  const run = async () => {
-    while (index < items.length) {
-      const index_ = index++
-      if (index_ >= items.length) break
-      const r = await mapper(items[index_])
-      results[index_] = r
-    }
-  }
-  for (let index = 0; index < Math.min(concurrency, items.length); index++) runners.push(run())
-  return Promise.all(runners).then(() => results)
-}
-
-export class GitHubAdapter implements GitAdapter {
-  private baseUrl: string
-  private headers: Record<string, string>
+export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   private _fetchWithRetry: (_: RequestInfo, __: RequestInit, ___?: number, ____?: number) => Promise<Response>
   // simple in-memory blob cache: contentSha -> blobSha
   private blobCache: Map<string, string> = new Map()
@@ -105,7 +34,8 @@ export class GitHubAdapter implements GitAdapter {
    * GitHubAdapter を初期化します。
    * @param {GHOptions} opts 設定オブジェクト
    */
-  constructor(private options: GHOptions) {
+  constructor(options: GHOptions) {
+    super(options)
     const host = options.host || 'https://api.github.com'
     this.baseUrl = `${host}/repos/${options.owner}/${options.repo}`
     this.headers = {
@@ -121,12 +51,7 @@ export class GitHubAdapter implements GitAdapter {
    * @param {string} content コンテンツ
    * @returns {string} sha1 ハッシュ
    */
-  private async shaOf(content: string) {
-    const encoder = new TextEncoder()
-    const data = encoder.encode(content)
-    const buf = await crypto.subtle.digest('SHA-1', data)
-    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
-  }
+  // shaOf is inherited from AbstractGitAdapter
 
   async createBlobs(changes: any[], concurrency = 5) {
     const tasks = changes.filter((c) => c.type === 'create' || c.type === 'update')
@@ -327,8 +252,8 @@ export class GitHubAdapter implements GitAdapter {
     return out
   }
 }
-
-export { fetchWithRetry, classifyStatus, getDelayForResponse, processResponseWithDelay, mapWithConcurrency }
+// re-export helpers for backward compatibility
+export { fetchWithRetry, classifyStatus, getDelayForResponse, processResponseWithDelay, mapWithConcurrency, shaOf }
 export default GitHubAdapter
 
 // helper moved into class as a private method

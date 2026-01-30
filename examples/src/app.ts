@@ -550,8 +550,27 @@ async function main() {
       if (!BackendCtor || !lib.VirtualFS) { appendOutput(`[${prefix}]${displayName}/VirtualFS が見つかりません`); return }
       const backend = new BackendCtor(val)
       appendTrace(`const backend = new lib.${displayName}(${JSON.stringify(val)})`)
-      const vfs = new (lib.VirtualFS as any)({ backend })
-      appendTrace(`const currentVfs = new lib.VirtualFS({ backend })`)
+      const vfs = new (lib.VirtualFS as any)({
+        backend,
+        logger: (() => {
+          const fmt = (v: any) => {
+            try {
+              if (typeof v === 'string') return v
+              const s = JSON.stringify(v)
+              return s.length > 1000 ? s.slice(0, 1000) + '...': s
+            } catch (_) {
+              try { return String(v) } catch (_) { return '<unserializable>' }
+            }
+          }
+          return {
+            debug: (...args: any[]) => appendTrace('[vfs][debug] ' + args.map((a) => fmt(a)).join(' ')),
+            info: (...args: any[]) => appendTrace('[vfs][info] ' + args.map((a) => fmt(a)).join(' ')),
+            warn: (...args: any[]) => appendTrace('[vfs][warn] ' + args.map((a) => fmt(a)).join(' ')),
+            error: (...args: any[]) => appendTrace('[vfs][error] ' + args.map((a) => fmt(a)).join(' ')),
+          }
+        })()
+      })
+      appendTrace(`const currentVfs = new lib.VirtualFS({ backend, logger })`)
       if (currentVfs) {
         // 既存の VirtualFS があれば共通のクローズ処理を呼ぶ
         await closeCurrentVfs(prefix)
