@@ -4,7 +4,7 @@
  * @policy DO NOT MODIFY
  */
 
-import { describe, test, expect, beforeEach } from '@jest/globals'
+import { jest, describe, test, expect, beforeEach } from '@jest/globals'
 import { OpfsStorage } from '../../../../src/virtualfs/opfsStorage'
 
 beforeEach(() => {

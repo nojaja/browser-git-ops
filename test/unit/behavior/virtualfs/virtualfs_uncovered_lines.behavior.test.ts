@@ -278,8 +278,8 @@ describe('VirtualFS - Uncovered line targeting', () => {
       const changes = await vfs.getChangeSet()
       const deletes = changes.filter(c => c.type === 'delete')
       if (deletes.length === 0) {
-        const idx = await backend.readIndex()
-        expect(idx.entries['file.txt']).toBeUndefined()
+        const files = await backend.listFiles()
+        expect(files.map((f: any) => f.path)).not.toContain('file.txt')
       } else {
         expect(deletes.length).toBeGreaterThan(0)
       }

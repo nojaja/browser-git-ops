@@ -30,10 +30,11 @@ describe('InMemoryStorage basic behaviors', () => {
     const r = await store.readBlob('dir/a.txt')
     expect(r).toBe('hello world')
 
-    const idx = await store.readIndex()
-    expect(idx).toBeDefined()
-    expect(idx.entries['dir/a.txt']).toBeDefined()
-    const info = idx.entries['dir/a.txt']
+    const allFiles = await store.listFiles()
+    expect(allFiles.map((x: any) => x.path)).toContain('dir/a.txt')
+    const infoEntry = allFiles.find((x: any) => x.path === 'dir/a.txt')
+    expect(infoEntry).toBeDefined()
+    const info = infoEntry && infoEntry.info ? JSON.parse(infoEntry.info) : null
     expect(info.workspaceSha).toBeDefined()
     expect(['added', 'modified']).toContain(info.state)
   })
@@ -64,15 +65,15 @@ describe('InMemoryStorage basic behaviors', () => {
 
   it('deleteBlob without segment deletes all including info', async () => {
     await store.writeBlob('z.txt', 'ZCONTENT')
-    let idx = await store.readIndex()
-    expect(idx.entries['z.txt']).toBeDefined()
+    let all = await store.listFiles()
+    expect(all.map((x: any) => x.path)).toContain('z.txt')
 
     await store.deleteBlob('z.txt')
     const r = await store.readBlob('z.txt')
     expect(r).toBeNull()
 
-    idx = await store.readIndex()
-    expect(idx.entries['z.txt']).toBeUndefined()
+    all = await store.listFiles()
+    expect(all.map((x: any) => x.path)).not.toContain('z.txt')
   })
 
   it('listFiles supports prefix and non-recursive listing', async () => {

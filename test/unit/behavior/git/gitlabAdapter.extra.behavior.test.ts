@@ -6,6 +6,7 @@
 
 import GitLabAdapter from '../../../../src/git/gitlabAdapter';
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { configureFetchMock, clearFetchMock } from '../../../utils/fetchMock'
 
 describe('GitLabAdapter - additional flows', () => {
   let adapter: any;
@@ -13,10 +14,11 @@ describe('GitLabAdapter - additional flows', () => {
   beforeEach(() => {
     adapter = new GitLabAdapter({ projectId: '1', token: 't' });
     jest.restoreAllMocks();
-    global.fetch = jest.fn();
+    configureFetchMock([])
   });
 
   afterEach(() => {
+    try { clearFetchMock() } catch (_) {}
     jest.resetAllMocks();
   });
 
@@ -45,14 +47,8 @@ describe('GitLabAdapter - additional flows', () => {
     ];
     await adapter.createTree(tree);
 
-    // mock fetch response for createCommitWithActions
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      /**
-       *
-       */
-      text: async () => JSON.stringify({ id: 'new-commit-id' })
-    });
+    const fm = configureFetchMock([{ response: { status: 200, body: JSON.stringify({ id: 'new-commit-id' }) } }])
+    ;(fm as jest.Mock).mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify({ id: 'new-commit-id' }) })
 
     const res = await adapter.createCommit('parent', 'msg');
     expect(res).toBe('new-commit-id');
@@ -60,26 +56,18 @@ describe('GitLabAdapter - additional flows', () => {
   });
 
   it('createCommitWithActions throws on invalid JSON text', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, /**
-     *
-     */
-    text: async () => 'not a json' });
+    const fm2 = configureFetchMock([])
+    ;(fm2 as jest.Mock).mockResolvedValueOnce({ ok: true, text: async () => 'not a json' })
 
     await expect(adapter.createCommitWithActions('main', 'm', [{ type: 'create', path: 'y.txt', content: 'Y' }])).rejects.toThrow();
   });
 
   it('createCommitWithActions retries on 500 then succeeds', async () => {
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({ ok: false, status: 500, /**
-       *
-       */
-      text: async () => 'err' })
-      .mockResolvedValueOnce({ ok: true, /**
-       *
-       */
-      text: async () => JSON.stringify({ id: 'ok-id' }) });
+    const fm3 = configureFetchMock([])
+    ;(fm3 as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500, text: async () => 'err' })
+    ;(fm3 as jest.Mock).mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify({ id: 'ok-id' }) })
 
-    const id = await adapter.createCommitWithActions('main', 'm', [{ type: 'update', path: 'z.txt', content: 'Z' }]);
+    const id = await adapter.createCommitWithActions('main', 'm', [{ type: 'update', path: 'z.txt', content: 'Z' }])
     expect(id).toBe('ok-id');
     expect((global.fetch as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(2);
   });

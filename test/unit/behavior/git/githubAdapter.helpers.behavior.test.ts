@@ -4,7 +4,7 @@
  * @policy DO NOT MODIFY
  */
 
-import { jest, describe, it, expect } from '@jest/globals'
+import { jest, describe, it, expect, afterEach } from '@jest/globals'
 import {
   classifyStatus,
   getDelayForResponse,
@@ -12,6 +12,9 @@ import {
   mapWithConcurrency,
   fetchWithRetry,
 } from '../../../../src/git/githubAdapter'
+import { configureFetchMock, clearFetchMock } from '../../../utils/fetchMock'
+
+afterEach(() => { try { clearFetchMock() } catch (_) {} })
 
 describe('githubAdapter helpers', () => {
   it('classifyStatus recognizes retryable statuses', () => {
@@ -57,28 +60,26 @@ describe('githubAdapter helpers', () => {
 
   it('fetchWithRetry rethrows NonRetryableError and throws RetryableError after attempts', async () => {
     // non-retryable thrown by fetch
-    // @ts-ignore
-    global.fetch = jest.fn().mockImplementation(() => { throw new Error('boom') })
+    const fm1 = configureFetchMock([])
+    ;(fm1 as jest.Mock).mockImplementation(() => { throw new Error('boom') })
     await expect(fetchWithRetry('/x', {} as any, 1, 1)).rejects.toThrow()
 
     // fetch throws NonRetryableError should be rethrown immediately
-    // @ts-ignore
-    global.fetch = jest.fn().mockImplementation(() => { throw new (class extends Error {})('n') })
+    const fm2 = configureFetchMock([])
+    ;(fm2 as jest.Mock).mockImplementation(() => { throw new (class extends Error {})('n') })
     // simulate instance of NonRetryableError
     const NR: any = (await import('../../../../src/git/githubAdapter')).NonRetryableError
-    // @ts-ignore
-    global.fetch = jest.fn().mockImplementation(() => { throw new NR('no') })
+    const fm3 = configureFetchMock([])
+    ;(fm3 as jest.Mock).mockImplementation(() => { throw new NR('no') })
     await expect(fetchWithRetry('/x', {} as any, 1, 1)).rejects.toThrow(NR)
   })
 
   it('fetchWithRetry catches transient errors then succeeds', async () => {
+    const fm = configureFetchMock([])
     let calls = 0
-    // first call throws, second returns ok
-    // @ts-ignore
-    global.fetch = jest.fn().mockImplementation(() => {
+    ;(fm as jest.Mock).mockImplementation(() => {
       if (calls++ === 0) throw new Error('transient')
-      return Promise.resolve({ ok: true, /** @returns {Promise<any>} */
-      json: async () => ({}) })
+      return Promise.resolve({ ok: true, json: async () => ({}) })
     })
     await expect(fetchWithRetry('/x', {} as any, 3, 1)).resolves.toBeDefined()
   })

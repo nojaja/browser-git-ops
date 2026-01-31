@@ -14,18 +14,24 @@ describe('VirtualFS 基本動作', () => {
     await vfs.init()
 
     await vfs.writeFile('foo.txt', 'hello')
-    let idx = await vfs.getIndex()
-    expect(idx.entries['foo.txt']).toBeDefined()
-    expect(idx.entries['foo.txt'].state).toBe('added')
+    // verify visible via listPaths and change set reflects create
+    let paths = await vfs.listPaths()
+    expect(paths).toContain('foo.txt')
+    let changes = await vfs.getChangeSet()
+    expect(changes).toEqual([{ type: 'create', path: 'foo.txt', content: 'hello' }])
 
     await vfs.writeFile('foo.txt', 'hello2')
-    idx = await vfs.getIndex()
-    expect(idx.entries['foo.txt'].state).toBe('added')
+    paths = await vfs.listPaths()
+    expect(paths).toContain('foo.txt')
+    changes = await vfs.getChangeSet()
+    expect(changes).toEqual([{ type: 'create', path: 'foo.txt', content: 'hello2' }])
 
     await vfs.deleteFile('foo.txt')
-    idx = await vfs.getIndex()
-    // since it was added then deleted before base exists, entry removed
-    expect(idx.entries['foo.txt']).toBeUndefined()
+    // since it was added then deleted before base exists, it should be removed
+    paths = await vfs.listPaths()
+    expect(paths).not.toContain('foo.txt')
+    changes = await vfs.getChangeSet()
+    expect(changes).toEqual([])
   })
 
   it('tombstone が作られるケース（base あり）', async () => {
@@ -39,8 +45,8 @@ describe('VirtualFS 基本動作', () => {
     // delete should be present or reflected in index when tombstone absent
     const hasDelete = changes.find((c: any) => c.type === 'delete' && c.path === 'a.txt')
     if (!hasDelete) {
-      const idx = await vfs.getIndex()
-      expect(idx.entries['a.txt']).toBeUndefined()
+      const paths = await vfs.listPaths()
+      expect(paths).not.toContain('a.txt')
     } else {
       expect(hasDelete).toBeDefined()
     }

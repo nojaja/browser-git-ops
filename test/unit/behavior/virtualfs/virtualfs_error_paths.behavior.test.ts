@@ -161,8 +161,8 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
       
       const changes = await vfs.getChangeSet()
       if (changes.length === 0) {
-        const idx = await vfs.getIndex()
-        expect(idx.entries['file.txt']).toBeUndefined()
+        const paths = await vfs.listPaths()
+        expect(paths).not.toContain('file.txt')
       } else {
         expect(changes.length).toBeGreaterThanOrEqual(1)
         expect(changes[0].path).toBe('file.txt')

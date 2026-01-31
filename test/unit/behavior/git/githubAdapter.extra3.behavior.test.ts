@@ -4,25 +4,25 @@
  * @policy DO NOT MODIFY
  */
 
-import { jest, describe, it, expect, beforeEach } from '@jest/globals'
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 import * as gh from '../../../../src/git/githubAdapter'
 const GitHubAdapter = (gh as any).default
+import { configureFetchMock, clearFetchMock } from '../../../utils/fetchMock'
 
 beforeEach(() => {
   jest.clearAllMocks()
   jest.restoreAllMocks()
 })
 
+afterEach(() => { try { clearFetchMock() } catch (_) {} })
+
 describe('GitHubAdapter extra branches', () => {
   it('createTree includes base_tree when provided', async () => {
     let lastBody: any = null
-    // @ts-ignore
-    global.fetch = jest.fn().mockImplementation((input, init) => {
+    const fm = configureFetchMock([])
+    ;(fm as jest.Mock).mockImplementation((input, init) => {
       lastBody = init && init.body
-      return Promise.resolve({ ok: true, status: 200, /**
-       *
-       */
-      json: async () => ({ sha: 'tree-sha' }) })
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ sha: 'tree-sha' }) })
     })
 
     const adapter = new GitHubAdapter({ owner: 'o', repo: 'r', token: 't' })
@@ -34,11 +34,8 @@ describe('GitHubAdapter extra branches', () => {
 
   it('createCommit throws NonRetryableError when response text() rejects', async () => {
     // simulate a response where text() throws
-    // @ts-ignore
-    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 400, /**
-     *
-     */
-    text: async () => { throw new Error('boom') } })
+    const fm2 = configureFetchMock([])
+    ;(fm2 as jest.Mock).mockResolvedValue({ ok: false, status: 400, text: async () => { throw new Error('boom') } })
 
     const adapter = new GitHubAdapter({ owner: 'o', repo: 'r', token: 't' })
     await expect(adapter.createCommit('m', 'p', 't')).rejects.toThrow(/HTTP 400/)
@@ -46,13 +43,10 @@ describe('GitHubAdapter extra branches', () => {
 
   it('createTree handles delete entries (sha null)', async () => {
     let lastBody: any = null
-    // @ts-ignore
-    global.fetch = jest.fn().mockImplementation((input, init) => {
+    const fm3 = configureFetchMock([])
+    ;(fm3 as jest.Mock).mockImplementation((input, init) => {
       lastBody = init && init.body
-      return Promise.resolve({ ok: true, status: 200, /**
-       *
-       */
-      json: async () => ({ sha: 'tree-sha' }) })
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ sha: 'tree-sha' }) })
     })
 
     const adapter = new GitHubAdapter({ owner: 'o', repo: 'r', token: 't' })

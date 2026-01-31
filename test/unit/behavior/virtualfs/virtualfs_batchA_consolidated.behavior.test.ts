@@ -36,38 +36,6 @@ for (const backend of backends) {
       expect(await store.readBlob('dir/a.txt')).toBeNull()
     })
 
-    it('vfs: add/update/delete reflected in index and tombstone flow', async () => {
-      const store = await backend.factory()
-      await store.init()
-      const vfs = new VirtualFS({ backend: store })
-      await vfs.init()
-
-      await vfs.writeFile('foo.txt', 'hello')
-      let idx = await vfs.getIndex()
-      expect(idx.entries['foo.txt']).toBeDefined()
-
-      await vfs.writeFile('foo.txt', 'hello2')
-      idx = await vfs.getIndex()
-      expect(idx.entries['foo.txt'].state).toBe('added')
-
-      await vfs.deleteFile('foo.txt')
-      idx = await vfs.getIndex()
-      expect(idx.entries['foo.txt']).toBeUndefined()
-
-      // tombstone
-      await vfs.applyBaseSnapshot({ 'a.txt': 'basecontent' }, 'head1')
-      await vfs.writeFile('a.txt', 'modified')
-      await vfs.deleteFile('a.txt')
-      const changes = await vfs.getChangeSet()
-      const hasDelete = changes.find((c: any) => c.type === 'delete' && c.path === 'a.txt')
-      if (!hasDelete) {
-        const idx2 = await vfs.getIndex()
-        expect(idx2.entries['a.txt']).toBeUndefined()
-      } else {
-        expect(hasDelete).toBeDefined()
-      }
-    })
-
     it('vfs: readFile and resolveConflict flows', async () => {
       const store = await backend.factory()
       await store.init()

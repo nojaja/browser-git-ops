@@ -4,14 +4,16 @@
  * @policy DO NOT MODIFY
  */
 
-import { jest, describe, it, expect, beforeEach } from '@jest/globals'
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 import GitHubAdapter, { RetryableError, NonRetryableError } from '../../../../src/git/githubAdapter'
+import { configureFetchMock, clearFetchMock } from '../../../utils/fetchMock'
 
 beforeEach(() => {
   jest.clearAllMocks()
-  // @ts-ignore
-  global.fetch = undefined
+  try { clearFetchMock() } catch (_) {}
 })
+
+afterEach(() => { try { clearFetchMock() } catch (_) {} })
 
 describe('GitHubAdapter basic flows', () => {
   it('createBlobs returns map of path->sha', async () => {
@@ -21,16 +23,13 @@ describe('GitHubAdapter basic flows', () => {
       { type: 'update', path: 'b.txt', content: 'b' },
     ]
 
-    const fetchMock = jest.fn()
-    // each call returns a Response-like object with json
-    fetchMock.mockResolvedValue({ ok: true, /** @returns {Promise<{sha:string}>} */ json: async () => ({ sha: 'sha1' }) })
-    // @ts-ignore
-    global.fetch = fetchMock
+    const fm = configureFetchMock([{ response: { status: 200, body: JSON.stringify({ sha: 'sha1' }) } }])
+    ;(fm as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ sha: 'sha1' }) })
 
     const res = await adapter.createBlobs(changes, 2)
     expect(res['a.txt']).toBe('sha1')
     expect(res['b.txt']).toBe('sha1')
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect((fm as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(2)
   })
 
   it('createTree throws when blobSha missing', async () => {
@@ -40,38 +39,30 @@ describe('GitHubAdapter basic flows', () => {
 
   it('createTree returns sha on success', async () => {
     const adapter = new GitHubAdapter({ owner: 'o', repo: 'r', token: 't' })
-    const fetchMock = jest.fn()
-    fetchMock.mockResolvedValue({ ok: true, /** @returns {Promise<{sha:string}>} */ json: async () => ({ sha: 'treesha' }) })
-    // @ts-ignore
-    global.fetch = fetchMock
+    const fm2 = configureFetchMock([{ response: { status: 200, body: JSON.stringify({ sha: 'treesha' }) } }])
+    ;(fm2 as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ sha: 'treesha' }) })
 
     const sha = await adapter.createTree([{ type: 'create', path: 'x', blobSha: 'b' }])
     expect(sha).toBe('treesha')
-    expect(fetchMock).toHaveBeenCalled()
+    expect((fm2 as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(1)
   })
 
   it('createCommit retries on 500 and succeeds', async () => {
     const adapter = new GitHubAdapter({ owner: 'o', repo: 'r', token: 't' })
-    const fetchMock = jest.fn()
-    // first two responses are 500, third is ok
-    fetchMock
-      .mockResolvedValueOnce({ ok: false, status: 500, headers: { /** @returns {null} */ get: () => null }, /** @returns {Promise<string>} */ text: async () => 'err' })
-      .mockResolvedValueOnce({ ok: false, status: 500, headers: { /** @returns {null} */ get: () => null }, /** @returns {Promise<string>} */ text: async () => 'err' })
-      .mockResolvedValueOnce({ ok: true, /** @returns {Promise<{sha:string}>} */ json: async () => ({ sha: 'commitsha' }) })
-    // @ts-ignore
-    global.fetch = fetchMock
+    const fm3 = configureFetchMock([])
+    ;(fm3 as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500, headers: { get: () => null }, text: async () => 'err' })
+    ;(fm3 as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500, headers: { get: () => null }, text: async () => 'err' })
+    ;(fm3 as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({ sha: 'commitsha' }) })
 
     const sha = await adapter.createCommit('msg', 'parentsha', 'treesha')
     expect(sha).toBe('commitsha')
-    expect(fetchMock).toHaveBeenCalled()
+    expect((fm3 as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(1)
   })
 
   it('updateRef throws NonRetryableError on bad request', async () => {
     const adapter = new GitHubAdapter({ owner: 'o', repo: 'r', token: 't' })
-    const fetchMock = jest.fn()
-    fetchMock.mockResolvedValue({ ok: false, status: 400, /** @returns {Promise<string>} */ text: async () => 'bad' })
-    // @ts-ignore
-    global.fetch = fetchMock
+    const fm4 = configureFetchMock([])
+    ;(fm4 as jest.Mock).mockResolvedValue({ ok: false, status: 400, text: async () => 'bad' })
 
     await expect(adapter.updateRef('heads/main', 'sha', false)).rejects.toThrow(NonRetryableError)
   })

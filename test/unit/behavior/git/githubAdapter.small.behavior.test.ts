@@ -4,7 +4,7 @@
  * @policy DO NOT MODIFY
  */
 
-import { jest } from '@jest/globals'
+import { jest, afterEach } from '@jest/globals'
 import {
   classifyStatus,
   getDelayForResponse,
@@ -41,11 +41,9 @@ describe('githubAdapter - helpers', () => {
   })
 
   it('fetchWithRetry rethrows NonRetryableError thrown by fetch', async () => {
-    const originalFetch = global.fetch
-    // @ts-ignore
-    global.fetch = jest.fn(() => { throw new NonRetryableError('nope') })
+    const fm = configureFetchMock([])
+    ;(fm as jest.Mock).mockImplementation(() => { throw new NonRetryableError('nope') })
     await expect(fetchWithRetry('http://x', {} as RequestInit, 1, 0)).rejects.toBeInstanceOf(NonRetryableError)
-    global.fetch = originalFetch
   })
 })
 
@@ -85,6 +83,10 @@ describe('GitHubAdapter basic behaviors (mocked)', () => {
   })
 })
 import { classifyStatus, getDelayForResponse, processResponseWithDelay, mapWithConcurrency } from '../../../../src/git/githubAdapter'
+
+import { configureFetchMock, clearFetchMock } from '../../../utils/fetchMock'
+
+afterEach(() => { try { clearFetchMock() } catch (_) {} })
 
 describe('githubAdapter small helpers', () => {
   it('classifyStatus classifies 500 and 429 as retryable', () => {

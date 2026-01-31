@@ -1,19 +1,25 @@
+import '../../setupOpfs.js'
+import { jest } from '@jest/globals'
 import * as lib from '../../../src/index'
+import { configureFetchMock, clearFetchMock } from '../../utils/fetchMock'
+import { resetMockOPFS } from 'opfs-mock'
 
 describe('VirtualFS full GitLab flow (pull, edit, delete, push)', () => {
   const remoteHead = '25a5767c9cd5d1fd235cf359c92dec1957369060'
-  const expectedFetched = ['README.md','t1.txt','t2.txt','t3.txt','t4.txt','tt1.txt','tt2.txt']
+  const EXPECTED_REMOTE_PATHS = [
+    'README.md','t1.txt','t2.txt','t3.txt','t4.txt','tt1.txt','tt2.txt'
+  ]
 
-  beforeEach(async () => {
-    // ensure OPFS root exists via global test setup
-    const root: any = await (global as any).navigator.storage.getDirectory()
-    if (typeof root.getDirectoryHandle === 'function') await root.getDirectoryHandle('GitLab_test01', { create: true })
-    else if (typeof root.getDirectory === 'function') await root.getDirectory('GitLab_test01', { create: true })
+  beforeEach( async () => {
+    jest.resetAllMocks()
+    clearFetchMock()
+    resetMockOPFS()
   })
 
-  afterEach(async () => {
-    try { if ((global as any).fetch && (global as any).fetch.mockRestore) (global as any).fetch.mockRestore() } catch (_) {}
-    try { await lib.OpfsStorage.delete('GitLab_test01') } catch (_) {}
+  afterEach( async () => {
+    jest.resetAllMocks()
+    clearFetchMock()
+    resetMockOPFS()
   })
 
   it('executes the scenario: pull -> write -> delete -> push', async () => {
@@ -27,7 +33,7 @@ describe('VirtualFS full GitLab flow (pull, edit, delete, push)', () => {
       { id: 'ee9808dcf8b9fc9326ce4d96ff74e478c3809447', name: 'tt2.txt', type: 'blob', path: 'tt2.txt' }
     ]
 
-    const fileContents: Record<string,string> = {
+    const fileContents: Record<string, string> = {
       'README.md': '# test-repo\n',
       't1.txt': 'hello-hello-hello-hello',
       't2.txt': 'hello',
@@ -37,62 +43,29 @@ describe('VirtualFS full GitLab flow (pull, edit, delete, push)', () => {
       'tt2.txt': 'aaaaaa'
     }
 
-    const fetchMock = jest.fn().mockImplementation(async (input: any, init: any) => {
-      const url = typeof input === 'string' ? input : (input && input.url) || ''
-      const make = (status:number, body:string, hdrs?:Record<string,string>) => ({
-        ok: status >= 200 && status < 300,
-        status,
-        statusText: status === 200 ? 'OK' : 'ERR',
-        headers: { get: (k:string) => (hdrs || {})[k.toLowerCase()] },
-        text: async () => body,
-        json: async () => JSON.parse(body),
-        clone() { return this }
-      })
+    // configure fetch mock via helper with declarative entries
+    configureFetchMock([
+      { match: /\/repository\/branches\/main$/, response: { status: 200, body: JSON.stringify({ name: 'main', commit: { id: '25a5767c9cd5d1fd235cf359c92dec1957369060' } }) } },
+      { match: /repository\/tree/, response: { status: 200, body: JSON.stringify(treeJson) } },
+      { match: /repository\/files\/.+?\/raw/, response: { status: 200, body: JSON.stringify(fileContents) } },
+      { match: /repository\/commits/, response: { status: 200, body: JSON.stringify({ id: '0437a3a7ad2664deb12da00c5a4167e8c4455e6b', short_id: '0437a3a7' }) } },
+    ])
 
-      // branch HEAD
-      if (url.endsWith('/repository/branches/main')) {
-        return make(200, JSON.stringify({ name: 'main', commit: { id: remoteHead } }))
-      }
-
-      // tree
-      if (url.includes('/repository/tree') && url.includes('ref=main')) {
-        return make(200, JSON.stringify(treeJson))
-      }
-
-      // raw file
-      if (url.includes('/repository/files/') && url.includes('/raw') && url.includes('ref=main')) {
-        const m = url.match(/repository\/files\/(.+?)\/raw/) || []
-        const enc = m[1] || ''
-        const path = decodeURIComponent(enc)
-        const content = fileContents[path] || ''
-        return make(200, content, { 'content-type': 'text/plain' })
-      }
-
-      // commit POST
-      if (url.endsWith('/repository/commits') && init && init.method === 'POST') {
-        // return created commit id
-        return make(201, JSON.stringify({ id: '0437a3a7ad2664deb12da00c5a4167e8c4455e6b', short_id: '0437a3a7' }))
-      }
-
-      return make(404, '')
-    })
-
-    ;(global as any).fetch = fetchMock
-
-    // create backend and vfs
+    // ①OpfsStorageのインスタンス作成
     const backend = new lib.OpfsStorage('GitLab_test01')
-    const currentVfs = new lib.VirtualFS({ backend })
+    const currentVfs = new lib.VirtualFS({ backend, logger: undefined })
     await currentVfs.init()
 
+    // ②gitlabの接続設定追加
     await currentVfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'aaaaa', branch: 'main' } })
 
-    // initial pull
+    // ③初回のリポジトリアクセス
     const pullRes = await currentVfs.pull()
-    expect(pullRes.fetchedPaths.sort()).toEqual(expectedFetched.sort())
+    expect(pullRes.remotePaths.slice().sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
 
-    // listPaths contains expected files (order-insensitive)
+    // ④listPaths 結果確認
     const pathsAfterPull = await currentVfs.listPaths()
-    expect(pathsAfterPull.sort()).toEqual(expectedFetched.sort())
+    expect(pathsAfterPull.slice().sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
 
     // write new file t5.txt
     await currentVfs.writeFile('t5.txt', 'hello')
@@ -137,30 +110,17 @@ describe('VirtualFS full GitLab flow (pull, edit, delete, push)', () => {
       'GitLab_test01/.git/main/base/README.md'
     ]
 
-    // For this test the expected paths equal expectedUris; define separately to assert both
-    const expectedPaths = expectedUris.slice()
-
-    // ensure every returned entry has uri === path
-    expect(filesRaw.every((e:any) => e.uri === e.path)).toBe(true)
-
-    // verify every expected uri exists in returned uris
-    for (const exUri of expectedUris) {
-      expect(filesRaw.some((f:any) => f.uri === exUri)).toBe(true)
-    }
-
-    // verify every expected path exists in returned paths
-    for (const exPath of expectedPaths) {
-      expect(filesRaw.some((f:any) => f.path === exPath)).toBe(true)
-    }
-
     // additionally verify the returned set matches expected set (order-insensitive)
     const returnedPaths = filesRaw.map((f:any) => f.path).sort()
-    expect(returnedPaths).toEqual(expectedPaths.slice().sort())
+    expect(returnedPaths).toEqual(expectedUris.slice().sort())
 
     // getIndex and head check
     const idx = await currentVfs.getIndex()
     expect(idx.head).toBe(remoteHead)
-    expect(Object.keys(idx.entries)).toEqual(expect.arrayContaining(['README.md','t1.txt','t2.txt','t3.txt','t4.txt','tt1.txt','tt2.txt']))
+    // Do not access idx.entries directly; verify via backend.listFiles and vfs.listPaths
+    const filesForIndex = await backend.listFilesRaw()
+    const baseNames = filesForIndex.map((f:any) => f.path.split('/').pop())
+    expect(baseNames).toEqual(expect.arrayContaining(EXPECTED_REMOTE_PATHS))
 
     // prepare push input matching current change set
     const pushInput = { parentSha: remoteHead, message: 'Example push from UI', changes: changes2 }

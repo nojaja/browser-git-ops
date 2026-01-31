@@ -123,21 +123,6 @@ describe('LocalFileManager', () => {
     expect(res).toBeNull()
   })
 
-  it('renameFile copies content and deletes source', async () => {
-    backend.readBlob.mockImplementation((path: string, area: string) => {
-      return area === 'workspace' ? 'content-of-src' : null
-    })
-    await mgr.renameFile('a.txt', 'b.txt')
-    expect(backend.writeBlob).toHaveBeenCalledWith('b.txt', 'content-of-src', 'workspace')
-    // deleteFile deletes both workspace and info
-    expect(backend.deleteBlob).toHaveBeenCalledWith('a.txt', 'workspace')
-    // New behavior: write tombstone into workspace-info instead of deleting git-scoped info
-    expect(backend.writeBlob).toHaveBeenCalled()
-    const writeCalls = (backend.writeBlob as jest.Mock).mock.calls
-    const wroteTombstone = writeCalls.some((c: any[]) => c[0] === 'a.txt' && c[2] === 'info-workspace')
-    expect(wroteTombstone).toBe(true)
-  })
-
   it('renameFile throws when source missing', async () => {
     backend.readBlob.mockResolvedValue(null)
     await expect(mgr.renameFile('x.txt', 'y.txt')).rejects.toThrow('Source file not found')

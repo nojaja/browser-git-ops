@@ -23,9 +23,12 @@ describe('InMemoryStorage adapter metadata persistence', () => {
     const s = new InMemoryStorage(root)
     // write a blob to create an info entry
     await s.writeBlob('x/y.txt', 'hello', 'workspace')
-    const idx = await s.readIndex()
-    expect(Object.keys(idx.entries)).toContain('x/y.txt')
-    const entry = idx.entries['x/y.txt']
+    const all = await s.listFiles()
+    const paths = all.map((f: any) => f.path)
+    expect(paths).toContain('x/y.txt')
+    const e = all.find((f: any) => f.path === 'x/y.txt')
+    expect(e).toBeDefined()
+    const entry = e && e.info ? JSON.parse(e.info) : null
     expect(entry.path).toBe('x/y.txt')
     expect(entry.workspaceSha).toBeDefined()
   })
