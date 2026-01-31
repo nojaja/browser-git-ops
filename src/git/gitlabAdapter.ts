@@ -1,4 +1,5 @@
-import { GitAdapter } from './adapter'
+import { GitAdapter } from './adapter.ts'
+import AbstractGitAdapter, { mapWithConcurrency } from './abstractAdapter.ts'
 // Use Web Crypto directly for SHA-1
 
 type GLOptions = { projectId: string; token: string; host?: string }
@@ -8,18 +9,15 @@ type GLOptions = { projectId: string; token: string; host?: string }
  * GitLab の API をラップして、リポジトリスナップショットの取得や
  * commits API の呼び出しをサポートします。
  */
-export class GitLabAdapter implements GitAdapter {
-  private baseUrl: string
-  private headers: Record<string, string>
+export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   private pendingActions: Array<{ action: string; file_path: string; content?: string }> | null = null
-  private maxRetries = 3
-  private baseBackoff = 300
 
   /**
    * GitLabAdapter を初期化します。
    * @param {GLOpts} opts 設定オブジェクト
    */
-  constructor(private options: GLOptions) {
+  constructor(options: GLOptions) {
+    super(options)
     const host = options.host || 'https://gitlab.com'
     this.baseUrl = `${host}/api/v4/projects/${encodeURIComponent(options.projectId)}`
     this.headers = {
@@ -33,12 +31,7 @@ export class GitLabAdapter implements GitAdapter {
    * @param {string} content コンテンツ
    * @returns {string} sha1 ハッシュ
    */
-  private async shaOf(content: string) {
-    const encoder = new TextEncoder()
-    const data = encoder.encode(content)
-    const buf = await crypto.subtle.digest('SHA-1', data)
-    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
-  }
+  // shaOf is inherited from AbstractGitAdapter
 
   /**
    * 変更一覧から blob sha のマップを作成します（疑似実装）。
@@ -193,24 +186,7 @@ export class GitLabAdapter implements GitAdapter {
    * @param {number} [retries] 最大リトライ回数
    * @returns {Promise<Response>} レスポンス
    */
-  private async fetchWithRetry(url: string, options: RequestInit, retries = this.maxRetries): Promise<Response> {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      let response: Response | null = null
-      try {
-        // If fetch throws synchronously (e.g. mocked impl), this will be caught here
-        // and handled as a transient error to be retried.
-        response = await fetch(url, options) as Response
-      } catch (error: any) {
-        if (attempt === retries) throw error
-        await this._waitAttempt(attempt)
-        continue
-      }
-
-      if (!response || !this.isRetryableStatus(response.status) || attempt === retries) return response
-      await this._waitAttempt(attempt)
-    }
-    throw new Error('fetchWithRetry: unexpected exit')
-  }
+  // fetchWithRetry is provided by AbstractGitAdapter
 
   /**
    * Wait helper for fetch retry backoff.
@@ -227,20 +203,14 @@ export class GitLabAdapter implements GitAdapter {
    * @param {number} status ステータスコード
    * @returns {boolean}
    */
-  private isRetryableStatus(status: number) {
-    return status === 429 || (status >= 500 && status < 600)
-  }
+  // isRetryableStatus is provided by AbstractGitAdapter
 
   /**
    * バックオフ時間を計算します。
    * @param {number} attempt 試行回数（1..）
    * @returns {number} ミリ秒
    */
-  private backoffMs(attempt: number) {
-    const base = this.baseBackoff * Math.pow(2, attempt - 1)
-    const jitter = Math.floor(Math.random() * base * 0.3)
-    return base + jitter
-  }
+  // backoffMs provided by AbstractGitAdapter
 
   // small concurrency mapper used for fetching files
   /**
@@ -251,16 +221,7 @@ export class GitLabAdapter implements GitAdapter {
    * @param {number} concurrency 同時実行数
    * @returns {Promise<R[]>}
    */
-  private async mapWithConcurrency<T, R>(items: T[], mapper: (_t: T) => Promise<R>, concurrency = 5) {
-    const results: R[] = new Array(items.length)
-    if (items.length === 0) return results
-    // process items in chunks to limit concurrency
-    for (let index = 0; index < items.length; index += concurrency) {
-      const chunk = items.slice(index, index + concurrency)
-      await Promise.all(chunk.map((it, index_) => mapper(it).then((r) => { results[index + index_] = r })))
-    }
-    return results
-  }
+  // mapWithConcurrency provided by AbstractGitAdapter
 
   /**
    * Prepare JSON body for commit API call.
@@ -361,7 +322,7 @@ export class GitLabAdapter implements GitAdapter {
       }
       return null
     }
-    await this.mapWithConcurrency(targets, mapper, concurrency)
+    await mapWithConcurrency(targets, mapper, concurrency)
     return out
   }
 

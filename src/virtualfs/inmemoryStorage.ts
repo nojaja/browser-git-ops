@@ -1,6 +1,11 @@
-import { IndexFile } from './types'
-import { StorageBackend, StorageBackendConstructor } from './storageBackend'
-import { updateInfoForWrite } from './metadataManager'
+import { IndexFile } from './types.ts'
+import { StorageBackend, StorageBackendConstructor } from './storageBackend.ts'
+import { updateInfoForWrite } from './metadataManager.ts'
+
+const BRANCH_SEP = '::'
+const SEG_WORKSPACE = 'workspace'
+const SEG_INFO_WORKSPACE = 'info-workspace'
+const SEG_INFO_GIT = 'info-git'
 
 /**
  * テストや軽量動作検証用のインメモリ実装。
@@ -8,6 +13,7 @@ import { updateInfoForWrite } from './metadataManager'
  */
 export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage implements StorageBackend {
   private rootKey: string
+  private currentBranch: string | null = null
 
   // shared storage across instances keyed by root name
   private static stores: Map<string, {
@@ -54,6 +60,13 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
   }
 
   /**
+   *
+   */
+  setBranch(branch?: string | null): void {
+    this.currentBranch = branch || null
+  }
+
+  /**
    * 初期化処理（インメモリでは何もしない）
    * @returns {Promise<void>} 解決時に初期化完了
    */
@@ -69,13 +82,48 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     const store = InMemoryStorage.stores.get(this.rootKey)!
     // Reconstruct entries from infoBlobs map
     const result: IndexFile = { head: store.index.head || '', entries: {} }
-    for (const [k, v] of store.infoBlobs.entries()) {
-      result.entries[k] = JSON.parse(v)
-    }
+    
+
+    // Determine branch scope and load info entries
+    const branch = this.currentBranch || 'main'
+    // First, load workspace-local info entries (unprefixed keys)
+    this._loadInMemoryWorkspaceInfo(store, result, branch)
+    this._loadInMemoryBranchInfo(store, result, branch)
     if ((store.index as any).lastCommitKey) result.lastCommitKey = (store.index as any).lastCommitKey
     // Preserve adapter metadata if present
     if ((store.index as any).adapter) result.adapter = (store.index as any).adapter
     return result
+  }
+
+  /**
+   * Load workspace-local info entries into result.entries (unprefixed keys)
+    * @returns {void}
+   */
+  private _loadInMemoryWorkspaceInfo(store: any, result: IndexFile, branch: string): void {
+    for (const [k, v] of store.infoBlobs.entries()) {
+      if (k.startsWith(branch + BRANCH_SEP)) continue
+      try {
+        const parsed = JSON.parse(v)
+        result.entries[k] = parsed
+      } catch (_error) { continue }
+    }
+  }
+
+  /**
+   * Load branch-scoped info entries into result.entries without overwriting workspace-local entries
+    * @returns {void}
+   */
+  private _loadInMemoryBranchInfo(store: any, result: IndexFile, branch: string): void {
+    for (const [k, v] of store.infoBlobs.entries()) {
+      if (!k.startsWith(branch + BRANCH_SEP)) continue
+      const filepath = k.slice((branch + BRANCH_SEP).length)
+      if (result.entries[filepath]) continue
+      try {
+        const parsed = JSON.parse(v)
+        if (parsed && parsed.state === 'deleted') continue
+        result.entries[filepath] = parsed
+      } catch (_error) { continue }
+    }
   }
 
   /**
@@ -86,7 +134,14 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     const store = InMemoryStorage.stores.get(this.rootKey)!
     // write entries individually to infoBlobs, then persist meta
     const entries = index.entries || {}
+    
+    // Persist index entries into workspace-local info (unprefixed keys)
+    // Only write info entries for files that exist in workspace or in base (branch-scoped)
+    const branch = this.currentBranch || 'main'
     for (const filepath of Object.keys(entries)) {
+      const existsInWorkspace = store.workspaceBlobs.has(filepath)
+      const existsInBase = store.baseBlobs.has(`${branch}${BRANCH_SEP}${filepath}`)
+      if (!existsInWorkspace && !existsInBase) continue
       store.infoBlobs.set(filepath, JSON.stringify(entries[filepath]))
     }
     const meta: any = { head: index.head }
@@ -101,11 +156,48 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
    * @param content ファイル内容
    */
   async writeBlob(filepath: string, content: string, segment?: any): Promise<void> {
-    const seg = segment || 'workspace'
+    const seg = segment || SEG_WORKSPACE
     const store = InMemoryStorage.stores.get(this.rootKey)!
     this._applyBlobToStore(store, seg, filepath, content)
     // update info metadata when writing to workspace/base/conflict
-    await updateInfoForWrite(store, filepath, seg, content)
+    // For workspace writes, if a git base exists for this file, treat this
+    // update as coming from the git base and build workspace/info based on
+    // the git-scoped info; otherwise fall back to the default helper.
+    if (seg === SEG_WORKSPACE) {
+      const handled = await this._handleWorkspaceBlobWrite(store, filepath, content)
+      if (handled) return
+    }
+    // For explicit info-workspace/info-git writes, we've already stored
+    // the provided content directly; skip the generic metadata updater
+    if (seg === SEG_INFO_WORKSPACE || seg === SEG_INFO_GIT) return
+
+    const wrapped = seg === SEG_WORKSPACE ? this._wrapStoreForInfoNoPrefix(store) : this._wrapStoreForInfoPrefix(store)
+    await updateInfoForWrite(wrapped, filepath, seg, content)
+  }
+
+  /**
+   * Handle workspace blob writes that should be based on existing git-scoped info.
+   * Returns true when the operation is handled and caller should return early.
+   */
+  /**
+   * Handle workspace blob writes that should be based on existing git-scoped info.
+   * Returns true when the operation is handled and caller should return early.
+   * @returns {Promise<boolean>}
+   */
+  private async _handleWorkspaceBlobWrite(store: any, filepath: string, content: string): Promise<boolean> {
+    const branch = this.currentBranch || 'main'
+    const gitBaseKey = `${branch}${BRANCH_SEP}${filepath}`
+    if (!store.baseBlobs.has(gitBaseKey)) return false
+    const gitInfoTxt = store.infoBlobs.has(gitBaseKey) ? store.infoBlobs.get(gitBaseKey)! : null
+    let existing: any = undefined
+    if (gitInfoTxt) {
+      try { existing = JSON.parse(gitInfoTxt) } catch (_error) { existing = undefined }
+    }
+    const sha = await this.shaOf(content)
+    const now = Date.now()
+    const entry = this._buildWorkspaceInfoEntry(existing, filepath, sha, now)
+    store.infoBlobs.set(filepath, JSON.stringify(entry))
+    return true
   }
 
   /**
@@ -113,10 +205,17 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
    * @returns {void}
    */
   private _applyBlobToStore(store: any, seg: string, filepath: string, content: string): void {
-    if (seg === 'workspace') store.workspaceBlobs.set(filepath, content)
-    else if (seg === 'base') store.baseBlobs.set(filepath, content)
-    else if (seg === 'conflict') store.conflictBlobs.set(filepath, content)
+    const branch = this.currentBranch || 'main'
+    if (seg === SEG_WORKSPACE) store.workspaceBlobs.set(filepath, content)
+    else if (seg === 'base') store.baseBlobs.set(`${branch}${BRANCH_SEP}${filepath}`, content)
+    else if (seg === 'conflict') store.conflictBlobs.set(`${branch}${BRANCH_SEP}${filepath}`, content)
+    // Writes to the generic 'info' segment should create/update the
+    // workspace-local (unprefixed) info entry so that subsequent
+    // readBlob('info') returns the expected value. Dedicated helpers
+    // exist for explicit workspace/git info variants.
     else if (seg === 'info') store.infoBlobs.set(filepath, content)
+    else if (seg === SEG_INFO_WORKSPACE) store.infoBlobs.set(filepath, content)
+    else if (seg === SEG_INFO_GIT) store.infoBlobs.set(`${branch}${BRANCH_SEP}${filepath}`, content)
     else throw new Error('unknown segment')
   }
 
@@ -125,7 +224,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
    * @returns {any} info entry object
    */
   private _buildInfoEntryForSeg(seg: string, existing: any, filepath: string, sha: string, now: number): any {
-    if (seg === 'workspace') return this._buildWorkspaceInfoEntry(existing, filepath, sha, now)
+    if (seg === SEG_WORKSPACE) return this._buildWorkspaceInfoEntry(existing, filepath, sha, now)
     if (seg === 'base') return this._buildBaseInfoEntry(existing, filepath, sha, now)
     if (seg === 'conflict') return this._buildConflictInfoEntry(existing, filepath, now)
     return { path: filepath, updatedAt: now }
@@ -177,29 +276,52 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
    */
   async readBlob(filepath: string, segment?: any): Promise<string | null> {
     const store = InMemoryStorage.stores.get(this.rootKey)!
+    return this._readInMemoryBlob(store, filepath, segment)
+  }
+
+  /**
+   * Read blob with segment logic extracted for clarity.
+   * @returns {string | null}
+   */
+  private _readInMemoryBlob(store: any, filepath: string, segment?: any): string | null {
+    // Delegate segment-specific handling to a helper for clarity
+    if (segment !== undefined) return this._readInMemoryBlobWithSegment(store, filepath, String(segment))
+
+    const workspace = store.workspaceBlobs
+    if (workspace && workspace.has(filepath)) return workspace.get(filepath)!
+    const base = store.baseBlobs
+    const branch = this.currentBranch || 'main'
+    if (base && base.has(`${branch}${BRANCH_SEP}${filepath}`)) return base.get(`${branch}${BRANCH_SEP}${filepath}`)!
+    return null
+  }
+
+  /**
+   * Handle reading when a segment is explicitly provided.
+   * @returns {string | null}
+   */
+  private _readInMemoryBlobWithSegment(store: any, filepath: string, seg: string): string | null {
+    const branch = this.currentBranch || 'main'
+    // Normalize info-git to info
+    if (seg === SEG_INFO_GIT) {
+      // explicit git-scoped info: prefer branch-prefixed entry
+      const key = `${branch}${BRANCH_SEP}${filepath}`
+      if (store.infoBlobs.has(key)) return store.infoBlobs.get(key)!
+      return null
+    }
+    if (seg === SEG_INFO_WORKSPACE) return store.infoBlobs.has(filepath) ? store.infoBlobs.get(filepath)! : null
+
     const segmentToStore = {
-      workspace: store.workspaceBlobs,
+      [SEG_WORKSPACE]: store.workspaceBlobs,
       base: store.baseBlobs,
       conflict: store.conflictBlobs,
       info: store.infoBlobs,
     } as Record<string, Map<string, string>>
-
-    // segment指定がある場合はそのまま返却
-    if (segment !== undefined) {
-      const m = segmentToStore[String(segment)]
-      return m ? (m.has(filepath) ? m.get(filepath)! : null) : null
-    }
-
-    // segment未指定の場合はworkspace→baseの順で参照
-    const workspace = segmentToStore.workspace
-    if (workspace && workspace.has(filepath)) {
-      return workspace.get(filepath)!
-    }
-    const base = segmentToStore.base
-    if (base && base.has(filepath)) {
-      return base.get(filepath)!
-    }
-    return null
+    const m = segmentToStore[seg]
+    if (!m) return null
+    // First try unprefixed key (covers workspace and workspace-local info)
+    if (m.has(filepath)) return m.get(filepath)!
+    const key = `${branch}${BRANCH_SEP}${filepath}`
+    return m.has(key) ? m.get(key)! : null
   }
 
   /**
@@ -209,14 +331,18 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
   async deleteBlob(filepath: string, segment?: any): Promise<void> {
     // If segment specified, delete only that segment
     const store = InMemoryStorage.stores.get(this.rootKey)!
-    if (segment === 'workspace') { store.workspaceBlobs.delete(filepath); return }
-    if (segment === 'base') { store.baseBlobs.delete(filepath); return }
-    if (segment === 'conflict') { store.conflictBlobs.delete(filepath); return }
-    if (segment === 'info') { store.infoBlobs.delete(filepath); return }
+    const branch = this.currentBranch || 'main'
+    if (segment === SEG_WORKSPACE) { store.workspaceBlobs.delete(filepath); return }
+    if (segment === 'base') { store.baseBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`); return }
+    if (segment === 'conflict') { store.conflictBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`); return }
+    if (segment === 'info') { store.infoBlobs.delete(filepath); store.infoBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`); return }
+    if (segment === SEG_INFO_WORKSPACE) { store.infoBlobs.delete(filepath); return }
+    if (segment === SEG_INFO_GIT) { store.infoBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`); return }
     // otherwise delete from all segments
     store.workspaceBlobs.delete(filepath)
-    store.baseBlobs.delete(filepath)
-    store.conflictBlobs.delete(filepath)
+    store.baseBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`)
+    store.conflictBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`)
+    store.infoBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`)
     store.infoBlobs.delete(filepath)
   }
 
@@ -228,10 +354,10 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
   * @returns {Promise<Array<{ path: string; info: string | null }>>}
    */
   async listFiles(prefix?: string, segment?: any, recursive = true): Promise<Array<{ path: string; info: string | null }>> {
-    const seg = segment || 'workspace'
+    const seg = segment || SEG_WORKSPACE
     const store = InMemoryStorage.stores.get(this.rootKey)!
     const segmentToStore = {
-      workspace: store.workspaceBlobs,
+      [SEG_WORKSPACE]: store.workspaceBlobs,
       base: store.baseBlobs,
       conflict: store.conflictBlobs,
       info: store.infoBlobs,
@@ -242,11 +368,34 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
     const p = prefix ? prefix.replace(/^\/+|\/+$/g, '') : ''
     let keys = Array.from(m.keys())
+    // For info store include both unprefixed (workspace-local) keys and branch-prefixed keys
+    if (seg === 'info') {
+      const branch = this.currentBranch || 'main'
+      const unpref = keys.filter((k) => !k.startsWith(branch + BRANCH_SEP))
+      const pref = keys.filter((k) => k.startsWith(branch + BRANCH_SEP)).map((k) => k.slice((branch + BRANCH_SEP).length))
+      // merge with workspace-local keys first (they take precedence)
+      const merged = Array.from(new Set(unpref.concat(pref)))
+      keys = merged
+    } else if (seg !== SEG_WORKSPACE) {
+      const branch = this.currentBranch || 'main'
+      keys = keys.filter((k) => k.startsWith(branch + BRANCH_SEP)).map((k) => k.slice((branch + BRANCH_SEP).length))
+    }
     keys = this._filterKeys(keys, p, recursive)
 
+    return this._collectFilesInMemory(keys, store)
+  }
+
+  /**
+   * Collect file info objects for keys array (InMemory implementation).
+   * @returns {Array<{path:string, info:string|null}>}
+   */
+  private _collectFilesInMemory(keys: string[], store: any): Array<{ path: string; info: string | null }> {
     const out: Array<{ path: string; info: string | null }> = []
+    const branch = this.currentBranch || 'main'
     for (const k of keys) {
-      const info = store.infoBlobs.has(k) ? store.infoBlobs.get(k)! : null
+      let info: string | null = null
+      if (store.infoBlobs.has(k)) info = store.infoBlobs.get(k)!
+      else if (store.infoBlobs.has(`${branch}${BRANCH_SEP}${k}`)) info = store.infoBlobs.get(`${branch}${BRANCH_SEP}${k}`)!
       out.push({ path: k, info })
     }
     return out
@@ -265,6 +414,75 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
       })
     }
     return keys
+  }
+
+  /**
+   * Wrap store to present branch-prefixed info accessors
+   * @returns {any} wrapped store view for info access
+   */
+  private _wrapStoreForInfoPrefix(store: any): any {
+    const branch = this.currentBranch || 'main'
+    /**
+     * Create branch-prefixed storage key
+     * @param {string} k key path
+     * @returns {string} prefixed key
+     */
+    const prefixKey = (k: string) => `${branch}${BRANCH_SEP}${k}`
+    return Object.assign({}, store, {
+      infoBlobs: {
+        /** Check whether prefixed key exists
+         * @returns {boolean}
+         */
+        has: (k: string) => store.infoBlobs.has(k) || store.infoBlobs.has(prefixKey(k)),
+        /** Get value preferring unprefixed then branch-prefixed key
+         * @returns {string | undefined}
+         */
+        get: (k: string) => {
+          if (store.infoBlobs.has(k)) return store.infoBlobs.get(k)
+          return store.infoBlobs.get(prefixKey(k))
+        },
+        /** Set value: prefer updating an existing unprefixed entry if present;
+         * otherwise write into the branch-prefixed key. This preserves the
+         * expected read semantics where workspace-local info takes precedence.
+         * @returns {any}
+         */
+        set: (k: string, v: string) => {
+          if (store.infoBlobs.has(k)) return store.infoBlobs.set(k, v)
+          return store.infoBlobs.set(prefixKey(k), v)
+        },
+        /** Delete both unprefixed and prefixed keys
+         * @returns {boolean}
+         */
+        delete: (k: string) => { store.infoBlobs.delete(k); return store.infoBlobs.delete(prefixKey(k)) }
+      }
+    })
+  }
+
+  /**
+   * Wrap store to present unprefixed info accessors
+   * @returns {any} wrapped store view for info access
+   */
+  private _wrapStoreForInfoNoPrefix(store: any): any {
+    return Object.assign({}, store, {
+      infoBlobs: {
+        /** Check whether key exists
+         * @returns {boolean}
+         */
+        has: (k: string) => store.infoBlobs.has(k),
+        /** Get value for key
+         * @returns {string | undefined}
+         */
+        get: (k: string) => store.infoBlobs.get(k),
+        /** Set value for key
+         * @returns {void}
+         */
+        set: (k: string, v: string) => store.infoBlobs.set(k, v),
+        /** Delete key
+         * @returns {boolean}
+         */
+        delete: (k: string) => store.infoBlobs.delete(k)
+      }
+    })
   }
 
   /**

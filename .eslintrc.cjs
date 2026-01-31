@@ -23,14 +23,14 @@ module.exports = {
     'eslint:recommended',
     'plugin:sonarjs/recommended'
   ],
-  plugins: ['sonarjs', 'jsdoc'],
+  // プラグイン一覧: 環境によって未定義のルール参照で失敗するため
+  plugins: ['sonarjs', 'jsdoc','unicorn', '@typescript-eslint'],
   parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaVersion: 2022,
     sourceType: 'module',
     project: './tsconfig.json'
   },
-  plugins: ['sonarjs', 'jsdoc', '@typescript-eslint', 'unicorn'],
   ignorePatterns: ['dist/', 'node_modules/'],
   rules: {
     'sonarjs/cognitive-complexity': ['error', 10],
@@ -57,9 +57,9 @@ module.exports = {
     'jsdoc/require-param': 'off',
     'jsdoc/require-returns': 'error'
     // Unicorn: 早期リターン・重複分岐検出・ファイル名規約・略語抑制
-    , 'unicorn/prefer-early-return': 'warn'
-    , 'unicorn/no-duplicated-branches': 'warn'
-    , 'unicorn/filename-case': ['warn', { case: 'camelCase' }]
-    , 'unicorn/prevent-abbreviations': 'warn'
+    , 'unicorn/prefer-early-return': 'error'
+    , 'unicorn/no-duplicated-branches': 'error'
+    , 'unicorn/filename-case': ['error', { case: 'camelCase' }]
+    , 'unicorn/prevent-abbreviations': 'error'
   }
 }

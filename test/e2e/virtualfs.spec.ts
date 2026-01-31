@@ -60,17 +60,16 @@ test.describe('VirtualFS E2E (browser)', () => {
     // inject in-page vfs and run tests without depending on bundle
       await page.addInitScript({ content: 'window.vfs = ' + vfsSimpleScript })
     await page.goto('about:blank')
-    const state = await page.evaluate(async () => {
+      const state = await page.evaluate(async () => {
       const vfs = (window as any).vfs
       await vfs.writeFile('foo.txt', 'hello')
-      let idx = vfs.getIndex()
-      const s1 = idx.entries['foo.txt'].state
+      let changes = await vfs.getChangeSet()
+      const s1 = changes.find((c: any) => c.path === 'foo.txt')?.type
       await vfs.writeFile('foo.txt', 'hello2')
-      idx = vfs.getIndex()
-      const s2 = idx.entries['foo.txt'].state
+      changes = await vfs.getChangeSet()
+      const s2 = changes.find((c: any) => c.path === 'foo.txt')?.type
       await vfs.deleteFile('foo.txt')
-      idx = vfs.getIndex()
-      const exists = !!idx.entries['foo.txt']
+      const exists = vfs.readFile('foo.txt') !== ''
       return { s1, s2, exists }
     })
     expect(state.s1).toBe('added')

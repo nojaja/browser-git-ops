@@ -1,23 +1,2 @@
-// Jest setup: enable OPFS mock using opfs-mock
-const opfs = require('opfs-mock');
-
-// Initialize navigator.storage.getDirectory mock
-if (opfs && typeof opfs.mockOPFS === 'function') {
-  opfs.mockOPFS();
-}
-
-// Ensure global originPrivateFileSystem points to same storage factory
-if (!globalThis.originPrivateFileSystem) {
-  const sf = opfs && opfs.storageFactory ? opfs.storageFactory() : null;
-  if (sf && typeof sf.getDirectory === 'function') {
-    Object.defineProperty(globalThis, 'originPrivateFileSystem', {
-      value: { getDirectory: sf.getDirectory.bind(sf) },
-      writable: true
-    });
-  } else if (globalThis.navigator && globalThis.navigator.storage && typeof globalThis.navigator.storage.getDirectory === 'function') {
-    Object.defineProperty(globalThis, 'originPrivateFileSystem', {
-      value: { getDirectory: () => globalThis.navigator.storage.getDirectory() },
-      writable: true
-    });
-  }
-}
+// ESM shim for Jest tests — mirror test/setupOpfs.ts for runtime
+import 'opfs-mock';
