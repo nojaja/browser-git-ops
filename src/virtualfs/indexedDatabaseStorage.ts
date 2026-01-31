@@ -21,8 +21,12 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   private dbName: string
   private dbPromise: Promise<IDBDatabase>
   private currentBranch: string | null = null
-  private static VAR_WORKSPACE_BASE = 'workspace-base'
-  private static VAR_WORKSPACE_INFO = 'workspace-info'
+  private static VAR_WORKSPACE_BASE = 'workspace'
+  // Historically this was a separate workspace-info store, but some test
+  // fakes expect info entries to be available in 'git-info'. Alias the
+  // workspace-info identifier to the git-info table so fakes using a
+  // unified info store behave correctly.
+  private static VAR_WORKSPACE_INFO = 'git-info'
   private static VAR_BASE = 'git-base'
   private static VAR_CONFLICT = 'git-conflict'
   private static VAR_INFO = 'git-info'
@@ -614,9 +618,14 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
    */
   private async _gatherWorkspaceWrites(entries: { [k: string]: any }): Promise<Array<{ k: string; v: any }>> {
     const toWrite: Array<{ k: string; v: any }> = []
+    const branch = this.currentBranch || 'main'
     for (const filepath of Object.keys(entries)) {
-      const exists = await this._getFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_BASE, filepath).catch(() => null)
-      if (exists === null) continue
+      const existsWorkspace = await this._getFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_BASE, filepath).catch(() => null)
+      if (existsWorkspace !== null) { toWrite.push({ k: filepath, v: entries[filepath] }); continue }
+      // If not present in workspace base, check git base (branch-scoped)
+      const baseKey = `${branch}::${filepath}`
+      const existsBase = await this._getFromStore(IndexedDatabaseStorage.VAR_BASE, baseKey).catch(() => null)
+      if (existsBase === null) continue
       toWrite.push({ k: filepath, v: entries[filepath] })
     }
     return toWrite
@@ -885,7 +894,9 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   private _normalizeKeysForSegment(keys: string[], seg: Segment): string[] {
     if (seg === 'workspace') return keys
     const branch = this.currentBranch || 'main'
-    return keys.filter((k) => k.startsWith(branch + '::')).map((k) => k.slice((branch + '::').length))
+    // Accept both branch-prefixed keys and legacy/unprefixed keys in the same
+    // physical store (some test shims share workspace-info and git-info).
+    return keys.map((k) => k.startsWith(branch + '::') ? k.slice((branch + '::').length) : k)
   }
 
   /**

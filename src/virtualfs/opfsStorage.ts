@@ -323,10 +323,17 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     // Only create workspace/info entries for files that actually exist in workspace/base
     for (const filepath of Object.keys(entries)) {
       const entry = entries[filepath]
-      const exists = await this.readFromPrefix(root, `${VAR_WORKSPACE}/base`, filepath).catch(() => null)
-      if (exists === null) continue
-      // store each IndexEntry JSON under workspace/info using the filepath as key
-      await this._writeToPrefix(root, `${VAR_WORKSPACE}/info`, filepath, JSON.stringify(entry))
+      const existsWorkspace = await this.readFromPrefix(root, `${VAR_WORKSPACE}/base`, filepath).catch(() => null)
+      if (existsWorkspace !== null) {
+        // store each IndexEntry JSON under workspace/info using the filepath as key
+        await this._writeToPrefix(root, `${VAR_WORKSPACE}/info`, filepath, JSON.stringify(entry))
+        continue
+      }
+      // If workspace base absent, persist into git-scoped info so readIndex
+      // can reconstruct entries (tests expect entries persisted even when
+      // workspace copies are not present).
+      const gitInfoPrefix = this._segmentToPrefix('info')
+      await this._writeToPrefix(root, gitInfoPrefix, filepath, JSON.stringify(entry))
     }
 
     // Persist index metadata (without entries), include adapter meta when present

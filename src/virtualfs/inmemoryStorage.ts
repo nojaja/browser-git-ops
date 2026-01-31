@@ -136,9 +136,12 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     const entries = index.entries || {}
     
     // Persist index entries into workspace-local info (unprefixed keys)
-    // Only write info entries for files that exist in workspaceBlobs
+    // Only write info entries for files that exist in workspace or in base (branch-scoped)
+    const branch = this.currentBranch || 'main'
     for (const filepath of Object.keys(entries)) {
-      if (!store.workspaceBlobs.has(filepath)) continue
+      const existsInWorkspace = store.workspaceBlobs.has(filepath)
+      const existsInBase = store.baseBlobs.has(`${branch}${BRANCH_SEP}${filepath}`)
+      if (!existsInWorkspace && !existsInBase) continue
       store.infoBlobs.set(filepath, JSON.stringify(entries[filepath]))
     }
     const meta: any = { head: index.head }
@@ -206,7 +209,11 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     if (seg === SEG_WORKSPACE) store.workspaceBlobs.set(filepath, content)
     else if (seg === 'base') store.baseBlobs.set(`${branch}${BRANCH_SEP}${filepath}`, content)
     else if (seg === 'conflict') store.conflictBlobs.set(`${branch}${BRANCH_SEP}${filepath}`, content)
-    else if (seg === 'info') store.infoBlobs.set(`${branch}${BRANCH_SEP}${filepath}`, content)
+    // Writes to the generic 'info' segment should create/update the
+    // workspace-local (unprefixed) info entry so that subsequent
+    // readBlob('info') returns the expected value. Dedicated helpers
+    // exist for explicit workspace/git info variants.
+    else if (seg === 'info') store.infoBlobs.set(filepath, content)
     else if (seg === SEG_INFO_WORKSPACE) store.infoBlobs.set(filepath, content)
     else if (seg === SEG_INFO_GIT) store.infoBlobs.set(`${branch}${BRANCH_SEP}${filepath}`, content)
     else throw new Error('unknown segment')
@@ -325,7 +332,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     // If segment specified, delete only that segment
     const store = InMemoryStorage.stores.get(this.rootKey)!
     const branch = this.currentBranch || 'main'
-    if (segment === SEG_WORKSPACE) { store.workspaceBlobs.delete(filepath); store.infoBlobs.delete(filepath); return }
+    if (segment === SEG_WORKSPACE) { store.workspaceBlobs.delete(filepath); return }
     if (segment === 'base') { store.baseBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`); return }
     if (segment === 'conflict') { store.conflictBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`); return }
     if (segment === 'info') { store.infoBlobs.delete(filepath); store.infoBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`); return }
@@ -426,19 +433,26 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
         /** Check whether prefixed key exists
          * @returns {boolean}
          */
-        has: (k: string) => store.infoBlobs.has(prefixKey(k)),
-        /** Get value for prefixed key
+        has: (k: string) => store.infoBlobs.has(k) || store.infoBlobs.has(prefixKey(k)),
+        /** Get value preferring unprefixed then branch-prefixed key
          * @returns {string | undefined}
          */
-        get: (k: string) => store.infoBlobs.get(prefixKey(k)),
-        /** Set value for prefixed key
-         * @returns {void}
+        get: (k: string) => {
+          if (store.infoBlobs.has(k)) return store.infoBlobs.get(k)
+          return store.infoBlobs.get(prefixKey(k))
+        },
+        /** Set value: prefer updating an existing unprefixed entry if present;
+         * otherwise write into the branch-prefixed key. This preserves the
+         * expected read semantics where workspace-local info takes precedence.
          */
-        set: (k: string, v: string) => store.infoBlobs.set(prefixKey(k), v),
-        /** Delete prefixed key
+        set: (k: string, v: string) => {
+          if (store.infoBlobs.has(k)) return store.infoBlobs.set(k, v)
+          return store.infoBlobs.set(prefixKey(k), v)
+        },
+        /** Delete both unprefixed and prefixed keys
          * @returns {boolean}
          */
-        delete: (k: string) => store.infoBlobs.delete(prefixKey(k))
+        delete: (k: string) => { store.infoBlobs.delete(k); return store.infoBlobs.delete(prefixKey(k)) }
       }
     })
   }
