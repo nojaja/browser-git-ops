@@ -35,14 +35,19 @@ npm run lint        # ESLint
 import { VirtualFS, OpfsStorage, GitHubAdapter } from 'browser-git-ops'
 
 async function example() {
-  const vfs = new VirtualFS({ backend: new OpfsStorage() })
+  const backend = new lib.OpfsStorage('test01')
+  const vfs = new VirtualFS({ backend })
   await vfs.init()
+  await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'ORG', host: 'HOST', token: 'token', branch: 'main' } })
 
+  await vfs.pull()
+  const list = await currentVfs.listPaths()
   await vfs.writeFile('README.md', 'hello world')
   const changes = await vfs.getChangeSet()
 
-  const gh = new GitHubAdapter({ owner: 'ORG', repo: 'REPO', token: process.env.GH_TOKEN })
-  // VirtualFS とアダプタの API を組み合わせて push 等を実行します（詳細は src を参照）
+  const idx = await currentVfs.getIndex()
+  const pushInput = { parentSha: idx.head, message: 'Example push', changes: changes }
+  const pushRes = await currentVfs.push(pushInput as any)
 }
 ```
 

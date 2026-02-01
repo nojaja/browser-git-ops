@@ -1,58 +1,5 @@
 # browser-git-ops
 
-軽量なブラウザ向け Git 操作用ライブラリ（VirtualFS + GitHub/GitLab アダプタ）。
-ブラウザの永続化レイヤは OPFS と IndexedDB を個別のバックエンド実装として提供し、VirtualFS が抽象化して利用します。
-
----
-
-**主要ポイント**
-- `VirtualFS`：ローカルワークスペースとベーススナップショットを管理し、create/update/delete の変更セットを生成します。
- - ストレージ分離：`OpfsStorage`（OPFS 対応）、`IndexedDatabaseStorage`（IndexedDB 対応）および `InMemoryStorage` を個別実装として提供。
-- `GitHubAdapter` / `GitLabAdapter`：各プラットフォーム向けのアダプタ実装（HTTP 再試行や blob/tree/commit フローを含む）。
-
----
-
-**変更履歴（最近の重要な変更点）**
- - ブラウザ永続化を `BrowserStorage` から分離し、`OpfsStorage` と `IndexedDatabaseStorage`、`InMemoryStorage` を新規追加しました。
-- `VirtualFS` の既定バックエンドを `OpfsStorage` に切替え、従来の `canUseOpfs`（インスタンス委譲）は廃止しました。
- - ルートエクスポートに `IndexedDatabaseStorage` / `OpfsStorage` / `InMemoryStorage` を追加し、examples と E2E ヘルパーを OPFS 検出の新 API に合わせて更新しました。
-- 単体テストを複数更新・追加し、OPFS / IndexedDB の分岐やトランザクションエラー経路のカバレッジを強化しました。
-
----
-
-**公開 API（ライブラリエントリ）**
-ライブラリはバンドル／パッケージとして次をエクスポートします（`src/index.ts` を参照）：
-
-- `VirtualFS` (default exportと命名エクスポート)
-- `OpfsStorage` — OPFS（origin private file system）用バックエンド
- - `OpfsStorage` — OPFS（origin private file system）用バックエンド
- - `IndexedDatabaseStorage` — IndexedDB 用バックエンド
- - `InMemoryStorage` — テスト/メモリ用バックエンド
- - `GitHubAdapter`, `GitLabAdapter` — 各プラットフォーム向けアダプタ
-
-例：基本的な利用
-
-```ts
-import { VirtualFS, OpfsStorage, GitHubAdapter } from 'browser-git-ops'
-
-async function example() {
-  const vfs = new VirtualFS({ backend: new OpfsStorage() })
-  await vfs.init()
-
-  await vfs.writeFile('README.md', 'hello world')
-  const changes = await vfs.getChangeSet()
-
-  const gh = new GitHubAdapter({ owner: 'ORG', repo: 'REPO', token: process.env.GH_TOKEN })
-  // push の呼び出しは VirtualFS の API に依存（詳細は src/virtualfs/virtualfs.ts）
-}
-```
-
----
-
-## プロジェクト構成（抜粋）
-
-# browser-git-ops
-
 A browser-native Git operations library that provides a VirtualFS and platform adapters for GitHub and GitLab. It implements multiple persistent backends (OPFS, IndexedDB, and an in-memory backend) and abstracts them behind a common VirtualFS API.
 
 Key features
@@ -88,14 +35,19 @@ Usage (basic)
 import { VirtualFS, OpfsStorage, GitHubAdapter } from 'browser-git-ops'
 
 async function example() {
-  const vfs = new VirtualFS({ backend: new OpfsStorage() })
+  const backend = new lib.OpfsStorage('test01')
+  const vfs = new VirtualFS({ backend })
   await vfs.init()
+  await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'ORG', host: 'HOST', token: 'token', branch: 'main' } })
 
+  await vfs.pull()
+  const list = await currentVfs.listPaths()
   await vfs.writeFile('README.md', 'hello world')
   const changes = await vfs.getChangeSet()
 
-  const gh = new GitHubAdapter({ owner: 'ORG', repo: 'REPO', token: process.env.GH_TOKEN })
-  // Use VirtualFS + adapter APIs to push changes (see src/virtualfs/virtualfs.ts for details)
+  const idx = await currentVfs.getIndex()
+  const pushInput = { parentSha: idx.head, message: 'Example push', changes: changes }
+  const pushRes = await currentVfs.push(pushInput as any)
 }
 ```
 
