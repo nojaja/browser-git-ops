@@ -41,13 +41,13 @@ async function example() {
   await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'ORG', host: 'HOST', token: 'token', branch: 'main' } })
 
   await vfs.pull()
-  const list = await currentVfs.listPaths()
+  const list = await vfs.listPaths()
   await vfs.writeFile('README.md', 'hello world')
   const changes = await vfs.getChangeSet()
 
-  const idx = await currentVfs.getIndex()
+  const idx = await vfs.getIndex()
   const pushInput = { parentSha: idx.head, message: 'Example push', changes: changes }
-  const pushRes = await currentVfs.push(pushInput as any)
+  const pushRes = await vfs.push(pushInput as any)
 }
 ```
 
