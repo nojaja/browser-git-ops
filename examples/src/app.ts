@@ -66,7 +66,7 @@ function renderUI() {
           <button id="pushLocal">ローカルのチェンジセットを push</button>
           <button id="editAndPush">既存ファイルを編集</button>
           <button id="deleteAndPush">既存ファイルを削除</button>
-          <button id="renameAndPush">既存ファイルを名前変更</button>
+          <button id="renameBtn">既存ファイルを名前変更</button>
           <button id="listFilesRaw">listFilesRaw() を実行</button>
       </section>
 
@@ -549,6 +549,7 @@ async function main() {
     try {
       if (!BackendCtor || !lib.VirtualFS) { appendOutput(`[${prefix}]${displayName}/VirtualFS が見つかりません`); return }
       const backend = new BackendCtor(val)
+      appendTrace(`// ${displayName}のインスタンス作成`)
       appendTrace(`const backend = new lib.${displayName}(${JSON.stringify(val)})`)
       const vfs = new (lib.VirtualFS as any)({
         backend,
@@ -584,6 +585,7 @@ async function main() {
         await populateAdapterMetadata(vfs)
       } catch (e) { appendOutput(`[${prefix}]VirtualFS.init() で例外: ${String(e)}`) }
     } catch (e) { appendOutput(`[${prefix}]接続失敗: ${String(e)}`) }
+    appendTrace(``)
   }
 
   if (typeof document !== 'undefined') {
@@ -761,6 +763,7 @@ async function main() {
     appendOutput('[fetchRemoteBtn]リモートスナップショットを取得します...')
     if (!currentVfs) { appendOutput('[fetchRemoteBtn]先に VirtualFS を初期化してください'); return }
     try {
+      appendTrace('// リポジトリアクセス')
       appendTrace('const res = await currentVfs.pull()')
       const res = await currentVfs.pull()
       appendTrace('res => ' + JSON.stringify(res))
@@ -837,6 +840,7 @@ async function main() {
     } catch (e) {
       appendOutput(`[fetchRemoteBtn]pull 失敗: ` + String(e))
     }
+    appendTrace('')
   })
 
 
@@ -848,6 +852,7 @@ async function main() {
     if (!currentVfs) { appendOutput('[resolveConflictBtn]先に VirtualFS を初期化してください'); return }
     try {
       if (typeof currentVfs.resolveConflict === 'function') {
+        appendTrace('//')
         appendTrace(`const ok = await currentVfs.resolveConflict(${path})`)
         const ok = await currentVfs.resolveConflict(path)
         appendTrace(`ok => ` + JSON.stringify(ok))
@@ -859,6 +864,7 @@ async function main() {
     } catch (e) {
       appendOutput('[resolveConflictBtn]resolveConflict 失敗: ' + String(e))
     }
+    appendTrace('')
   })
 
     const revertChangeBtn = el('revertChange') as HTMLButtonElement
@@ -876,6 +882,7 @@ async function main() {
           appendOutput(`[revertChangeBtn]ワークスペースの変更を削除します: ${path}`)
           try {
             await backend.deleteBlob(path, 'workspace')
+            appendTrace('//')
             appendTrace(`await backend.deleteBlob(${path}, 'workspace')`)
           } catch (e) {
             appendOutput('[revertChangeBtn]backend.deleteBlob で例外: ' + String(e))
@@ -902,6 +909,7 @@ async function main() {
         } catch (e) {
           appendOutput('[revertChangeBtn]変更の復元に失敗しました: ' + String(e))
         }
+      appendTrace('')
       })
     }
 
@@ -914,6 +922,7 @@ async function main() {
         appendOutput('[remoteChangesBtn] VirtualFS に getRemoteDiffs() が存在しません');
         return
       }
+      appendTrace('//')
       appendTrace(`const res = await currentVfs.getRemoteDiffs()`) 
       const res = await currentVfs.getRemoteDiffs()
       appendTrace(`res => ` + JSON.stringify(res))
@@ -923,6 +932,7 @@ async function main() {
     } catch (e) {
       appendOutput('[remoteChangesBtn]remoteChanges 失敗: ' + String(e))
     }
+    appendTrace('')
   })
 
   const addLocalFileBtn = el('addLocalFile') as HTMLButtonElement
@@ -932,21 +942,25 @@ async function main() {
     if (!path) return
     const content = prompt('ファイル内容を入力してください', 'hello') || ''
     try {
+      appendTrace('// ファイルの書き込み')
       appendTrace(`await currentVfs.writeFile(${path}, ${content})`)
       await currentVfs.writeFile(path, content)
       appendOutput(`[addLocalFileBtn]ローカルにファイルを追加しました: ${path}, ${content}`)
     } catch (e) { appendOutput('[addLocalFileBtn]addLocalFile 失敗: ' + String(e)) }
+    appendTrace('')
   })
 
   const localChangesBtn = el('localChanges') as HTMLButtonElement
   localChangesBtn.addEventListener('click', async () => {
     if (!currentVfs) { appendOutput('[localChangesBtn]先に VirtualFS を初期化してください'); return }
     try {
+      appendTrace('// ローカルのチェンジセット取得')
       appendTrace('const changes = await currentVfs.getChangeSet()')
       const changes = await currentVfs.getChangeSet()
       appendTrace('changes => ' + JSON.stringify(changes))
       appendOutput('[localChangesBtn]ローカル変更一覧:\n' + JSON.stringify(changes, null, 2))
     } catch (e) { appendOutput('[localChangesBtn]localChanges 失敗: ' + String(e)) }
+    appendTrace('')
   })
 
   const pushLocalBtn = el('pushLocal') as HTMLButtonElement
@@ -955,6 +969,7 @@ async function main() {
     if (!currentVfs) { appendOutput('[pushLocalBtn]先に VirtualFS を初期化してください'); return }
     if (!(await getCurrentAdapter())) { appendOutput('[pushLocalBtn]先にアダプタを接続してください'); return }
     try {
+      appendTrace('// ローカルのチェンジセットをリモートに push')
       appendTrace('const changes = await currentVfs.getChangeSet()')
       const changes = await currentVfs.getChangeSet()
       appendTrace('changes => ' + JSON.stringify(changes))
@@ -962,12 +977,13 @@ async function main() {
       appendTrace('const idx = await currentVfs.getIndex()')
       const idx = await currentVfs.getIndex()
       appendTrace('idx => ' + JSON.stringify(idx))
-      const input = { parentSha: idx.head || '', message: 'Example push from UI', changes }
+      const input = { message: 'Example push from UI'}
       appendTrace(`const res = await currentVfs.push(${JSON.stringify(input)})`)
       const res = await currentVfs.push(input)
       appendTrace('res => ' + JSON.stringify(res))
       appendOutput('[pushLocalBtn]push 成功: ' + JSON.stringify(res))
     } catch (e) { appendOutput('[pushLocalBtn]pushLocal 失敗: ' + String(e)) }
+    appendTrace('')
   })
 
   // --- Edit / Delete / Rename existing file and push to remote ---
@@ -979,6 +995,7 @@ async function main() {
     try {
       const path = (prompt('編集するファイルのパスを入力してください（例: examples/file.txt）') || '').trim()
       if (!path) return
+      appendTrace('// 既存ファイルの読み取り')
       appendTrace(`const existing = await currentVfs.readFile(${path})`)
       const existing = await currentVfs.readFile(path)
       appendTrace('existing => ' + existing)
@@ -991,6 +1008,7 @@ async function main() {
     } catch (e) {
       appendOutput('[editAndPushBtn]editAndPush 失敗: ' + String(e))
     }
+    appendTrace('')
   })
 
   const deleteAndPushBtn = el('deleteAndPush') as HTMLButtonElement
@@ -1003,6 +1021,7 @@ async function main() {
       if (!path) return
       const ok = confirm(`本当に削除しますか: ${path}`)
       if (!ok) return
+      appendTrace('// 既存ファイルの削除')
       appendTrace(`await currentVfs.deleteFile(${path})`) 
       await currentVfs.deleteFile(path)
       appendOutput(`[deleteAndPushBtn]ローカルで削除しました: ${path}`)
@@ -1010,25 +1029,28 @@ async function main() {
     } catch (e) {
       appendOutput('[deleteAndPushBtn]deleteAndPush 失敗: ' + String(e))
     }
+    appendTrace('')
   })
 
-  const renameAndPushBtn = el('renameAndPush') as HTMLButtonElement
-  renameAndPushBtn.addEventListener('click', async () => {
-    appendOutput('[renameAndPushBtn]既存ファイルの名前変更を開始します...')
-    if (!currentVfs) { appendOutput('[renameAndPushBtn]先に VirtualFS を初期化してください'); return }
-    if (!(await getCurrentAdapter())) { appendOutput('[renameAndPushBtn]先にアダプタを接続してください'); return }
+  const renameBtn = el('renameBtn') as HTMLButtonElement
+  renameBtn.addEventListener('click', async () => {
+    appendOutput('[renameBtn]既存ファイルの名前変更を開始します...')
+    if (!currentVfs) { appendOutput('[renameBtn]先に VirtualFS を初期化してください'); return }
+    if (!(await getCurrentAdapter())) { appendOutput('[renameBtn]先にアダプタを接続してください'); return }
     try {
       const from = (prompt('変更元のファイルパスを入力してください（例: examples/old.txt）') || '').trim()
       if (!from) return
       const to = (prompt('新しいファイル名を入力してください（例: examples/new.txt）') || '').trim()
       if (!to) return
+      appendTrace('// 既存ファイルの名前変更  ')
       appendTrace(`await currentVfs.renameFile(${from}, ${to})`)
       await currentVfs.renameFile(from, to)
-      appendOutput(`[renameAndPushBtn]ローカルでリネームしました: ${from} -> ${to}`)
+      appendOutput(`[renameBtn]ローカルでリネームしました: ${from} -> ${to}`)
 
     } catch (e) {
-      appendOutput('[renameAndPushBtn]renameAndPush 失敗: ' + String(e))
+      appendOutput('[renameBtn]renameBtn 失敗: ' + String(e))
     }
+    appendTrace('')
   })
 
   const showSnapshotBtn = el('showSnapshot') as HTMLButtonElement
@@ -1042,6 +1064,8 @@ async function main() {
         appendOutput('[showSnapshotBtn]スナップショット内のパス一覧を取得しています...')
         try {
           const paths: string[] = currentVfs.listPaths ? await currentVfs.listPaths() : []
+          
+          appendTrace('// スナップショット内のパス一覧を取得')
           appendTrace('const paths = await currentVfs.listPaths()')
           appendTrace('paths => ' + JSON.stringify(paths))
           if (!paths || paths.length === 0) {
@@ -1061,6 +1085,7 @@ async function main() {
         } catch (e) {
           appendOutput('[showSnapshotBtn]スナップショット一覧取得で例外: ' + String(e))
         }
+        appendTrace('')
       } catch (e) {
         appendOutput('[showSnapshotBtn]一覧表示処理で例外: ' + String(e))
       }
@@ -1074,6 +1099,7 @@ async function main() {
       if (!currentVfs) { appendOutput('[listFilesRaw]先に VirtualFS を初期化してください'); return }
       try {
         if (typeof currentVfs.listFilesRaw === 'function') {
+          appendTrace('// VirtualFS の listFilesRaw() を実行')
           appendTrace('const files = await currentVfs.listFilesRaw()')
           const files = await currentVfs.listFilesRaw()
           appendTrace('files => ' + JSON.stringify(files))
@@ -1097,6 +1123,8 @@ async function main() {
       } catch (e) {
         appendOutput('[listFilesRaw]listFilesRaw 実行で例外: ' + String(e))
       }
+      
+      appendTrace('')
     })
   }
 }

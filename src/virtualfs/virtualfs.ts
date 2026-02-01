@@ -623,19 +623,45 @@ export class VirtualFS {
    * @returns {Promise<{commitSha:string}>}
    */
   async push(input: import('./types.ts').CommitInput) {
+    // Ensure parentSha defaults to current index head when not provided
+    await this._ensureParentSha(input)
+
+    // Ensure changes default to current workspace change set when not provided
+    if (input.changes === undefined || input.changes === null) {
+      input.changes = await this.getChangeSet()
+    }
+
     // generate commitKey for idempotency if not provided (must be set for adapter flows)
     if (!input.commitKey) {
       input.commitKey = await this.shaOf((input.parentSha || '') + JSON.stringify(input.changes))
     }
 
-    // Otherwise try to obtain a persisted/instantiated adapter from this VirtualFS.
+    // Try to obtain a persisted/instantiated adapter from this VirtualFS.
+    // If adapter resolution throws, let the exception bubble up (TDD expectation).
     const instAdapter = await this.getAdapterInstance()
-    if (instAdapter) {
-      return await this._handlePushWithAdapter(input, instAdapter)
+    if (!instAdapter) {
+      // remoteSynchronizer fallback removed: adapters are required for push in v0.0.4
+      throw new Error('Adapter instance not available')
     }
 
-    // Fallback: no adapter available -> perform local-only push via RemoteSynchronizer
-    return await this.remoteSynchronizer.push(input)
+    return await this._handlePushWithAdapter(input, instAdapter)
+  }
+
+  /**
+   * Ensure `input.parentSha` is a string; prefer current index head when available.
+   * @param input CommitInput
+   */
+  private async _ensureParentSha(input: import('./types.ts').CommitInput) {
+    if (input.parentSha === undefined || input.parentSha === null) {
+      try {
+        const index = await this.getIndex()
+        // `CommitInput.parentSha` is typed as string; use empty string when head is unavailable
+        input.parentSha = (index && (index as any).head) || ''
+      } catch (error) {
+        // propagate as empty string to satisfy type expectations
+        input.parentSha = ''
+      }
+    }
   }
 }
 

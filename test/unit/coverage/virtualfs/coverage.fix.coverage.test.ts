@@ -27,9 +27,19 @@ describe('coverage fix: VirtualFS push cleanup', () => {
       ],
     }
 
+    // In v0.0.4 push requires an adapter; expect adapter-missing error
+    await expect(vfs.push({ parentSha: null, changes: [] })).rejects.toThrow()
+
+    // Now attach a mock adapter and verify push succeeds and cleans workspace
+    const mockAdapter: any = {
+      createCommitWithActions: async (_branch: string, _message: string, _changes: any[], _parent: any) => 'commit-ck',
+      updateRef: async (_: string, __: string) => undefined
+    }
+    await (vfs as any).setAdapter(mockAdapter, { type: 'gitlab' })
+
     const res = await vfs.push(input)
     expect(res).toBeDefined()
-    expect(res.commitSha).toBeTruthy()
+    expect(res.commitSha).toBe('commit-ck')
 
     // .git-base should contain new content
     expect(await vfs.readFile('a.txt')).toBe('x')
