@@ -37,6 +37,76 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
+   * List commits for a ref (GitHub commits API)
+   * @param {{ref:string,perPage?:number,page?:number}} query
+   * @returns {Promise<import('./adapter').CommitHistoryPage>} ページ情報を返します
+   */
+  async listCommits(query: { ref: string; perPage?: number; page?: number }) {
+    const reference = query.ref || 'main'
+    const perPage = query.perPage || 30
+    const page = query.page || 1
+    const url = `${this.baseUrl}/commits?sha=${encodeURIComponent(reference)}&per_page=${encodeURIComponent(String(perPage))}&page=${encodeURIComponent(String(page))}`
+    const resp = await this._fetchWithRetry(url, { method: 'GET', headers: this.headers })
+    const text = await resp.text().catch(() => '[]')
+    const parsed = this._parseJsonArray(text)
+
+    const items = (Array.isArray(parsed) ? parsed : []).map((c: any) => this._mapGithubCommitToSummary(c))
+
+    const linkHdr = resp && (resp as any).headers && typeof (resp as any).headers.get === 'function' ? (resp as any).headers.get('link') : undefined
+    const pages = this._parseLinkHeaderString(typeof linkHdr === 'string' ? linkHdr : undefined)
+    return { items, nextPage: pages.nextPage, lastPage: pages.lastPage }
+  }
+
+  /**
+   * 応答テキストを JSON 配列として解析します（失敗時は空配列を返す）。
+   * @param {string} text 応答テキスト
+   * @returns {any[]}
+   */
+  private _parseJsonArray(text: string): any[] {
+    try {
+      return text ? JSON.parse(text) : []
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('parseJsonArray failed', error)
+      return []
+    }
+  }
+
+  /**
+   * GitHub の Link ヘッダを解析して next/last ページを返します。
+   * @param {string|undefined} linkHdr Link ヘッダ文字列
+    * @returns {{nextPage?: number, lastPage?: number}} ページ番号情報
+   */
+  private _parseLinkHeaderString(linkHdr?: string): { nextPage?: number; lastPage?: number } {
+    const out: { nextPage?: number; lastPage?: number } = {}
+    if (!linkHdr) return out
+    try {
+      const mNext = linkHdr.match(/<[^>]*[?&]page=(\d+)[^>]*>\s*;\s*rel=\"?next\"?/) as RegExpMatchArray | null
+      const mLast = linkHdr.match(/<[^>]*[?&]page=(\d+)[^>]*>\s*;\s*rel=\"?last\"?/) as RegExpMatchArray | null
+      if (mNext) out.nextPage = Number(mNext[1])
+      if (mLast) out.lastPage = Number(mLast[1])
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('parseLinkHeaderString failed', error)
+    }
+    return out
+  }
+
+  /**
+   * Map a raw GitHub commit object to CommitSummary shape used by the adapter.
+   * @param {any} c Raw commit object
+   * @returns {import('./adapter').CommitSummary}
+   */
+  private _mapGithubCommitToSummary(c: any) {
+    const parents = Array.isArray(c?.parents) ? c.parents.map((p: any) => p?.sha ?? '').filter((s: string) => !!s) : []
+    return {
+      sha: c?.sha ?? '',
+      message: c?.commit?.message ?? '',
+      author: c?.commit?.author?.name ?? c?.author?.login ?? '',
+      date: c?.commit?.author?.date ?? '',
+      parents,
+    }
+  }
+
+  /**
    * コンテンツから sha1 を算出します。
    * @param {string} content コンテンツ
    * @returns {string} sha1 ハッシュ
@@ -51,29 +121,27 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
    */
   async createBlobs(changes: any[], concurrency = 5) {
     const tasks = changes.filter((c) => c.type === 'create' || c.type === 'update')
-    // mapper: create or reuse blob for a change
-    // 内部ヘルパー
-    /**
-     * ブロブ作成用のマッパー
-     * @param {any} ch 変更エントリ
-     * @returns {Promise<{path:string,sha:string}>}
-     */
-    const mapper = async (ch: any) => {
-      const contentHash = await this.shaOf(ch.content || '')
-      const cached = this.blobCache.get(contentHash)
-      if (cached) return { path: ch.path, sha: cached }
-      const body = JSON.stringify({ content: ch.content, encoding: 'utf-8' })
-      const response = await this._fetchWithRetry(`${this.baseUrl}/git/blobs`, { method: 'POST', headers: this.headers, body }, 4, 300)
-      const index = await response.json()
-      if (!index.sha) throw new NonRetryableError('blob response missing sha')
-      this.blobCache.set(contentHash, index.sha)
-      return { path: ch.path, sha: index.sha }
-    }
-
-    const results = await mapWithConcurrency(tasks, mapper, concurrency)
+    const results = await mapWithConcurrency(tasks, this._createBlobForChange.bind(this), concurrency)
     const map: Record<string, string> = {}
     for (const r of results) map[r.path] = r.sha
     return map
+  }
+
+  /**
+   * ブロブ作成用のヘルパー（createBlobs から抽出）
+   * @param {any} ch 変更エントリ
+    * @returns {Promise<{path:string,sha:string}>}
+   */
+  private async _createBlobForChange(ch: any) {
+    const contentHash = await this.shaOf(ch.content || '')
+    const cached = this.blobCache.get(contentHash)
+    if (cached) return { path: ch.path, sha: cached }
+    const body = JSON.stringify({ content: ch.content, encoding: 'utf-8' })
+    const response = await this._fetchWithRetry(`${this.baseUrl}/git/blobs`, { method: 'POST', headers: this.headers, body }, 4, 300)
+    const index = await response.json()
+    if (!index.sha) throw new NonRetryableError('blob response missing sha')
+    this.blobCache.set(contentHash, index.sha)
+    return { path: ch.path, sha: index.sha }
   }
 
   /**
@@ -249,20 +317,35 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
     const out: Record<string, string> = {}
     const unique = Array.from(new Set(paths)).filter((p) => fileMap.has(p))
     await mapWithConcurrency(unique, async (p: string) => {
-      if (contentCache.has(p)) {
-        out[p] = contentCache.get(p) as string
-        snapshot[p] = contentCache.get(p) as string
-        return
-      }
-      const f = fileMap.get(p)
-      const r = await this._fetchBlobContentOrNull(f)
-      if (r && r.content !== null) {
-        contentCache.set(p, r.content)
-        out[p] = r.content
-        snapshot[p] = r.content
-      }
+      const content = await this._fetchContentForPath(fileMap, contentCache, snapshot, p)
+      if (content !== null) out[p] = content
+      return null
     }, concurrency)
     return out
+  }
+
+  /**
+   * 指定パスのコンテンツを取得し、キャッシュと snapshot を更新します。
+   * @param {Map<string, any>} fileMap ファイルメタ情報マップ
+   * @param {Map<string, string>} contentCache キャッシュマップ
+   * @param {Record<string,string>} snapshot スナップショット出力マップ
+   * @param {string} p 取得対象パス
+   * @returns {Promise<string|null>} ファイル内容または null
+   */
+  private async _fetchContentForPath(fileMap: Map<string, any>, contentCache: Map<string, string>, snapshot: Record<string, string>, p: string) {
+    if (contentCache.has(p)) {
+      const v = contentCache.get(p) as string
+      snapshot[p] = v
+      return v
+    }
+    const f = fileMap.get(p)
+    const r = await this._fetchBlobContentOrNull(f)
+    if (r && r.content !== null) {
+      contentCache.set(p, r.content)
+      snapshot[p] = r.content
+      return r.content
+    }
+    return null
   }
 }
 // re-export helpers for backward compatibility

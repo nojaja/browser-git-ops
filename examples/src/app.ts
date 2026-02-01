@@ -68,6 +68,7 @@ function renderUI() {
           <button id="deleteAndPush">既存ファイルを削除</button>
           <button id="renameBtn">既存ファイルを名前変更</button>
           <button id="listFilesRaw">listFilesRaw() を実行</button>
+            <button id="listCommits">コミット一覧を取得</button>
       </section>
 
       <section style="margin-top:18px">
@@ -1113,6 +1114,46 @@ async function main() {
   })
 
   const listFilesRawBtn = el('listFilesRaw') as HTMLButtonElement | null
+  const listCommitsBtn = el('listCommits') as HTMLButtonElement | null
+  if (listCommitsBtn) {
+    listCommitsBtn.addEventListener('click', async () => {
+      appendOutput('[listCommits]コミット一覧を取得します...')
+      if (!currentVfs) { appendOutput('[listCommits]先に VirtualFS を初期化してください'); return }
+      try {
+        const branch = (branchInput && branchInput.value) ? branchInput.value.trim() : 'main'
+        const query: any = { ref: branch, perPage: 20, page: 1 }
+        appendTrace('// VirtualFS.listCommits を呼び出します')
+        appendTrace('const page = await currentVfs.listCommits(' + JSON.stringify(query) + ')')
+        if (typeof currentVfs.listCommits !== 'function') {
+          appendOutput('[listCommits]VirtualFS に listCommits() が実装されていません')
+          return
+        }
+        const page = await currentVfs.listCommits(query)
+        appendTrace('listCommits => ' + JSON.stringify(page))
+        const p: any = page || {}
+        // support both 'items' (examples returning items) and 'commits' shape
+        const commits = Array.isArray(p.items) ? p.items : Array.isArray(p.commits) ? p.commits : []
+        appendOutput('[listCommits]取得コミット数: ' + commits.length)
+        if (commits.length > 0) {
+          // present concise summary per commit for readability
+          const sample = commits.slice(0, 50).map((c: any) => {
+            const m = (c.message || '').toString().split(/\r?\n/)[0]
+            const date = c.date || c.created_at || ''
+            const author = c.author || c.author_name || c.author?.name || ''
+            return `${c.sha || c.id || c.short_id || '<no-sha>'}  ${date}  ${author}  ${m}`
+          })
+          appendOutput(sample.join('\n'))
+          if (commits.length > 50) appendOutput(`[listCommits]... 他 ${commits.length - 50} 件`)
+        }
+        const nextPage = p.nextPage ?? p.next ?? p.xNextPage ?? p['x-next-page']
+        const lastPage = p.lastPage ?? p.last ?? p.xTotalPages ?? p['x-total-pages']
+        appendOutput('[listCommits]nextPage: ' + (nextPage ? String(nextPage) : '<none>') + ' lastPage: ' + (lastPage ? String(lastPage) : '<none>'))
+      } catch (e) {
+        appendOutput('[listCommits]失敗: ' + String(e))
+      }
+      appendTrace('')
+    })
+  }
   if (listFilesRawBtn) {
     listFilesRawBtn.addEventListener('click', async () => {
       appendOutput('[listFilesRaw]listFilesRaw() を実行します（引数省略）')

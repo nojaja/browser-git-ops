@@ -4,6 +4,7 @@ import { OpfsStorage } from './opfsStorage.ts'
 import { GitHubAdapter } from '../git/githubAdapter.ts'
 import { GitLabAdapter } from '../git/gitlabAdapter.ts'
 import { Logger } from '../git/abstractAdapter.ts'
+import type { CommitHistoryQuery, CommitHistoryPage } from '../git/adapter.ts'
 import { shaOf, shaOfGitBlob } from './hashUtils.ts'
 import { LocalChangeApplier } from './localChangeApplier.ts'
 import { LocalFileManager } from './localFileManager.ts'
@@ -555,6 +556,20 @@ export class VirtualFS {
     }
 
     return { remote: normalized, remoteShas, diffs }
+  }
+
+  /**
+   * Delegate commit history listing to the underlying adapter when available.
+   * Thin passthrough used by UI/CLI to retrieve commit summaries and paging info.
+   * @param {CommitHistoryQuery} query
+   * @returns {Promise<CommitHistoryPage>}
+   */
+  async listCommits(query: CommitHistoryQuery): Promise<CommitHistoryPage> {
+    const instAdapter = await this.getAdapterInstance()
+    if (!instAdapter || typeof instAdapter.listCommits !== 'function') {
+      throw new Error('Adapter instance not available or does not support listCommits')
+    }
+    return await instAdapter.listCommits(query)
   }
 
   /**

@@ -27,6 +27,73 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
+   * List commits for a ref (GitLab commits API)
+   * @param {{ref:string,perPage?:number,page?:number}} query
+   * @returns {Promise<import('./adapter').CommitHistoryPage>} ページ情報を返します
+   */
+  async listCommits(query: { ref: string; perPage?: number; page?: number }) {
+    const reference = query.ref || 'main'
+    const perPage = query.perPage || 30
+    const page = query.page || 1
+    const url = `${this.baseUrl}/repository/commits?ref_name=${encodeURIComponent(reference)}&per_page=${encodeURIComponent(String(perPage))}&page=${encodeURIComponent(String(page))}`
+    const resp = await this.fetchWithRetry(url, { method: 'GET', headers: this.headers })
+    const text = await resp.text().catch(() => '[]')
+    const parsed = this._parseJsonArray(text)
+
+    const items = (Array.isArray(parsed) ? parsed : []).map((c: any) => this._mapGitLabCommitToSummary(c))
+
+    const pages = this._parsePagingHeaders(resp)
+    return { items, nextPage: pages.nextPage, lastPage: pages.lastPage }
+  }
+
+  /**
+   * 応答テキストを JSON 配列として解析します（失敗時は空配列を返す）。
+   * @param {string} text 応答テキスト
+   * @returns {any[]}
+   */
+  private _parseJsonArray(text: string): any[] {
+    try {
+      return text ? JSON.parse(text) : []
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('parseJsonArray failed', error)
+      return []
+    }
+  }
+
+  /**
+   * GitLab のページングヘッダを解析します（x-next-page / x-total-pages）。
+    * @returns {{nextPage?: number, lastPage?: number}} ページ番号情報
+   */
+  private _parsePagingHeaders(resp: Response): { nextPage?: number; lastPage?: number } {
+    const out: { nextPage?: number; lastPage?: number } = {}
+    try {
+      const hdrNext = resp && (resp as any).headers && typeof (resp as any).headers.get === 'function' ? (resp as any).headers.get('x-next-page') : undefined
+      const hdrTotal = resp && (resp as any).headers && typeof (resp as any).headers.get === 'function' ? (resp as any).headers.get('x-total-pages') : undefined
+      if (hdrNext) out.nextPage = Number(hdrNext)
+      if (hdrTotal) out.lastPage = Number(hdrTotal)
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('parsePagingHeaders failed', error)
+    }
+    return out
+  }
+
+  /**
+   * Map a raw GitLab commit object to CommitSummary.
+   * @param {any} c Raw commit object
+   * @returns {import('./adapter').CommitSummary}
+   */
+  private _mapGitLabCommitToSummary(c: any) {
+    const parents = Array.isArray(c?.parent_ids) ? c.parent_ids.map((p: any) => p ?? '').filter(Boolean) : []
+    return {
+      sha: c?.id ?? '',
+      message: c?.message ?? '',
+      author: c?.author_name ?? c?.author?.name ?? '',
+      date: c?.created_at ?? '',
+      parents,
+    }
+  }
+
+  /**
    * コンテンツから sha1 を算出します。
    * @param {string} content コンテンツ
    * @returns {string} sha1 ハッシュ
@@ -308,22 +375,35 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
      * @param {string} p ファイルパス
      * @returns {Promise<null>}
      */
-    const mapper = async (p: string) => {
-      if (cache.has(p)) {
-        out[p] = cache.get(p) as string
-        snapshot[p] = cache.get(p) as string
-        return null
-      }
-      const content = await this._fetchFileRaw(p, branch)
-      if (content !== null) {
-        cache.set(p, content)
-        out[p] = content
-        snapshot[p] = content
-      }
+    await mapWithConcurrency(targets, async (p: string) => {
+      const content = await this._fetchFileContentForPath(cache, snapshot, p, branch)
+      if (content !== null) out[p] = content
       return null
-    }
-    await mapWithConcurrency(targets, mapper, concurrency)
+    }, concurrency)
     return out
+  }
+
+  /**
+   * 指定パスのファイル内容を取得し、キャッシュと snapshot を更新します。
+   * @param {Map<string,string>} cache キャッシュマップ
+   * @param {Record<string,string>} snapshot スナップショットマップ
+   * @param {string} p ファイルパス
+   * @param {string} branch ブランチ名
+   * @returns {Promise<string|null>} ファイル内容または null
+   */
+  private async _fetchFileContentForPath(cache: Map<string, string>, snapshot: Record<string, string>, p: string, branch: string) {
+    if (cache.has(p)) {
+      const v = cache.get(p) as string
+      snapshot[p] = v
+      return v
+    }
+    const content = await this._fetchFileRaw(p, branch)
+    if (content !== null) {
+      cache.set(p, content)
+      snapshot[p] = content
+      return content
+    }
+    return null
   }
 
   /**
