@@ -74,9 +74,15 @@ function renderUI() {
         <h2>結果</h2>
         <div style="display:flex;gap:12px;align-items:stretch;height:50vh;box-sizing:border-box;">
           <div style="flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;">
+              <button id="clearOutputBtn">クリア</button>
+            </div>
             <pre id="output" style="background:#f7f7f8;padding:12px;border-radius:6px;height:100%;min-height:0;white-space:pre-wrap;overflow:auto;"></pre>
           </div>
           <div style="flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;">
+              <button id="clearTraceBtn">クリア</button>
+            </div>
             <pre id="trace" style="background:#f7f7f8;padding:12px;border-radius:6px;height:100%;min-height:0;white-space:pre-wrap;overflow:auto;"></pre>
           </div>
         </div>
@@ -148,6 +154,20 @@ async function main() {
   const tokenInput = el('tokenInput') as HTMLInputElement
   const platformSelect = el('platformSelect') as HTMLSelectElement
   const branchInput = el('branchInput') as HTMLInputElement
+
+  // Clear buttons for output/trace
+  const clearOutputBtn = el('clearOutputBtn') as HTMLButtonElement | null
+  if (clearOutputBtn) {
+    clearOutputBtn.addEventListener('click', () => {
+      try { (el('output') as HTMLPreElement).textContent = '' } catch (_e) { /* ignore */ }
+    })
+  }
+  const clearTraceBtn = el('clearTraceBtn') as HTMLButtonElement | null
+  if (clearTraceBtn) {
+    clearTraceBtn.addEventListener('click', () => {
+      try { (el('trace') as HTMLPreElement).textContent = '' } catch (_e) { /* ignore */ }
+    })
+  }
 
   // Note: URL GET param prefill and sync removed per UI simplification.
 
