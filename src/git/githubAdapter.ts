@@ -17,6 +17,7 @@ type GHOptions = {
 
 export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   private _fetchWithRetry: (_: RequestInfo, __: RequestInit, ___?: number, ____?: number) => Promise<Response>
+  private repoMetadata: import('../virtualfs/types.ts').RepositoryMetadata | null = null
   // simple in-memory blob cache: contentSha -> blobSha
   private blobCache: Map<string, string> = new Map()
 
@@ -185,6 +186,51 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
     const index = await response.json()
     if (!index.sha) throw new NonRetryableError('createCommit response missing sha')
     return index.sha as string
+  }
+
+  /**
+   * Retrieve repository metadata (default branch, name, id) and cache it.
+   */
+  async getRepositoryMetadata(): Promise<import('../virtualfs/types.ts').RepositoryMetadata> {
+    if (this.repoMetadata) return this.repoMetadata
+    try {
+      const resp = await this._fetchWithRetry(`${this.baseUrl}`, { method: 'GET', headers: this.headers }, 4, 300)
+      const data = await resp.json().catch(() => ({}))
+      this.repoMetadata = {
+        defaultBranch: data && data.default_branch ? data.default_branch : 'main',
+        name: data && data.name ? data.name : '',
+        id: data && data.id ? data.id : undefined,
+      }
+      return this.repoMetadata
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).error) (console as any).error('リポジトリメタデータの取得に失敗しました。デフォルトブランチを\'main\'として扱います', error)
+      this.repoMetadata = { defaultBranch: 'main', name: '', id: undefined }
+      return this.repoMetadata
+    }
+  }
+
+  /**
+   * List branches via GitHub API and map to BranchListPage.
+   */
+  async listBranches(query?: import('../virtualfs/types.ts').BranchListQuery) {
+    const perPage = (query && query.perPage) || 30
+    const page = (query && query.page) || 1
+    const url = `${this.baseUrl}/branches?per_page=${encodeURIComponent(String(perPage))}&page=${encodeURIComponent(String(page))}`
+    const resp = await this._fetchWithRetry(url, { method: 'GET', headers: this.headers })
+    const text = await resp.text().catch(() => '[]')
+    const parsed = this._parseJsonArray(text)
+    const repoMeta = await this.getRepositoryMetadata().catch(() => ({ defaultBranch: 'main' }))
+
+    const items = (Array.isArray(parsed) ? parsed : []).map((b: any) => ({
+      name: b.name,
+      commit: { sha: b.commit && b.commit.sha ? b.commit.sha : '', url: b.commit && b.commit.url ? b.commit.url : '' },
+      protected: !!b.protected,
+      isDefault: b.name === (repoMeta && repoMeta.defaultBranch ? repoMeta.defaultBranch : 'main'),
+    }))
+
+    const linkHdr = resp && (resp as any).headers && typeof (resp as any).headers.get === 'function' ? (resp as any).headers.get('link') : undefined
+    const pages = this._parseLinkHeaderString(typeof linkHdr === 'string' ? linkHdr : undefined)
+    return { items, nextPage: pages.nextPage, lastPage: pages.lastPage }
   }
 
   /**

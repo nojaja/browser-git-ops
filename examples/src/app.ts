@@ -69,6 +69,8 @@ function renderUI() {
           <button id="renameBtn">既存ファイルを名前変更</button>
           <button id="listFilesRaw">listFilesRaw() を実行</button>
             <button id="listCommits">コミット一覧を取得</button>
+            <button id="nextCommitsPage">コミット次ページを取得</button>
+            <button id="listBranches">ブランチ一覧を取得</button>
       </section>
 
       <section style="margin-top:18px">
@@ -188,6 +190,9 @@ async function main() {
   let currentPlatform: 'github' | 'gitlab' | null = null
   let currentOwner: string | null = null
   let currentRepoName: string | null = null
+  // commit list paging state for examples UI
+  let commitCurrentPage: number = 1
+  let commitLastPage: number | null = null
 
   async function getCurrentAdapter() {
     if (!currentVfs) return null
@@ -1147,6 +1152,9 @@ async function main() {
         }
         const nextPage = p.nextPage ?? p.next ?? p.xNextPage ?? p['x-next-page']
         const lastPage = p.lastPage ?? p.last ?? p.xTotalPages ?? p['x-total-pages']
+        // update UI paging state
+        commitCurrentPage = query.page || 1
+        commitLastPage = lastPage ? Number(lastPage) : null
         appendOutput('[listCommits]nextPage: ' + (nextPage ? String(nextPage) : '<none>') + ' lastPage: ' + (lastPage ? String(lastPage) : '<none>'))
       } catch (e) {
         appendOutput('[listCommits]失敗: ' + String(e))
@@ -1154,6 +1162,86 @@ async function main() {
       appendTrace('')
     })
   }
+
+  const nextCommitsPageBtn = el('nextCommitsPage') as HTMLButtonElement | null
+  if (nextCommitsPageBtn) {
+    nextCommitsPageBtn.addEventListener('click', async () => {
+      appendOutput('[nextCommitsPage]次ページのコミットを取得します...')
+      if (!currentVfs) { appendOutput('[nextCommitsPage]先に VirtualFS を初期化してください'); return }
+      try {
+        // determine next page to request
+        const branch = (branchInput && branchInput.value) ? branchInput.value.trim() : 'main'
+        const nextPage = (commitLastPage !== null && typeof commitLastPage === 'number') ? (commitCurrentPage < commitLastPage ? commitCurrentPage + 1 : null) : commitCurrentPage + 1
+        if (!nextPage) { appendOutput('[nextCommitsPage]次ページは存在しません'); return }
+        const query: any = { ref: branch, perPage: 20, page: nextPage }
+        appendTrace('// VirtualFS.listCommits (next page) を呼び出します')
+        const page = await currentVfs.listCommits(query)
+        appendTrace('listCommits(next) => ' + JSON.stringify(page))
+        const p: any = page || {}
+        const commits = Array.isArray(p.items) ? p.items : Array.isArray(p.commits) ? p.commits : []
+        appendOutput('[nextCommitsPage]取得コミット数: ' + commits.length)
+        if (commits.length > 0) {
+          const sample = commits.slice(0, 50).map((c: any) => {
+            const m = (c.message || '').toString().split(/\r?\n/)[0]
+            const date = c.date || c.created_at || ''
+            const author = c.author || c.author_name || c.author?.name || ''
+            return `${c.sha || c.id || c.short_id || '<no-sha>'}  ${date}  ${author}  ${m}`
+          })
+          appendOutput(sample.join('\n'))
+          if (commits.length > 50) appendOutput(`[nextCommitsPage]... 他 ${commits.length - 50} 件`)
+        }
+        const newNextPage = p.nextPage ?? p.next ?? p.xNextPage ?? p['x-next-page']
+        const newLastPage = p.lastPage ?? p.last ?? p.xTotalPages ?? p['x-total-pages']
+        // update state
+        commitCurrentPage = query.page || commitCurrentPage
+        commitLastPage = newLastPage ? Number(newLastPage) : commitLastPage
+        appendOutput('[nextCommitsPage]currentPage: ' + String(commitCurrentPage) + ' lastPage: ' + (commitLastPage ? String(commitLastPage) : '<none>'))
+      } catch (e) {
+        appendOutput('[nextCommitsPage]失敗: ' + String(e))
+      }
+      appendTrace('')
+    })
+  }
+
+  const listBranchesBtn = el('listBranches') as HTMLButtonElement | null
+  if (listBranchesBtn) {
+    listBranchesBtn.addEventListener('click', async () => {
+      appendOutput('[listBranches]ブランチ一覧を取得します...')
+      if (!currentVfs) { appendOutput('[listBranches]先に VirtualFS を初期化してください'); return }
+      try {
+        if (typeof currentVfs.listBranches !== 'function') {
+          appendOutput('[listBranches]VirtualFS に listBranches() が実装されていません')
+          return
+        }
+        const perPage = 100
+        const page = 1
+        const query: any = { perPage, page }
+        appendTrace('// VirtualFS.listBranches を呼び出します')
+        appendTrace('const page = await currentVfs.listBranches(' + JSON.stringify(query) + ')')
+        const res = await currentVfs.listBranches(query)
+        appendTrace('listBranches => ' + JSON.stringify(res))
+        const p: any = res || {}
+        const items = Array.isArray(p.items) ? p.items : Array.isArray(p.branches) ? p.branches : []
+        appendOutput('[listBranches]取得ブランチ数: ' + items.length)
+        for (const b of items) {
+          try {
+            const name = b && b.name ? b.name : (b && b.ref ? b.ref : '<unknown>')
+            const flags = []
+            if (b && b.isDefault) flags.push('default')
+            if (b && b.protected) flags.push('protected')
+            appendOutput(`- ${name}${flags.length ? ' (' + flags.join(', ') + ')' : ''}`)
+          } catch (_e) { /* ignore per-item errors */ }
+        }
+        const nextPage = p.nextPage ?? p.next ?? p.xNextPage ?? p['x-next-page']
+        const lastPage = p.lastPage ?? p.last ?? p.xTotalPages ?? p['x-total-pages']
+        appendOutput('[listBranches]nextPage: ' + (nextPage ? String(nextPage) : '<none>') + ' lastPage: ' + (lastPage ? String(lastPage) : '<none>'))
+      } catch (e) {
+        appendOutput('[listBranches]失敗: ' + String(e))
+      }
+      appendTrace('')
+    })
+  }
+
   if (listFilesRawBtn) {
     listFilesRawBtn.addEventListener('click', async () => {
       appendOutput('[listFilesRaw]listFilesRaw() を実行します（引数省略）')

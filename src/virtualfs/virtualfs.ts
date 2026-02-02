@@ -5,6 +5,7 @@ import { GitHubAdapter } from '../git/githubAdapter.ts'
 import { GitLabAdapter } from '../git/gitlabAdapter.ts'
 import { Logger } from '../git/abstractAdapter.ts'
 import type { CommitHistoryQuery, CommitHistoryPage } from '../git/adapter.ts'
+import type { BranchListQuery, BranchListPage, RepositoryMetadata } from './types.ts'
 import { shaOf, shaOfGitBlob } from './hashUtils.ts'
 import { LocalChangeApplier } from './localChangeApplier.ts'
 import { LocalFileManager } from './localFileManager.ts'
@@ -570,6 +571,85 @@ export class VirtualFS {
       throw new Error('Adapter instance not available or does not support listCommits')
     }
     return await instAdapter.listCommits(query)
+  }
+
+  /**
+   * Delegate branch listing to the underlying adapter when available.
+   * @param {BranchListQuery} query
+   * @returns {Promise<BranchListPage>}
+   */
+  async listBranches(query?: BranchListQuery): Promise<BranchListPage> {
+    const instAdapter = await this.getAdapterInstance()
+    if (!instAdapter || typeof instAdapter.listBranches !== 'function') {
+      throw new Error('Adapter instance not available or does not support listBranches')
+    }
+    const result = await instAdapter.listBranches(query)
+    // Try to persist repository metadata when available
+    try {
+      if (instAdapter && typeof instAdapter.getRepositoryMetadata === 'function') {
+        const md = await instAdapter.getRepositoryMetadata().catch(() => null)
+        if (md) await this._persistRepositoryMetadata(md)
+      } else {
+        // Fallback: infer defaultBranch from returned items if present
+        const def = Array.isArray(result.items) ? result.items.find((i: any) => i && i.isDefault) : undefined
+        if (def) {
+          await this._persistRepositoryMetadata({ defaultBranch: def.name, name: '', id: undefined })
+        }
+      }
+    } catch {
+      // best-effort persistence; ignore failures
+    }
+    return result
+  }
+
+  /**
+   * Convenience to get default branch name from adapter repository metadata.
+   * Returns null when adapter not available.
+   */
+  async getDefaultBranch(): Promise<string | null> {
+    const instAdapter = await this.getAdapterInstance()
+    if (!instAdapter || typeof instAdapter.getRepositoryMetadata !== 'function') return null
+    try {
+      const md: RepositoryMetadata = await instAdapter.getRepositoryMetadata()
+      if (md) await this._persistRepositoryMetadata(md)
+      return md && md.defaultBranch ? md.defaultBranch : null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Persist repository metadata into IndexFile.adapter.opts for session persistence.
+   * Best-effort: failures are ignored.
+   */
+  private async _persistRepositoryMetadata(md: RepositoryMetadata) {
+    try {
+      // ensure adapterMeta loaded
+      if (!this.adapterMeta) {
+        try {
+          const index = await this.indexManager.getIndex()
+          this.adapterMeta = (index as any).adapter || null
+        } catch {
+          this.adapterMeta = null
+        }
+      }
+      if (!this.adapterMeta) return
+      const opts = (this.adapterMeta && this.adapterMeta.opts) || {}
+      opts.defaultBranch = md.defaultBranch
+      if (md.name) opts.repositoryName = md.name
+      if (md.id !== undefined) opts.repositoryId = md.id
+      this.adapterMeta.opts = opts
+      // persist into index
+      try {
+        const index = await this.indexManager.getIndex()
+        ;(index as any).adapter = this.adapterMeta
+        await this.backend.writeIndex(index)
+      } catch {
+        // ignore persistence failures
+      }
+    } catch {
+      // ignore
+    }
   }
 
   /**

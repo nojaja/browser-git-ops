@@ -11,6 +11,7 @@ type GLOptions = { projectId: string; token: string; host?: string }
  */
 export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   private pendingActions: Array<{ action: string; file_path: string; content?: string }> | null = null
+  private projectMetadata: import('../virtualfs/types.ts').RepositoryMetadata | null = null
 
   /**
    * GitLabAdapter を初期化します。
@@ -188,6 +189,50 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     }
 
     return await this.postCommit(url, body)
+  }
+
+  /**
+   * Retrieve project metadata (default branch, name, id) and cache it.
+   */
+  async getRepositoryMetadata(): Promise<import('../virtualfs/types.ts').RepositoryMetadata> {
+    if (this.projectMetadata) return this.projectMetadata
+    try {
+      const resp = await this.fetchWithRetry(`${this.baseUrl}`, { method: 'GET', headers: this.headers })
+      const data = await resp.json().catch(() => ({}))
+      this.projectMetadata = {
+        defaultBranch: data && data.default_branch ? data.default_branch : 'main',
+        name: data && data.name ? data.name : '',
+        id: data && data.id ? data.id : undefined,
+      }
+      return this.projectMetadata
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).error) (console as any).error('リポジトリメタデータの取得に失敗しました。デフォルトブランチを\'main\'として扱います', error)
+      this.projectMetadata = { defaultBranch: 'main', name: '', id: undefined }
+      return this.projectMetadata
+    }
+  }
+
+  /**
+   * List branches via GitLab API and map to BranchListPage.
+   */
+  async listBranches(query?: import('../virtualfs/types.ts').BranchListQuery) {
+    const perPage = (query && query.perPage) || 30
+    const page = (query && query.page) || 1
+    const url = `${this.baseUrl}/repository/branches?per_page=${encodeURIComponent(String(perPage))}&page=${encodeURIComponent(String(page))}`
+    const resp = await this.fetchWithRetry(url, { method: 'GET', headers: this.headers })
+    const text = await resp.text().catch(() => '[]')
+    const parsed = this._parseJsonArray(text)
+    const repoMeta = await this.getRepositoryMetadata().catch(() => ({ defaultBranch: 'main' }))
+
+    const items = (Array.isArray(parsed) ? parsed : []).map((b: any) => ({
+      name: b.name,
+      commit: { sha: b.commit && (b.commit.id || b.commit.sha) ? (b.commit.id || b.commit.sha) : '', url: b.commit && (b.commit.web_url || b.commit.url) ? (b.commit.web_url || b.commit.url) : '' },
+      protected: !!b.protected,
+      isDefault: b.name === (repoMeta && repoMeta.defaultBranch ? repoMeta.defaultBranch : 'main'),
+    }))
+
+    const pages = this._parsePagingHeaders(resp)
+    return { items, nextPage: pages.nextPage, lastPage: pages.lastPage }
   }
 
   /**

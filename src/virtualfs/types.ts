@@ -48,3 +48,31 @@ export interface CommitInput {
   // generated idempotency key: hash(parentSha + JSON.stringify(changes))
   commitKey?: string
 }
+
+// Branch related types
+export type BranchInfo = {
+  name: string
+  commit: {
+    sha: string
+    url: string
+  }
+  protected: boolean
+  isDefault: boolean
+}
+
+export type BranchListQuery = {
+  perPage?: number
+  page?: number
+}
+
+export type BranchListPage = {
+  items: BranchInfo[]
+  nextPage?: number
+  lastPage?: number
+}
+
+export type RepositoryMetadata = {
+  defaultBranch: string
+  name: string
+  id?: string | number
+}

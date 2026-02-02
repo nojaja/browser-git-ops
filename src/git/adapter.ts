@@ -40,4 +40,8 @@ export interface GitAdapter {
   updateRef(_reference: string, _commitSha: string, _force?: boolean): Promise<void>
   // list commits (history) for a ref
   listCommits?(_query: CommitHistoryQuery): Promise<CommitHistoryPage>
+  // list branches for the repository (optional)
+  listBranches?(_query?: import('../virtualfs/types.ts').BranchListQuery): Promise<import('../virtualfs/types.ts').BranchListPage>
+  // retrieve repository/project metadata (optional)
+  getRepositoryMetadata?(): Promise<import('../virtualfs/types.ts').RepositoryMetadata>
 }
