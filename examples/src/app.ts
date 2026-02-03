@@ -360,33 +360,18 @@ async function main() {
       appendOutput(`[switchBranch]ブランチを ${target} に切り替えます...`)
       try {
         if (!currentVfs) { appendOutput('[switchBranch]VirtualFS が未接続です'); return }
-        // Try to set branch on backend if supported
+        // Use new pull({ ref }) API to switch branch and pull remote snapshot.
         try {
-          const backend = (currentVfs as any).backend as any
-          if (backend && typeof backend.setBranch === 'function') {
-            backend.setBranch(target)
-            appendOutput(`[switchBranch]バックエンドに branch=${target} を設定しました`)
-          } else {
-            appendOutput('[switchBranch]現在のバックエンドは branch 切替をサポートしていません')
-          }
+          appendTrace(`const res = await currentVfs.pull({ ref: '${target}' })`)
+          const res = await currentVfs.pull({ ref: target })
+          appendTrace('pull => ' + JSON.stringify(res))
+          appendOutput(`[switchBranch]ブランチ切替 pull が完了しました: ${target}`)
+          try { branchInput.value = target } catch (_) { /* ignore */ }
         } catch (e) {
-          appendOutput('[switchBranch]バックエンドの branch 設定で例外: ' + String(e))
+          appendOutput('[switchBranch]pull によるブランチ切替で失敗しました: ' + String(e))
         }
-
-        // Update persisted adapter metadata (if present) so future instances/read will reflect branch
-        try {
-          if (typeof currentVfs.getAdapter === 'function') {
-            const meta = await currentVfs.getAdapter()
-            if (meta && meta.opts) {
-              meta.opts.branch = target
-              await currentVfs.setAdapter(null, meta)
-              appendOutput('[switchBranch]VirtualFS の adapter metadata を更新しました')
-              try { branchInput.value = target } catch (_) { /* ignore */ }
-            }
-          }
-        } catch (e) {
-          appendOutput('[switchBranch]adapter metadata 更新で例外: ' + String(e))
-        }
+        
+        // Note: VirtualFS will persist adapter metadata.branch on successful pull.
       } catch (e) {
         appendOutput('[switchBranch]例外: ' + String(e))
       }
@@ -789,9 +774,10 @@ async function main() {
     appendOutput('[fetchRemoteBtn]リモートスナップショットを取得します...')
     if (!currentVfs) { appendOutput('[fetchRemoteBtn]先に VirtualFS を初期化してください'); return }
     try {
-      appendTrace('// リポジトリアクセス')
-      appendTrace('const res = await currentVfs.pull()')
-      const res = await currentVfs.pull()
+    appendTrace('// リポジトリアクセス')
+    const branch = (branchInput && branchInput.value) ? branchInput.value.trim() : ''
+    appendTrace(`const res = await currentVfs.pull(${branch ? "{ ref: '" + branch + "' }" : ''})`)
+    const res = branch ? await currentVfs.pull({ ref: branch }) : await currentVfs.pull()
       appendTrace('res => ' + JSON.stringify(res))
       const remote = (res as any).remote
       const remotePaths = (res as any).remotePaths || Object.keys(remote?.shas || {})

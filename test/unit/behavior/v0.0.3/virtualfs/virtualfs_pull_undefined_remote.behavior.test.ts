@@ -13,7 +13,7 @@ describe('VirtualFS.pull with undefined remote', () => {
     const vfs = new VirtualFS({ backend })
     await vfs.init()
     const baseSnapshot = { 'foo.txt': 'hello', 'dir/bar.txt': 'x' }
-    const res = await vfs.pull(undefined as any, baseSnapshot)
+    const res = await vfs.pull(undefined, baseSnapshot)
     expect(res).toBeDefined()
     const remote = (res as any).remote
     expect(remote).toBeDefined()

@@ -44,4 +44,6 @@ export interface GitAdapter {
   listBranches?(_query?: import('../virtualfs/types.ts').BranchListQuery): Promise<import('../virtualfs/types.ts').BranchListPage>
   // retrieve repository/project metadata (optional)
   getRepositoryMetadata?(): Promise<import('../virtualfs/types.ts').RepositoryMetadata>
+  // resolve a commit-ish (branch name, tag name, or SHA) to a commit SHA
+  resolveRef?(_reference: string): Promise<string>
 }
