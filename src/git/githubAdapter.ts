@@ -297,33 +297,40 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
     * @returns {Promise<string>} 参照先のコミット SHA
    */
   async getRef(reference: string) {
-    // Try plural '/git/refs/' first (some tests/mock setups expect this),
-    // then fallback to singular '/git/ref/' for other tests/environments.
-    try {
-      const response = await this._fetchWithRetry(`${this.baseUrl}/git/refs/${reference}`, { method: 'GET', headers: this.headers }, 4, 300)
-        const index = await response.json().catch(() => null)
-        // Some responses may include `sha` at the root, or under `object.sha`.
-        if (index) {
-          if (typeof index.sha === 'string' && index.sha.length > 0) return index.sha as string
-          if (index.object && typeof index.object.sha === 'string' && index.object.sha.length > 0) return index.object.sha as string
-        }
-    } catch (error) {
-      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('getRef plural failed', error)
-    }
+    // Try plural then singular path using a small helper to reduce cognitive complexity.
+    const tryUrls = [
+      `${this.baseUrl}/git/refs/${reference}`,
+      `${this.baseUrl}/git/ref/${reference}`,
+    ]
 
-    // Fallback to legacy singular path
-    try {
-      const response2 = await this._fetchWithRetry(`${this.baseUrl}/git/ref/${reference}`, { method: 'GET', headers: this.headers }, 4, 300)
-      const index2 = await response2.json().catch(() => null)
-      if (index2) {
-        if (typeof index2.sha === 'string' && index2.sha.length > 0) return index2.sha as string
-        if (index2.object && typeof index2.object.sha === 'string' && index2.object.sha.length > 0) return index2.object.sha as string
+    for (const url of tryUrls) {
+      try {
+        const sha = await this._getRefShaFromUrl(url)
+        if (sha) return sha
+      } catch (error) {
+        if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('getRef attempt failed', error)
       }
-    } catch (error) {
-      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('getRef singular failed', error)
     }
 
     throw new NonRetryableError('getRef: sha not found')
+  }
+
+  /**
+   * Helper to fetch a ref URL and extract a SHA if present.
+   * Returns null when SHA not found.
+   */
+  /**
+   * Fetch a ref URL and extract a SHA if present.
+   * @param {string} url API URL to fetch
+   * @returns {Promise<string|null>} sha string when found, otherwise null
+   */
+  private async _getRefShaFromUrl(url: string): Promise<string | null> {
+    const resp = await this._fetchWithRetry(url, { method: 'GET', headers: this.headers }, 4, 300)
+    const index = await resp.json().catch(() => null)
+    if (!index) return null
+    if (typeof index.sha === 'string' && index.sha.length > 0) return index.sha as string
+    if (index.object && typeof index.object.sha === 'string' && index.object.sha.length > 0) return index.object.sha as string
+    return null
   }
 
   /**
@@ -332,40 +339,53 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
    * @returns {Promise<string>} head SHA or branch
    */
   private async _determineHeadSha(branch: string): Promise<string> {
-    // Try git/refs endpoint first (returns object.sha when available)
-    try {
-      const refSha = await this.getRef(`heads/${branch}`).catch(() => null)
-      if (refSha && typeof refSha === 'string' && refSha.length > 0) return refSha
-    } catch (error) {
-      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('determineHeadSha getRef failed', error)
-    }
+    // Attempt resolution via multiple strategies with small helpers to keep complexity low.
+    // 1) refs API
+    const referenceSha = await this.getRef(`heads/${branch}`).catch(() => null)
+    if (referenceSha && typeof referenceSha === 'string' && referenceSha.length > 0) return referenceSha
 
-    // Next, try the branches API which returns commit object in commit.sha
-    try {
-      const resp = await this._fetchWithRetry(`${this.baseUrl}/branches/${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers }, 4, 300)
-      if (resp && resp.ok) {
-        const bj = await resp.json().catch(() => null)
-        const commit = bj && bj.commit ? (bj.commit.sha || bj.commit.id) : null
-        if (commit) return commit
-      }
-    } catch (error) {
+    // 2) branches API
+    const branchSha = await this._getBranchCommitSha(branch).catch((error) => {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('determineHeadSha branches API failed', error)
-    }
+      return null
+    })
+    if (branchSha) return branchSha
 
-    // Finally, try the commits endpoint which may accept tags or other refs
-    try {
-      const resp = await this._fetchWithRetry(`${this.baseUrl}/commits/${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers }, 2, 200)
-      if (resp && resp.ok) {
-        const body = await resp.json().catch(() => null)
-        const maybe = body && (body.sha || body.id)
-        if (typeof maybe === 'string' && maybe.length > 0) return maybe
-      }
-    } catch (error) {
+    // 3) commits endpoint
+    const commitSha = await this._getCommitEndpointSha(branch).catch((error) => {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('determineHeadSha commits endpoint failed', error)
-    }
+      return null
+    })
+    if (commitSha) return commitSha
 
-    // Fallback to returning the original branch string when resolution fails
+    // Fallback to returning branch name
     return branch
+  }
+
+  /**
+   * Get commit SHA from the branches API for a branch name.
+   * @param {string} branch branch name
+   * @returns {Promise<string|null>} commit SHA or null when not found
+   */
+  private async _getBranchCommitSha(branch: string): Promise<string | null> {
+    const resp = await this._fetchWithRetry(`${this.baseUrl}/branches/${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers }, 4, 300)
+    if (!resp || !resp.ok) return null
+    const bj = await resp.json().catch(() => null)
+    const commit = bj && bj.commit ? (bj.commit.sha || bj.commit.id) : null
+    return typeof commit === 'string' && commit.length > 0 ? commit : null
+  }
+
+  /**
+   * Get commit SHA from the commits endpoint for a given reference.
+   * @param {string} reference commit-ish reference
+   * @returns {Promise<string|null>} commit SHA or null when not found
+   */
+  private async _getCommitEndpointSha(reference: string): Promise<string | null> {
+    const resp = await this._fetchWithRetry(`${this.baseUrl}/commits/${encodeURIComponent(reference)}`, { method: 'GET', headers: this.headers }, 2, 200)
+    if (!resp || !resp.ok) return null
+    const body = await resp.json().catch(() => null)
+    const maybe = body && (body.sha || body.id)
+    return typeof maybe === 'string' && maybe.length > 0 ? maybe : null
   }
 
   /**
