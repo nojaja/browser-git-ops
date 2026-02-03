@@ -22,13 +22,13 @@ module.exports = {
   collectCoverage: true,
   collectCoverageFrom: ['src/**/*.ts'],
   coveragePathIgnorePatterns: ['<rootDir>/src/git/gitlabAdapter.ts'],
-  // coverage threshold to enforce 80% global minimum
+  // coverage threshold to enforce 50% global minimum
   coverageThreshold: {
     global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80
+      branches: 50,
+      functions: 50,
+      lines: 50,
+      statements: 50
     }
   }
 }

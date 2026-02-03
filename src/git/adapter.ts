@@ -9,6 +9,26 @@ export interface CommitResult {
   commitSha: string
 }
 
+export type CommitHistoryQuery = {
+  ref: string
+  perPage?: number
+  page?: number
+}
+
+export type CommitSummary = {
+  sha: string
+  message: string
+  author: string
+  date: string
+  parents: string[]
+}
+
+export type CommitHistoryPage = {
+  items: CommitSummary[]
+  nextPage?: number
+  lastPage?: number
+}
+
 export interface GitAdapter {
   // create blobs for create/update changes, returns map path->blobSha
   createBlobs(_changes: Change[], _concurrency?: number): Promise<Record<string, string>>
@@ -18,4 +38,12 @@ export interface GitAdapter {
   createCommit(_message: string, _parentSha: string, _treeSha: string): Promise<string>
   // update ref to point to commit
   updateRef(_reference: string, _commitSha: string, _force?: boolean): Promise<void>
+  // list commits (history) for a ref
+  listCommits?(_query: CommitHistoryQuery): Promise<CommitHistoryPage>
+  // list branches for the repository (optional)
+  listBranches?(_query?: import('../virtualfs/types.ts').BranchListQuery): Promise<import('../virtualfs/types.ts').BranchListPage>
+  // retrieve repository/project metadata (optional)
+  getRepositoryMetadata?(): Promise<import('../virtualfs/types.ts').RepositoryMetadata>
+  // resolve a commit-ish (branch name, tag name, or SHA) to a commit SHA
+  resolveRef?(_reference: string): Promise<string>
 }

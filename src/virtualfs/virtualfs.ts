@@ -4,6 +4,8 @@ import { OpfsStorage } from './opfsStorage.ts'
 import { GitHubAdapter } from '../git/githubAdapter.ts'
 import { GitLabAdapter } from '../git/gitlabAdapter.ts'
 import { Logger } from '../git/abstractAdapter.ts'
+import type { CommitHistoryQuery, CommitHistoryPage } from '../git/adapter.ts'
+import type { BranchListQuery, BranchListPage, RepositoryMetadata } from './types.ts'
 import { shaOf, shaOfGitBlob } from './hashUtils.ts'
 import { LocalChangeApplier } from './localChangeApplier.ts'
 import { LocalFileManager } from './localFileManager.ts'
@@ -473,6 +475,22 @@ export class VirtualFS {
     remote: RemoteSnapshotDescriptor | string | { fetchSnapshot: () => Promise<RemoteSnapshotDescriptor> },
     baseSnapshot?: Record<string, string>
   ) {
+    // Support new v0.0.4 TDD-friendly option: allow calling `pull({ ref })`
+    // or calling `pull()` to use persisted adapterMeta.opts.branch.
+    const maybeOptions: any = remote as any
+    if (maybeOptions && typeof maybeOptions.ref === 'string') {
+      return await this._pullByRef(maybeOptions.ref, baseSnapshot)
+    }
+
+    if (remote === undefined || remote === null) {
+      // No args: try to use persisted adapterMeta.opts.branch if available
+      const instAdapter = await this.getAdapterInstance()
+      if (instAdapter && typeof instAdapter.resolveRef === 'function') {
+        return await this._pullUsingPersistedBranch(baseSnapshot)
+      }
+      // fallback to existing logic below which will try adapter or normalize empty head
+    }
+
     const descriptorRaw = await this._resolveDescriptor(remote, baseSnapshot)
     const normalized: RemoteSnapshotDescriptor =
       typeof descriptorRaw === 'string' ? await this._normalizeRemoteInput(descriptorRaw, baseSnapshot) : (descriptorRaw as RemoteSnapshotDescriptor)
@@ -495,6 +513,88 @@ export class VirtualFS {
       preIndexKeys,
       postIndexKeys,
       addedPaths
+    }
+  }
+
+  /**
+   * Pull by a specified commit-ish reference. Resolves the ref, fetches snapshot and
+   * delegates to remote synchronizer. Persists adapter branch meta on success.
+   * @param {string} reference commit-ish to resolve
+   * @param {Record<string,string>=} baseSnapshot optional base snapshot
+   * @returns {Promise<any>} pull result
+   */
+  private async _pullByRef(reference: string, baseSnapshot?: Record<string, string>): Promise<any> {
+    const instAdapter = await this.getAdapterInstance()
+    if (!instAdapter) throw new Error('Adapter instance not available')
+    if (typeof instAdapter.resolveRef !== 'function') throw new Error('Adapter does not support resolveRef')
+    const resolvedSha = await instAdapter.resolveRef(reference)
+    const descriptor = await instAdapter.fetchSnapshot(resolvedSha)
+    const normalized: RemoteSnapshotDescriptor = typeof descriptor === 'string' ? await this._normalizeRemoteInput(descriptor, baseSnapshot) : (descriptor as RemoteSnapshotDescriptor)
+    const pullResult: any = await this.remoteSynchronizer.pull(normalized, baseSnapshot)
+    // on success persist requested ref into adapter metadata (branch)
+    await this._persistAdapterBranchMeta(reference, instAdapter).catch((error) => {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('persisting adapter metadata failed', error)
+    })
+    return { ...pullResult, remote: normalized, remotePaths: Object.keys(normalized.shas || {}) }
+  }
+
+  /**
+   * Pull using the persisted adapterMeta.opts.branch (or 'main').
+   * @param {Record<string,string>=} baseSnapshot optional base snapshot
+   * @returns {Promise<any>} pull result
+   */
+  private async _pullUsingPersistedBranch(baseSnapshot?: Record<string, string>): Promise<any> {
+    const instAdapter = await this.getAdapterInstance()
+    const branch = (this.adapterMeta && this.adapterMeta.opts && this.adapterMeta.opts.branch) || 'main'
+    const resolvedSha = await instAdapter!.resolveRef(branch)
+    const descriptor = await instAdapter!.fetchSnapshot(resolvedSha)
+    const normalized: RemoteSnapshotDescriptor = typeof descriptor === 'string' ? await this._normalizeRemoteInput(descriptor, baseSnapshot) : (descriptor as RemoteSnapshotDescriptor)
+    const pullResult: any = await this.remoteSynchronizer.pull(normalized, baseSnapshot)
+    // do not persist branch change (we used existing branch)
+    return { ...pullResult, remote: normalized, remotePaths: Object.keys(normalized.shas || {}) }
+  }
+
+  /**
+   * Persist the requested branch into adapter metadata (best-effort).
+   * @param {string} branch branch name to persist
+    * @returns {Promise<void>}
+   */
+  private async _persistAdapterBranchMeta(branch: string, adapterInstance: any): Promise<void> {
+    const meta = (this.adapterMeta && this.adapterMeta.opts) ? { ...(this.adapterMeta) } : (await this.getAdapter())
+    if (!meta) return
+    const newMeta = { ...(this.adapterMeta || {}), opts: { ...(this.adapterMeta && this.adapterMeta.opts) || {}, branch } }
+    // keep current adapter instance if present
+    await this.setAdapter(this.adapter || adapterInstance, newMeta)
+  }
+
+  /**
+   * Ensure adapterMeta is loaded from index when missing.
+   * @returns {Promise<boolean>} true when adapterMeta is available
+   */
+  private async _loadAdapterMetaIfNeeded(): Promise<boolean> {
+    if (this.adapterMeta) return true
+    try {
+      const index = await this.indexManager.getIndex()
+      this.adapterMeta = (index as any).adapter || null
+      return !!this.adapterMeta
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('loading adapterMeta failed', error)
+      this.adapterMeta = null
+      return false
+    }
+  }
+
+  /**
+   * Persist current adapterMeta into the index file (best-effort).
+   * @returns {Promise<void>}
+   */
+  private async _writeAdapterMetaToIndex(): Promise<void> {
+    try {
+      const index = await this.indexManager.getIndex()
+      ;(index as any).adapter = this.adapterMeta
+      await this.backend.writeIndex(index)
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('writing index failed', error)
     }
   }
 
@@ -558,8 +658,118 @@ export class VirtualFS {
   }
 
   /**
+   * Delegate commit history listing to the underlying adapter when available.
+   * Thin passthrough used by UI/CLI to retrieve commit summaries and paging info.
+   * @param {CommitHistoryQuery} query
+   * @returns {Promise<CommitHistoryPage>}
+   */
+  async listCommits(query: CommitHistoryQuery): Promise<CommitHistoryPage> {
+    const instAdapter = await this.getAdapterInstance()
+    if (!instAdapter || typeof instAdapter.listCommits !== 'function') {
+      throw new Error('Adapter instance not available or does not support listCommits')
+    }
+    return await instAdapter.listCommits(query)
+  }
+
+  /**
+   * Delegate branch listing to the underlying adapter when available.
+   * @param {BranchListQuery} query
+   * @returns {Promise<BranchListPage>}
+   */
+  async listBranches(query?: BranchListQuery): Promise<BranchListPage> {
+    const instAdapter = await this.getAdapterInstance()
+    if (!instAdapter || typeof instAdapter.listBranches !== 'function') {
+      throw new Error('Adapter instance not available or does not support listBranches')
+    }
+    const result = await instAdapter.listBranches(query)
+    // Try to persist repository metadata when available (best-effort)
+    await this._maybePersistRepositoryMetadata(instAdapter, result).catch((error) => {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('persist repository metadata failed', error)
+    })
+    return result
+  }
+
+  /**
+   * Convenience to get default branch name from adapter repository metadata.
+   * Returns null when adapter not available.
+    * @returns {Promise<string|null>}
+   */
+  async getDefaultBranch(): Promise<string | null> {
+    const instAdapter = await this.getAdapterInstance()
+    if (!instAdapter || typeof instAdapter.getRepositoryMetadata !== 'function') return null
+    try {
+      const md: RepositoryMetadata = await instAdapter.getRepositoryMetadata()
+      if (md) await this._persistRepositoryMetadata(md)
+      return md && md.defaultBranch ? md.defaultBranch : null
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('getDefaultBranch failed', error)
+      return null
+    }
+  }
+
+  /**
+   * Persist repository metadata into IndexFile.adapter.opts for session persistence.
+   * Best-effort: failures are ignored.
+   * @returns {Promise<void>}
+   */
+  private async _persistRepositoryMetadata(md: RepositoryMetadata): Promise<void> {
+    try {
+      const have = await this._loadAdapterMetaIfNeeded()
+      if (!have) return
+      const options = (this.adapterMeta && this.adapterMeta.opts) || {}
+      options.defaultBranch = md.defaultBranch
+      if (md.name) options.repositoryName = md.name
+      if (md.id !== undefined) options.repositoryId = md.id
+      this.adapterMeta.opts = options
+      await this._writeAdapterMetaToIndex()
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('persist repository metadata aborted', error)
+    }
+  }
+
+  /**
    * Normalize a resolved descriptor (string headSha or object) into a
    * RemoteSnapshotDescriptor or null. Helper to reduce cognitive complexity.
+    * @returns {Promise<RemoteSnapshotDescriptor|null>} 正規化された descriptor または null
+   */
+  /**
+   * Try persisting repository metadata when available. Best-effort.
+   * @param instAdapter adapter instance or null
+   * @param result branch list result used for fallback default branch detection
+   * @returns {Promise<void>}
+   */
+  private async _maybePersistRepositoryMetadata(instAdapter: any | null, result: any): Promise<void> {
+    try {
+      if (instAdapter && typeof instAdapter.getRepositoryMetadata === 'function') {
+        const md = await instAdapter.getRepositoryMetadata().catch(() => null)
+        if (md) await this._persistRepositoryMetadata(md)
+      } else {
+        await this._persistDefaultBranchCandidate(result)
+      }
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('maybePersistRepositoryMetadata failed', error)
+    }
+  }
+
+  /**
+   * Extracted helper to persist default branch candidate derived from branch list.
+   * @param result branch list result
+   * @returns {Promise<void>}
+   */
+  private async _persistDefaultBranchCandidate(result: any): Promise<void> {
+    try {
+      const defaultBranchCandidate = Array.isArray(result.items) ? result.items.find((item: any) => item && item.isDefault) : undefined
+      if (defaultBranchCandidate) {
+        await this._persistRepositoryMetadata({ defaultBranch: defaultBranchCandidate.name, name: '', id: undefined })
+      }
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('persistDefaultBranchCandidate failed', error)
+    }
+  }
+  /**
+   * Normalize a resolved descriptor (string headSha or object) into a
+   * RemoteSnapshotDescriptor or null.
+   * @param {RemoteSnapshotDescriptor|string|null} resolved descriptor or headSha
    * @returns {Promise<RemoteSnapshotDescriptor|null>} 正規化された descriptor または null
    */
   private async _toNormalizedDescriptor(resolved: RemoteSnapshotDescriptor | string | null): Promise<RemoteSnapshotDescriptor | null> {
@@ -602,6 +812,8 @@ export class VirtualFS {
     return remote as any
   }
 
+  
+
   /**
    * Try to obtain a snapshot descriptor from the persisted adapter instance.
    * @returns {Promise<RemoteSnapshotDescriptor|null>} snapshot descriptor or null when unavailable
@@ -623,19 +835,45 @@ export class VirtualFS {
    * @returns {Promise<{commitSha:string}>}
    */
   async push(input: import('./types.ts').CommitInput) {
+    // Ensure parentSha defaults to current index head when not provided
+    await this._ensureParentSha(input)
+
+    // Ensure changes default to current workspace change set when not provided
+    if (input.changes === undefined || input.changes === null) {
+      input.changes = await this.getChangeSet()
+    }
+
     // generate commitKey for idempotency if not provided (must be set for adapter flows)
     if (!input.commitKey) {
       input.commitKey = await this.shaOf((input.parentSha || '') + JSON.stringify(input.changes))
     }
 
-    // Otherwise try to obtain a persisted/instantiated adapter from this VirtualFS.
+    // Try to obtain a persisted/instantiated adapter from this VirtualFS.
+    // If adapter resolution throws, let the exception bubble up (TDD expectation).
     const instAdapter = await this.getAdapterInstance()
-    if (instAdapter) {
-      return await this._handlePushWithAdapter(input, instAdapter)
+    if (!instAdapter) {
+      // remoteSynchronizer fallback removed: adapters are required for push in v0.0.4
+      throw new Error('Adapter instance not available')
     }
 
-    // Fallback: no adapter available -> perform local-only push via RemoteSynchronizer
-    return await this.remoteSynchronizer.push(input)
+    return await this._handlePushWithAdapter(input, instAdapter)
+  }
+
+  /**
+   * Ensure `input.parentSha` is a string; prefer current index head when available.
+   * @param input CommitInput
+   */
+  private async _ensureParentSha(input: import('./types.ts').CommitInput) {
+    if (input.parentSha === undefined || input.parentSha === null) {
+      try {
+        const index = await this.getIndex()
+        // `CommitInput.parentSha` is typed as string; use empty string when head is unavailable
+        input.parentSha = (index && (index as any).head) || ''
+      } catch (error) {
+        // propagate as empty string to satisfy type expectations
+        input.parentSha = ''
+      }
+    }
   }
 }
 

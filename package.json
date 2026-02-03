@@ -1,6 +1,6 @@
 {
   "name": "browser-git-ops",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "type": "module",
   "module": "dist/index.mjs",
   "main": "dist/index.js",

@@ -11,6 +11,7 @@ type GLOptions = { projectId: string; token: string; host?: string }
  */
 export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   private pendingActions: Array<{ action: string; file_path: string; content?: string }> | null = null
+  private projectMetadata: import('../virtualfs/types.ts').RepositoryMetadata | null = null
 
   /**
    * GitLabAdapter を初期化します。
@@ -23,6 +24,73 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     this.headers = {
        'PRIVATE-TOKEN': options.token,
        'Content-Type': 'application/json' 
+    }
+  }
+
+  /**
+   * List commits for a ref (GitLab commits API)
+   * @param {{ref:string,perPage?:number,page?:number}} query
+   * @returns {Promise<import('./adapter').CommitHistoryPage>} ページ情報を返します
+   */
+  async listCommits(query: { ref: string; perPage?: number; page?: number }) {
+    const reference = query.ref || 'main'
+    const perPage = query.perPage || 30
+    const page = query.page || 1
+    const url = `${this.baseUrl}/repository/commits?ref_name=${encodeURIComponent(reference)}&per_page=${encodeURIComponent(String(perPage))}&page=${encodeURIComponent(String(page))}`
+    const resp = await this.fetchWithRetry(url, { method: 'GET', headers: this.headers })
+    const text = await resp.text().catch(() => '[]')
+    const parsed = this._parseJsonArray(text)
+
+    const items = (Array.isArray(parsed) ? parsed : []).map((c: any) => this._mapGitLabCommitToSummary(c))
+
+    const pages = this._parsePagingHeaders(resp)
+    return { items, nextPage: pages.nextPage, lastPage: pages.lastPage }
+  }
+
+  /**
+   * 応答テキストを JSON 配列として解析します（失敗時は空配列を返す）。
+   * @param {string} text 応答テキスト
+   * @returns {any[]}
+   */
+  private _parseJsonArray(text: string): any[] {
+    try {
+      return text ? JSON.parse(text) : []
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('parseJsonArray failed', error)
+      return []
+    }
+  }
+
+  /**
+   * GitLab のページングヘッダを解析します（x-next-page / x-total-pages）。
+    * @returns {{nextPage?: number, lastPage?: number}} ページ番号情報
+   */
+  private _parsePagingHeaders(resp: Response): { nextPage?: number; lastPage?: number } {
+    const out: { nextPage?: number; lastPage?: number } = {}
+    try {
+      const hdrNext = resp && (resp as any).headers && typeof (resp as any).headers.get === 'function' ? (resp as any).headers.get('x-next-page') : undefined
+      const hdrTotal = resp && (resp as any).headers && typeof (resp as any).headers.get === 'function' ? (resp as any).headers.get('x-total-pages') : undefined
+      if (hdrNext) out.nextPage = Number(hdrNext)
+      if (hdrTotal) out.lastPage = Number(hdrTotal)
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('parsePagingHeaders failed', error)
+    }
+    return out
+  }
+
+  /**
+   * Map a raw GitLab commit object to CommitSummary.
+   * @param {any} c Raw commit object
+   * @returns {import('./adapter').CommitSummary}
+   */
+  private _mapGitLabCommitToSummary(c: any) {
+    const parents = Array.isArray(c?.parent_ids) ? c.parent_ids.map((p: any) => p ?? '').filter(Boolean) : []
+    return {
+      sha: c?.id ?? '',
+      message: c?.message ?? '',
+      author: c?.author_name ?? c?.author?.name ?? '',
+      date: c?.created_at ?? '',
+      parents,
     }
   }
 
@@ -124,6 +192,74 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
+   * Retrieve project metadata (default branch, name, id) and cache it.
+   */
+  /**
+   * Retrieve project metadata (default branch, name, id) and cache it.
+   * @returns {Promise<import('../virtualfs/types.ts').RepositoryMetadata>} repository metadata
+   */
+  async getRepositoryMetadata(): Promise<import('../virtualfs/types.ts').RepositoryMetadata> {
+    if (this.projectMetadata) return this.projectMetadata
+    try {
+      const resp = await this.fetchWithRetry(`${this.baseUrl}`, { method: 'GET', headers: this.headers })
+      const data = await resp.json().catch(() => ({}))
+      this.projectMetadata = this._makeProjectMetadata(data)
+      return this.projectMetadata
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).error) (console as any).error('リポジトリメタデータの取得に失敗しました。デフォルトブランチを\'main\'として扱います', error)
+      this.projectMetadata = { defaultBranch: 'main', name: '', id: undefined }
+      return this.projectMetadata
+    }
+  }
+
+  /**
+   * Build project metadata from API response.
+   * @param data API response body
+   * @returns {import('../virtualfs/types.ts').RepositoryMetadata}
+   */
+  private _makeProjectMetadata(data: any): import('../virtualfs/types.ts').RepositoryMetadata {
+    return {
+      defaultBranch: data && data.default_branch ? data.default_branch : 'main',
+      name: data && data.name ? data.name : '',
+      id: data && data.id ? data.id : undefined,
+    }
+  }
+
+  /**
+   * List branches via GitLab API and map to BranchListPage.
+   * @returns {Promise<{items:any[],nextPage?:number,lastPage?:number}>}
+   */
+  async listBranches(query?: import('../virtualfs/types.ts').BranchListQuery) {
+    const perPage = (query && query.perPage) || 30
+    const page = (query && query.page) || 1
+    const url = `${this.baseUrl}/repository/branches?per_page=${encodeURIComponent(String(perPage))}&page=${encodeURIComponent(String(page))}`
+    const resp = await this.fetchWithRetry(url, { method: 'GET', headers: this.headers })
+    const text = await resp.text().catch(() => '[]')
+    const parsed = this._parseJsonArray(text)
+    const repoMeta = await this.getRepositoryMetadata().catch(() => ({ defaultBranch: 'main' }))
+
+    const items = this._mapBranchItems(Array.isArray(parsed) ? parsed : [], repoMeta)
+
+    const pages = this._parsePagingHeaders(resp)
+    return { items, nextPage: pages.nextPage, lastPage: pages.lastPage }
+  }
+
+  /**
+   * Map raw GitLab branch objects to adapter Branch item shape.
+   * @param {any[]} parsed raw branch array
+   * @param {any} repoMeta repository metadata
+   * @returns {any[]}
+   */
+  private _mapBranchItems(parsed: any[], repoMeta: any) {
+    return parsed.map((b: any) => ({
+      name: b.name,
+      commit: { sha: b.commit && (b.commit.id || b.commit.sha) ? (b.commit.id || b.commit.sha) : '', url: b.commit && (b.commit.web_url || b.commit.url) ? (b.commit.web_url || b.commit.url) : '' },
+      protected: !!b.protected,
+      isDefault: b.name === (repoMeta && repoMeta.defaultBranch ? repoMeta.defaultBranch : 'main'),
+    }))
+  }
+
+  /**
    * Convert change descriptors to GitLab API actions
     * @returns {Array<any>} API-compatible actions array
    */
@@ -139,6 +275,13 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * Verify remote branch head matches expected parent SHA.
    * @throws Error if non-fast-forward
     * @returns {Promise<void>}
+   */
+  /**
+   * Verify that remote branch head matches expected parent SHA.
+   * Throws when non-fast-forward detected.
+   * @param {string} expectedParentSha expected parent SHA
+   * @param {string} branch branch name
+   * @returns {Promise<void>}
    */
   private async verifyParent(expectedParentSha: string, branch: string): Promise<void> {
     const branchResponse = await this.fetchWithRetry(`${this.baseUrl}/repository/branches/${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
@@ -173,6 +316,12 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * Post commit request and parse response
     * @returns {Promise<any>}
     */
+  /**
+   * Post commit request and return parsed commit response.
+   * @param {string} url endpoint URL
+   * @param {string} body request body
+   * @returns {Promise<any>} parsed commit response
+   */
   private async postCommit(url: string, body: string) {
     const response = await this.fetchWithRetry(url, { method: 'POST', headers: this.headers, body })
     const text = await response.text().catch(() => '')
@@ -192,6 +341,11 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * Wait helper for fetch retry backoff.
    * @param attempt Attempt number
    * @returns {Promise<void>} resolves after backoff
+   */
+  /**
+   * Wait helper for retry backoff.
+   * @param {number} attempt attempt number
+   * @returns {Promise<void>}
    */
   private async _waitAttempt(attempt: number): Promise<void> {
     const wait = this.backoffMs(attempt)
@@ -234,6 +388,12 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   /**
    * Optionally verify parent SHA; swallow non-422 errors.
    */
+  /**
+   * Optionally verify parent SHA; rethrow errors after logging.
+   * @param {string} expectedParentSha expected SHA
+   * @param {string} branch branch name
+   * @returns {Promise<void>}
+   */
   private async _maybeVerifyParent(expectedParentSha: string, branch: string) {
     try {
       await this.verifyParent(expectedParentSha, branch)
@@ -248,7 +408,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * @param {string} branch ブランチ名 (default: 'main')
   * @returns {Promise<{headSha:string,shas:Record<string,string>,fetchContent:(paths:string[])=>Promise<Record<string,string>>}>}
    */
-  async fetchSnapshot(branch = 'main', concurrency = 5) {
+  async fetchSnapshot(branch = 'main', concurrency = 5): Promise<any> {
     const headSha = await this._determineHeadSha(branch)
     const { shas, fileSet } = await this._fetchTreeAndBuildShas(branch)
 
@@ -267,6 +427,11 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   /**
    * Determine the remote head SHA for a branch. Falls back to branch name on error.
    * @param {string} branch Branch name
+   * @returns {Promise<string>} head SHA or branch
+   */
+  /**
+   * Determine the head SHA for a branch; fallback to branch name if unavailable.
+   * @param {string} branch branch name
    * @returns {Promise<string>} head SHA or branch
    */
   private async _determineHeadSha(branch: string): Promise<string> {
@@ -289,6 +454,11 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * @param {string} branch Branch name
    * @returns {Promise<{shas:Record<string,string>,fileSet:Set<string>}>}
    */
+  /**
+   * Fetch repository tree and build shas map and fileSet.
+   * @param {string} branch branch name
+   * @returns {Promise<{shas:Record<string,string>,fileSet:Set<string>}>}
+   */
   private async _fetchTreeAndBuildShas(branch: string): Promise<{ shas: Record<string, string>; fileSet: Set<string> }> {
     const treeResponse = await this.fetchWithRetry(`${this.baseUrl}/repository/tree?recursive=true&ref=${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
     const treeJ = await treeResponse.json()
@@ -300,6 +470,16 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * Helper to fetch files from the repository tree with caching and concurrency.
     * @returns {Promise<Record<string,string>>}
    */
+  /**
+   * Fetch contents for requested paths from a FileSet with caching.
+   * @param {Set<string>} fileSet set of available files
+   * @param {Map<string,string>} cache content cache
+   * @param {Record<string,string>} snapshot snapshot output
+   * @param {string[]} paths requested paths
+   * @param {string} branch branch name
+   * @param {number} concurrency concurrency level
+   * @returns {Promise<Record<string,string>>}
+   */
   private async _fetchContentFromFileSet(fileSet: Set<string>, cache: Map<string, string>, snapshot: Record<string, string>, paths: string[], branch: string, concurrency: number) {
     const out: Record<string, string> = {}
     const targets = Array.from(new Set(paths)).filter((p) => fileSet.has(p))
@@ -308,22 +488,43 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
      * @param {string} p ファイルパス
      * @returns {Promise<null>}
      */
-    const mapper = async (p: string) => {
-      if (cache.has(p)) {
-        out[p] = cache.get(p) as string
-        snapshot[p] = cache.get(p) as string
-        return null
-      }
-      const content = await this._fetchFileRaw(p, branch)
-      if (content !== null) {
-        cache.set(p, content)
-        out[p] = content
-        snapshot[p] = content
-      }
+    await mapWithConcurrency(targets, async (p: string) => {
+      const content = await this._fetchFileContentForPath(cache, snapshot, p, branch)
+      if (content !== null) out[p] = content
       return null
-    }
-    await mapWithConcurrency(targets, mapper, concurrency)
+    }, concurrency)
     return out
+  }
+
+  /**
+   * 指定パスのファイル内容を取得し、キャッシュと snapshot を更新します。
+   * @param {Map<string,string>} cache キャッシュマップ
+   * @param {Record<string,string>} snapshot スナップショットマップ
+   * @param {string} p ファイルパス
+   * @param {string} branch ブランチ名
+   * @returns {Promise<string|null>} ファイル内容または null
+   */
+  /**
+   * Fetch the content for a single file path, updating cache and snapshot.
+   * @param {Map<string,string>} cache cache map
+   * @param {Record<string,string>} snapshot snapshot map
+   * @param {string} p file path
+   * @param {string} branch branch
+   * @returns {Promise<string|null>} file content or null
+   */
+  private async _fetchFileContentForPath(cache: Map<string, string>, snapshot: Record<string, string>, p: string, branch: string) {
+    if (cache.has(p)) {
+      const v = cache.get(p) as string
+      snapshot[p] = v
+      return v
+    }
+    const content = await this._fetchFileRaw(p, branch)
+    if (content !== null) {
+      cache.set(p, content)
+      snapshot[p] = content
+      return content
+    }
+    return null
   }
 
   /**
@@ -331,6 +532,12 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * @param {string} path ファイルパス
    * @param {string} branch ブランチ名
     * @returns {Promise<string|null>} ファイル内容または null
+   */
+  /**
+   * Fetch raw file content from GitLab; return null on failure.
+   * @param {string} path file path
+   * @param {string} branch branch name
+   * @returns {Promise<string|null>} file content or null
    */
   private async _fetchFileRaw(path: string, branch: string) {
     try {
@@ -362,6 +569,103 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
       }
     }
     return { shas, fileSet }
+  }
+
+  /**
+   * Resolve a commit-ish (branch name, tag name, or SHA) to a commit SHA.
+   * Resolution order: branch -> tag -> commits endpoint -> treat as SHA
+   * Throws if not resolvable.
+   */
+  /**
+   * Resolve a commit-ish (branch, tag, or SHA) to a commit SHA.
+   * Resolution order: branch -> tag -> commits endpoint -> treat as SHA
+   * Throws if not resolvable.
+   * @param {string} reference commit-ish to resolve
+   * @returns {Promise<string>} resolved commit SHA
+   */
+  /**
+   * Resolve a commit-ish (branch, tag, or SHA) to a commit SHA.
+   * Resolution order: branch -> tag -> commits endpoint -> treat as SHA
+   * Throws if not resolvable.
+   * @param {string} reference commit-ish to resolve
+   * @returns {Promise<string>} resolved commit SHA
+   */
+  async resolveRef(reference: string): Promise<string> {
+    if (typeof reference === 'string' && /^[0-9a-f]{40}$/.test(reference)) return reference
+
+    const resolvers: Array<(_reference: string) => Promise<string | null>> = [
+      this._tryResolveBranch.bind(this),
+      this._tryResolveTag.bind(this),
+      this._tryResolveCommit.bind(this),
+    ]
+
+    const resolved = await this._runResolvers(reference, resolvers)
+    if (resolved) return resolved
+
+    throw new Error(`resolveRef: ref '${reference}' not found`)
+  }
+
+  /**
+   * Run resolver functions in order and return the first non-null result.
+   * @param {string} reference commit-ish to resolve
+   * @param {Array<(_reference: string) => Promise<string | null>>} resolvers resolver functions
+   * @returns {Promise<string|null>} resolved sha or null
+   */
+  private async _runResolvers(reference: string, resolvers: Array<(_reference: string) => Promise<string | null>>): Promise<string | null> {
+    for (const r of resolvers) {
+      try {
+        const v = await r(reference)
+        if (v) return v
+      } catch (error) {
+        if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('resolveRef resolver failed', error)
+      }
+    }
+    return null
+  }
+
+  /**
+   * Try to resolve a branch name to its commit SHA.
+   * @param {string} reference branch name
+   * @returns {Promise<string|null>} resolved sha or null
+   */
+  private async _tryResolveBranch(reference: string): Promise<string | null> {
+    const branchResp = await this.fetchWithRetry(`${this.baseUrl}/repository/branches/${encodeURIComponent(reference)}`, { method: 'GET', headers: this.headers })
+    if (branchResp && branchResp.ok) {
+      const bj = await branchResp.json().catch(() => null)
+      const maybe = bj && (bj.commit && (bj.commit.id || bj.commit.sha))
+      if (typeof maybe === 'string' && maybe.length > 0) return maybe
+    }
+    return null
+  }
+
+  /**
+   * Try to resolve a tag name to a commit SHA.
+   * @param {string} reference tag name
+   * @returns {Promise<string|null>} resolved SHA or null
+   */
+  private async _tryResolveTag(reference: string): Promise<string | null> {
+    const tagResp = await this.fetchWithRetry(`${this.baseUrl}/repository/tags/${encodeURIComponent(reference)}`, { method: 'GET', headers: this.headers })
+    if (tagResp && tagResp.ok) {
+      const tj = await tagResp.json().catch(() => null)
+      const maybe = tj && (tj.commit && (tj.commit.id || tj.commit.sha))
+      if (typeof maybe === 'string' && maybe.length > 0) return maybe
+    }
+    return null
+  }
+
+  /**
+   * Try to resolve a commit via commits endpoint.
+   * @param {string} reference commit-ish
+   * @returns {Promise<string|null>} resolved SHA or null
+   */
+  private async _tryResolveCommit(reference: string): Promise<string | null> {
+    const commitResp = await this.fetchWithRetry(`${this.baseUrl}/repository/commits/${encodeURIComponent(reference)}`, { method: 'GET', headers: this.headers })
+    if (commitResp && commitResp.ok) {
+      const cj = await commitResp.json().catch(() => null)
+      const maybe = cj && (cj.id || cj.sha)
+      if (typeof maybe === 'string' && maybe.length > 0) return maybe
+    }
+    return null
   }
 }
 
