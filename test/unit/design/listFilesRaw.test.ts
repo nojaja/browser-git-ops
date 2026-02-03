@@ -184,8 +184,8 @@ describe('OpfsStorage.listFilesRaw - paths match expected constants', () => {
   })
 
   afterEach(async () => {
-    try { await (lib as any).OpfsStorage.delete('GitLab_test01') } catch (_) {}
-    try { clearFetchMock() } catch (_) {}
+    try { await (lib as any).OpfsStorage.delete('GitLab_test01') } catch (e) { console.error('[afterEach] OpfsStorage.delete error:', e) }
+    try { clearFetchMock() } catch (e) { console.error('[afterEach] clearFetchMock error:', e) }
     jest.resetAllMocks();
   })
 

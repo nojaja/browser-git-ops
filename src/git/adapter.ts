@@ -46,4 +46,6 @@ export interface GitAdapter {
   getRepositoryMetadata?(): Promise<import('../virtualfs/types.ts').RepositoryMetadata>
   // resolve a commit-ish (branch name, tag name, or SHA) to a commit SHA
   resolveRef?(_reference: string): Promise<string>
+  // create a new branch on the remote (branchName, fromSha)
+  createBranch?(_branchName: string, _fromSha: string): Promise<import('../virtualfs/types.ts').CreateBranchResult>
 }

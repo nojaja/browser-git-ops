@@ -50,7 +50,7 @@ function renderUI() {
           </select>
         </label>
         <label>Branch: <input id="branchInput" style="width:120px" placeholder="main"/></label>
-        <button id="switchBranch">Branch 切替</button>
+        
         <button id="connectBtn">接続設定の更新</button>
       </div>
 
@@ -71,6 +71,8 @@ function renderUI() {
             <button id="listCommits">コミット一覧を取得</button>
             <button id="nextCommitsPage">コミット次ページを取得</button>
             <button id="listBranches">ブランチ一覧を取得</button>
+            <button id="createBranchBtn">ブランチ作成</button>
+            <button id="switchBranch">Branch 切替</button>
       </section>
 
       <section style="margin-top:18px">
@@ -145,7 +147,7 @@ function setListContents(id: string, items: any[] | null) {
       container.appendChild(li)
     }
   } catch (_e) {
-    // ignore DOM errors
+    appendTrace('[setListContents]DOM error: ' + String(_e))
   }
 }
 
@@ -162,13 +164,13 @@ async function main() {
   const clearOutputBtn = el('clearOutputBtn') as HTMLButtonElement | null
   if (clearOutputBtn) {
     clearOutputBtn.addEventListener('click', () => {
-      try { (el('output') as HTMLPreElement).textContent = '' } catch (_e) { /* ignore */ }
+      try { (el('output') as HTMLPreElement).textContent = '' } catch (e) { appendTrace('[clearOutputBtn]clear output error: ' + String(e)) }
     })
   }
   const clearTraceBtn = el('clearTraceBtn') as HTMLButtonElement | null
   if (clearTraceBtn) {
     clearTraceBtn.addEventListener('click', () => {
-      try { (el('trace') as HTMLPreElement).textContent = '' } catch (_e) { /* ignore */ }
+      try { (el('trace') as HTMLPreElement).textContent = '' } catch (e) { console.error('[clearTraceBtn]clear trace error: ' + String(e)) }
     })
   }
 
@@ -199,6 +201,7 @@ async function main() {
     try {
       if (typeof currentVfs.getAdapterInstance === 'function') return await currentVfs.getAdapterInstance()
     } catch (_e) {
+      appendTrace('[getCurrentAdapter] error: ' + String(_e))
       return null
     }
     return null
@@ -301,7 +304,7 @@ async function main() {
                 await currentVfs.setAdapter(null, { type: 'github', opts: ghOpts })
                 appendOutput(`GitHub 接続情報を VirtualFS に登録しました (branch=${ghBranch})`)
 
-                appendTrace(`await currentVfs.setAdapter(null, { type: 'github', opts: ${JSON.stringify({ owner:ghOpts.owner, repo: ghOpts.repo, token:'******', branch: ghBranch })} })`)
+                appendTrace(`await currentVfs.setAdapter(null, { type: 'github', opts: ${JSON.stringify({ owner: ghOpts.owner, repo: ghOpts.repo, token: '******', branch: ghBranch })} })`)
               } catch (e) {
                 appendOutput('[connectBtn]VirtualFS に adapter 情報を設定できませんでした: ' + String(e))
               }
@@ -321,7 +324,7 @@ async function main() {
           currentPlatform = 'gitlab'
           currentOwner = segments.slice(0, -1).join('/') || null
           currentRepoName = segments[segments.length - 1] || null
-            try {
+          try {
             const glOpts: any = { projectId, token }
             if (!/gitlab\.com$/i.test(hostname)) glOpts.host = `${parsed.protocol}//${parsed.host}`
             // Read branch from UI input (empty -> 'main') and persist along with adapter metadata
@@ -332,7 +335,7 @@ async function main() {
               try {
                 await currentVfs.setAdapter(null, { type: 'gitlab', opts: glOpts })
                 appendOutput(`GitLab 接続情報を VirtualFS に登録しました (branch=${glBranch})`)
-                appendTrace(`await currentVfs.setAdapter(null, { type: 'gitlab', opts: ${JSON.stringify({ projectId:glOpts.projectId, host: glOpts.host, token:'******', branch: glBranch })} })`)
+                appendTrace(`await currentVfs.setAdapter(null, { type: 'gitlab', opts: ${JSON.stringify({ projectId: glOpts.projectId, host: glOpts.host, token: '******', branch: glBranch })} })`)
               } catch (e) {
                 appendOutput('[connectBtn]VirtualFS に adapter 情報を設定できませんでした: ' + String(e))
               }
@@ -366,11 +369,11 @@ async function main() {
           const res = await currentVfs.pull({ ref: target })
           appendTrace('pull => ' + JSON.stringify(res))
           appendOutput(`[switchBranch]ブランチ切替 pull が完了しました: ${target}`)
-          try { branchInput.value = target } catch (_) { /* ignore */ }
+          try { branchInput.value = target } catch (e) { appendTrace('[switchBranch] set branchInput failed: ' + String(e)) }
         } catch (e) {
           appendOutput('[switchBranch]pull によるブランチ切替で失敗しました: ' + String(e))
         }
-        
+
         // Note: VirtualFS will persist adapter metadata.branch on successful pull.
       } catch (e) {
         appendOutput('[switchBranch]例外: ' + String(e))
@@ -432,12 +435,13 @@ async function main() {
         if (roots && typeof roots.then === 'function') {
           try {
             roots = await roots
-          } catch (_e) {
+          } catch (e) {
+            appendTrace('[opfsRoots]availableRoots await error: ' + String(e))
             roots = []
           }
         }
         appendTrace('JSON.stringify(opfsRoots) => ' + JSON.stringify(roots))
-        
+
         appendOutput('[opfsRoots]availableRoots: ' + JSON.stringify(roots))
         setListContents('opfsRootsList', Array.isArray(roots) ? roots : [])
       }
@@ -458,14 +462,15 @@ async function main() {
       }
       // フォーカスが当たるたびに最新の状態を取得するため、少し待機してから取得
       await new Promise(resolve => setTimeout(resolve, 50))
-      
+
       if (IdxCtor && typeof IdxCtor.availableRoots === 'function') {
         let roots: any = IdxCtor.availableRoots()
         appendTrace('let indexedDbRoots = lib.IndexedDatabaseStorage.availableRoots()')
         if (roots && typeof roots.then === 'function') {
           try {
             roots = await roots
-          } catch (_e) {
+          } catch (e) {
+            appendTrace('[indexedDbRoots]availableRoots await error: ' + String(e))
             roots = []
           }
         }
@@ -509,11 +514,11 @@ async function main() {
       if (meta && meta.type === 'github') {
         const o = meta.opts || {}
         try {
-          const base = o.host ? (() => { try { return new URL(o.host).origin } catch { return String(o.host).replace(/\/api\/v3\/?$/, '') } })() : 'https://github.com'
+          const base = o.host ? (() => { try { return new URL(o.host).origin } catch (e) { appendTrace('[populateAdapterMetadata] URL parse error: ' + String(e)); return String(o.host).replace(/\/api\/v3\/?$/, '') } })() : 'https://github.com'
           repoInput.value = o.owner && o.repo ? `${base}/${o.owner}/${o.repo}` : ''
-        } catch (_) { repoInput.value = '' }
+        } catch (e) { appendTrace('[populateAdapterMetadata] set repoInput failed: ' + String(e)); repoInput.value = '' }
         tokenInput.value = (o && o.token) || ''
-        try { branchInput.value = (o && o.branch) || 'main' } catch (_) { /* ignore */ }
+        try { branchInput.value = (o && o.branch) || 'main' } catch (e) { appendTrace('[populateAdapterMetadata] set branchInput failed: ' + String(e)); branchInput.value = (o && o.branch) || 'main' }
         platformSelect.value = 'github'
         currentPlatform = 'github'
         currentOwner = o.owner || null
@@ -521,34 +526,32 @@ async function main() {
       } else if (meta && meta.type === 'gitlab') {
         const o = meta.opts || {}
         try {
-          const base = o.host ? (() => { try { return new URL(o.host).origin } catch { return String(o.host).replace(/\/api\/v4\/?$/, '') } })() : 'https://gitlab.com'
+          const base = o.host ? (() => { try { return new URL(o.host).origin } catch (e) { appendTrace('[populateAdapterMetadata] URL parse error: ' + String(e)); return String(o.host).replace(/\/api\/v4\/?$/, '') } })() : 'https://gitlab.com'
           repoInput.value = o.projectId ? `${base}/${o.projectId}` : ''
-        } catch (_) { repoInput.value = '' }
+        } catch (e) { appendTrace('[populateAdapterMetadata] set repoInput failed: ' + String(e)); repoInput.value = '' }
         tokenInput.value = (o && o.token) || ''
-        try { branchInput.value = (o && o.branch) || 'main' } catch (_) { /* ignore */ }
+        try { branchInput.value = (o && o.branch) || 'main' } catch (e) { appendTrace('[populateAdapterMetadata] set branchInput failed: ' + String(e)); branchInput.value = (o && o.branch) || 'main' }
         platformSelect.value = 'gitlab'
         currentPlatform = 'gitlab'
         try {
           const parts = (o.projectId || '').split('/').filter(Boolean)
           currentOwner = parts.slice(0, -1).join('/') || null
           currentRepoName = parts[parts.length - 1] || null
-        } catch (_) {
-          currentOwner = null
-          currentRepoName = null
-        }
+        } catch (e) { appendTrace('[populateAdapterMetadata] parse projectId error: ' + String(e)); currentOwner = null; currentRepoName = null }
       } else {
         repoInput.value = ''
         tokenInput.value = ''
-        try { branchInput.value = 'main' } catch (_) { /* ignore */ }
+        try { branchInput.value = 'main' } catch (e) { appendTrace('[populateAdapterMetadata] set default branchInput failed: ' + String(e)); branchInput.value = 'main' }
         platformSelect.value = 'auto'
         currentPlatform = null
         currentOwner = null
         currentRepoName = null
       }
-    } catch (_e) {
+    } catch (e) {
+      appendTrace('[populateAdapterMetadata] unexpected error: ' + String(e))
       repoInput.value = ''
       tokenInput.value = ''
-      try { branchInput.value = 'main' } catch (_) { /* ignore */ }
+      try { branchInput.value = 'main' } catch (err) { appendTrace('[populateAdapterMetadata] set default branchInput failed: ' + String(err)); branchInput.value = 'main' }
       platformSelect.value = 'auto'
       currentPlatform = null
       currentOwner = null
@@ -569,9 +572,10 @@ async function main() {
             try {
               if (typeof v === 'string') return v
               const s = JSON.stringify(v)
-              return s.length > 1000 ? s.slice(0, 1000) + '...': s
-            } catch (_) {
-              try { return String(v) } catch (_) { return '<unserializable>' }
+              return s.length > 1000 ? s.slice(0, 1000) + '...' : s
+            } catch (e) {
+              appendTrace('[logger] fmt stringify error: ' + String(e))
+              try { return String(v) } catch (err) { appendTrace('[logger] fmt String conversion failed: ' + String(err)); return '<unserializable>' }
             }
           }
           return {
@@ -774,10 +778,10 @@ async function main() {
     appendOutput('[fetchRemoteBtn]リモートスナップショットを取得します...')
     if (!currentVfs) { appendOutput('[fetchRemoteBtn]先に VirtualFS を初期化してください'); return }
     try {
-    appendTrace('// リポジトリアクセス')
-    const branch = (branchInput && branchInput.value) ? branchInput.value.trim() : ''
-    appendTrace(`const res = await currentVfs.pull(${branch ? "{ ref: '" + branch + "' }" : ''})`)
-    const res = branch ? await currentVfs.pull({ ref: branch }) : await currentVfs.pull()
+      appendTrace('// リポジトリアクセス')
+      const branch = (branchInput && branchInput.value) ? branchInput.value.trim() : ''
+      appendTrace(`const res = await currentVfs.pull(${branch ? "{ ref: '" + branch + "' }" : ''})`)
+      const res = branch ? await currentVfs.pull({ ref: branch }) : await currentVfs.pull()
       appendTrace('res => ' + JSON.stringify(res))
       const remote = (res as any).remote
       const remotePaths = (res as any).remotePaths || Object.keys(remote?.shas || {})
@@ -879,51 +883,51 @@ async function main() {
     appendTrace('')
   })
 
-    const revertChangeBtn = el('revertChange') as HTMLButtonElement
-    if (revertChangeBtn) {
-      revertChangeBtn.addEventListener('click', async () => {
-        const path = (prompt('元に戻すファイルパスを入力してください（例: examples/new.txt）') || '').trim()
-        if (!path) return
-        if (!currentVfs) { appendOutput('[revertChangeBtn]先に VirtualFS を初期化してください'); return }
+  const revertChangeBtn = el('revertChange') as HTMLButtonElement
+  if (revertChangeBtn) {
+    revertChangeBtn.addEventListener('click', async () => {
+      const path = (prompt('元に戻すファイルパスを入力してください（例: examples/new.txt）') || '').trim()
+      if (!path) return
+      if (!currentVfs) { appendOutput('[revertChangeBtn]先に VirtualFS を初期化してください'); return }
+      try {
+        const backend = (currentVfs as any).backend
+        if (!backend || typeof backend.deleteBlob !== 'function') {
+          appendOutput('[revertChangeBtn]バックエンドが deleteBlob をサポートしていません')
+          return
+        }
+        appendOutput(`[revertChangeBtn]ワークスペースの変更を削除します: ${path}`)
         try {
-          const backend = (currentVfs as any).backend
-          if (!backend || typeof backend.deleteBlob !== 'function') {
-            appendOutput('[revertChangeBtn]バックエンドが deleteBlob をサポートしていません')
-            return
-          }
-          appendOutput(`[revertChangeBtn]ワークスペースの変更を削除します: ${path}`)
-          try {
-            await backend.deleteBlob(path, 'workspace')
-            appendTrace('//')
-            appendTrace(`await backend.deleteBlob(${path}, 'workspace')`)
-          } catch (e) {
-            appendOutput('[revertChangeBtn]backend.deleteBlob で例外: ' + String(e))
-          }
+          await backend.deleteBlob(path, 'workspace')
+          appendTrace('//')
+          appendTrace(`await backend.deleteBlob(${path}, 'workspace')`)
+        } catch (e) {
+          appendOutput('[revertChangeBtn]backend.deleteBlob で例外: ' + String(e))
+        }
 
-          // Reload VFS index/state so UI reflects the reverted state
-          try {
-            if (typeof currentVfs.init === 'function') {
-              await currentVfs.init()
-              appendTrace('await currentVfs.init()')
-            }
-          } catch (e) {
-            appendOutput('[revertChangeBtn]VirtualFS の再初期化で例外: ' + String(e))
-          }
-
-          // Show current content (workspace or base)
-          try {
-            const content = await currentVfs.readFile(path)
-            const snippet = content === null ? '<存在しない>' : (typeof content === 'string' ? content.slice(0, 400).replace(/\r?\n/g, '\\n') : String(content))
-            appendOutput(`[revertChangeBtn]操作完了: ${path} -> ${snippet}`)
-          } catch (e) {
-            appendOutput('[revertChangeBtn]ファイル読み取りで例外: ' + String(e))
+        // Reload VFS index/state so UI reflects the reverted state
+        try {
+          if (typeof currentVfs.init === 'function') {
+            await currentVfs.init()
+            appendTrace('await currentVfs.init()')
           }
         } catch (e) {
-          appendOutput('[revertChangeBtn]変更の復元に失敗しました: ' + String(e))
+          appendOutput('[revertChangeBtn]VirtualFS の再初期化で例外: ' + String(e))
         }
+
+        // Show current content (workspace or base)
+        try {
+          const content = await currentVfs.readFile(path)
+          const snippet = content === null ? '<存在しない>' : (typeof content === 'string' ? content.slice(0, 400).replace(/\r?\n/g, '\\n') : String(content))
+          appendOutput(`[revertChangeBtn]操作完了: ${path} -> ${snippet}`)
+        } catch (e) {
+          appendOutput('[revertChangeBtn]ファイル読み取りで例外: ' + String(e))
+        }
+      } catch (e) {
+        appendOutput('[revertChangeBtn]変更の復元に失敗しました: ' + String(e))
+      }
       appendTrace('')
-      })
-    }
+    })
+  }
 
   const remoteChangesBtn = el('remoteChanges') as HTMLButtonElement
   remoteChangesBtn.addEventListener('click', async () => {
@@ -935,7 +939,7 @@ async function main() {
         return
       }
       appendTrace('//')
-      appendTrace(`const res = await currentVfs.getRemoteDiffs()`) 
+      appendTrace(`const res = await currentVfs.getRemoteDiffs()`)
       const res = await currentVfs.getRemoteDiffs()
       appendTrace(`res => ` + JSON.stringify(res))
       const diffs: string[] = res?.diffs || []
@@ -989,7 +993,7 @@ async function main() {
       appendTrace('const idx = await currentVfs.getIndex()')
       const idx = await currentVfs.getIndex()
       appendTrace('idx => ' + JSON.stringify(idx))
-      const input = { message: 'Example push from UI'}
+      const input = { message: 'Example push from UI' }
       appendTrace(`const res = await currentVfs.push(${JSON.stringify(input)})`)
       const res = await currentVfs.push(input)
       appendTrace('res => ' + JSON.stringify(res))
@@ -1034,7 +1038,7 @@ async function main() {
       const ok = confirm(`本当に削除しますか: ${path}`)
       if (!ok) return
       appendTrace('// 既存ファイルの削除')
-      appendTrace(`await currentVfs.deleteFile(${path})`) 
+      appendTrace(`await currentVfs.deleteFile(${path})`)
       await currentVfs.deleteFile(path)
       appendOutput(`[deleteAndPushBtn]ローカルで削除しました: ${path}`)
 
@@ -1076,7 +1080,7 @@ async function main() {
         appendOutput('[showSnapshotBtn]スナップショット内のパス一覧を取得しています...')
         try {
           const paths: string[] = currentVfs.listPaths ? await currentVfs.listPaths() : []
-          
+
           appendTrace('// スナップショット内のパス一覧を取得')
           appendTrace('const paths = await currentVfs.listPaths()')
           appendTrace('paths => ' + JSON.stringify(paths))
@@ -1216,13 +1220,42 @@ async function main() {
             if (b && b.isDefault) flags.push('default')
             if (b && b.protected) flags.push('protected')
             appendOutput(`- ${name}${flags.length ? ' (' + flags.join(', ') + ')' : ''}`)
-          } catch (_e) { /* ignore per-item errors */ }
+          } catch (e) { appendTrace('[listBranches] per-item error: ' + String(e)) }
         }
         const nextPage = p.nextPage ?? p.next ?? p.xNextPage ?? p['x-next-page']
         const lastPage = p.lastPage ?? p.last ?? p.xTotalPages ?? p['x-total-pages']
         appendOutput('[listBranches]nextPage: ' + (nextPage ? String(nextPage) : '<none>') + ' lastPage: ' + (lastPage ? String(lastPage) : '<none>'))
       } catch (e) {
         appendOutput('[listBranches]失敗: ' + String(e))
+      }
+      appendTrace('')
+    })
+  }
+
+  const createBranchBtn = el('createBranchBtn') as HTMLButtonElement | null
+  if (createBranchBtn) {
+    createBranchBtn.addEventListener('click', async () => {
+      appendOutput('[createBranch]新しいブランチを作成します...')
+      if (!currentVfs) { appendOutput('[createBranch]先に VirtualFS を初期化してください'); return }
+      try {
+        if (typeof currentVfs.createBranch !== 'function') {
+          appendOutput('[createBranch]VirtualFS に createBranch() が実装されていません')
+          return
+        }
+        const name = (prompt('作成するブランチ名を入力してください', 'new-branch') || '').trim()
+        if (!name) return
+        const from = (prompt('基点となる SHA または ref を入力してください（空欄で既定）', '') || '').trim()
+        const input: any = { name }
+        if (from) input.fromRef = from
+        appendTrace('// VirtualFS.createBranch を呼び出します')
+        appendTrace('const res = await currentVfs.createBranch(' + JSON.stringify(input) + ')')
+        const res = await currentVfs.createBranch(input)
+        appendTrace('createBranch => ' + JSON.stringify(res))
+        appendOutput('[createBranch]作成成功: ' + (res && res.name ? res.name : JSON.stringify(res)))
+        if (res && res.sha) appendOutput('[createBranch]sha: ' + String(res.sha))
+        if (res && res.ref) appendOutput('[createBranch]ref: ' + String(res.ref))
+      } catch (e) {
+        appendOutput('[createBranch]失敗: ' + String(e))
       }
       appendTrace('')
     })
@@ -1258,7 +1291,7 @@ async function main() {
       } catch (e) {
         appendOutput('[listFilesRaw]listFilesRaw 実行で例外: ' + String(e))
       }
-      
+
       appendTrace('')
     })
   }

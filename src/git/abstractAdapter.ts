@@ -92,6 +92,8 @@ export async function fetchWithRetry(input: RequestInfo, init: RequestInit, atte
       const response = await fetch(input, init)
       return await processResponseWithDelay(response, attemptIndex, baseDelay)
     } catch (error) {
+      // Do not retry on NonRetryableError - rethrow immediately
+      if (error instanceof NonRetryableError) throw error
       lastError = error
       await new Promise((r) => setTimeout(r, getDelayForResponse(null, attemptIndex, baseDelay)))
     }

@@ -2,31 +2,22 @@
 
 ブラウザネイティブで動作する Git 操作ライブラリです。`VirtualFS` とプラットフォームアダプタ（GitHub / GitLab）を提供し、永続化は OPFS、IndexedDB、インメモリの各バックエンドで実装されています。
 
+- Live Demo: https://nojaja.github.io/browser-git-ops/
+
 主な機能
 - `VirtualFS`：ローカルワークスペースのスナップショット化と変更セット（create/update/delete）の生成
 - 複数バックエンド：`OpfsStorage`（OPFS）、`IndexedDatabaseStorage`（IndexedDB）、`InMemoryStorage`（テスト用）
-- プラットフォームアダプタ：`GitHubAdapter`、`GitLabAdapter`
+- プラットフォームアダプタ：`GitHubAdapter`、`GitLabAdapter`（Web API 経由で動作し、他の Git クライアントで課題になりがちな CORS を Proxy なしで回避）
 
 ステータス
 - `VirtualFS` のコア機能（差分生成、index 管理、ローカル編集）を実装済み
 - OPFS・IndexedDB 用の永続化バックエンドを実装
 - `GitHubAdapter` は主要な push フローを含む。`GitLabAdapter` は追加の環境検証が推奨されます。
 
-インストール（クローン）
+ライブラリ利用者向け（npm）
 
 ```bash
-git clone https://github.com/nojaja/browser-git-ops.git
-cd browser-git-ops
-npm ci
-```
-
-ビルド & テスト
-
-```bash
-npm run build       # ブラウザ向けバンドルと型定義を出力
-npm run test        # ユニットテスト (Jest)
-npm run test:e2e    # Playwright E2E（事前に build が必要）
-npm run lint        # ESLint
+npm i browser-git-ops
 ```
 
 基本的な使い方
@@ -49,6 +40,23 @@ async function example() {
   const pushInput = { parentSha: idx.head, message: 'Example push', changes: changes }
   const pushRes = await vfs.push(pushInput as any)
 }
+```
+
+インストール（クローン）
+
+```bash
+git clone https://github.com/nojaja/browser-git-ops.git
+cd browser-git-ops
+npm ci
+```
+
+ビルド & テスト
+
+```bash
+npm run build       # ブラウザ向けバンドルと型定義を出力
+npm run test        # ユニットテスト (Jest)
+npm run test:e2e    # Playwright E2E（事前に build が必要）
+npm run lint        # ESLint
 ```
 
 プロジェクト構成（抜粋）

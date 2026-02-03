@@ -280,6 +280,42 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
+   * Create a branch (ref) on the remote repository.
+   * @param branchName branch name to create
+   * @param fromSha commit sha to point the new branch at
+   * @returns {Promise<import('../virtualfs/types.ts').CreateBranchResult>} created branch info
+   */
+  async createBranch(branchName: string, fromSha: string): Promise<import('../virtualfs/types.ts').CreateBranchResult> {
+    const referenceName = `refs/heads/${branchName}`
+    const body = JSON.stringify({ ref: referenceName, sha: fromSha })
+    try {
+      const resp = await this._fetchWithRetry(`${this.baseUrl}/git/refs`, { method: 'POST', headers: this.headers, body }, 4, 300)
+      const txt = await resp.text().catch(() => '')
+      const data = txt ? JSON.parse(txt) : {}
+      return { name: branchName, sha: fromSha, ref: (data && data.ref) ? data.ref : referenceName }
+    } catch (error: any) {
+      const message = String(error && error.message ? error.message : error)
+      this._handleCreateBranchError(message, branchName)
+    }
+  }
+
+  /**
+   * Normalize common createBranch error messages into thrown NonRetryableError/Error.
+   * @param {string} message error message text
+   * @param {string} branchName branch attempted
+   * @returns {never}
+   */
+  private _handleCreateBranchError(message: string, branchName: string): never {
+    if (message.includes('422') || /Reference already exists/i.test(message)) {
+      throw new NonRetryableError(`Branch '${branchName}' already exists.`)
+    }
+    if (/401|403|Bad credentials/i.test(message)) {
+      throw new NonRetryableError(`Authentication failed: ${message}`)
+    }
+    throw new Error(message)
+  }
+
+  /**
    * 指定コミットの tree SHA を取得します。
    * @param commitSha コミット SHA
     * @returns {Promise<string>} tree の SHA
