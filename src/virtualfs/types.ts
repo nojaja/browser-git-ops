@@ -76,3 +76,15 @@ export type RepositoryMetadata = {
   name: string
   id?: string | number
 }
+
+// Create branch types
+export type CreateBranchInput = {
+  name: string
+  fromRef?: string
+}
+
+export type CreateBranchResult = {
+  name: string
+  sha: string
+  ref: string
+}

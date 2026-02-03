@@ -8,7 +8,7 @@ type RouteEntry = {
     status?: number;
     body?: string;
     headers?: Record<string,string>;
-  };
+  } | ((input?: any, init?: any) => { status?: number; body?: string; headers?: Record<string,string> });
 }
 
 let _mock: jest.Mock | null = null
@@ -29,13 +29,21 @@ export function configureFetchMock(entries: RouteEntry[]) {
     })
 
     for (const e of entries) {
+      const produce = (resp:any) => make(resp.status ?? 200, resp.body ?? '', resp.headers)
       if (!e.match) {
-        return make(e.response.status ?? 200, e.response.body ?? '', e.response.headers)
+        const resp = typeof e.response === 'function' ? e.response(input, init) : e.response
+        return produce(resp)
       }
       if (typeof e.match === 'string') {
-        if (url.includes(e.match)) return make(e.response.status ?? 200, e.response.body ?? '', e.response.headers)
+        if (url.includes(e.match)) {
+          const resp = typeof e.response === 'function' ? e.response(input, init) : e.response
+          return produce(resp)
+        }
       } else {
-        if (e.match.test(url)) return make(e.response.status ?? 200, e.response.body ?? '', e.response.headers)
+        if (e.match.test(url)) {
+          const resp = typeof e.response === 'function' ? e.response(input, init) : e.response
+          return produce(resp)
+        }
       }
     }
     return make(404, '')

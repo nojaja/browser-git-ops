@@ -245,6 +245,44 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
+   * Create a branch in GitLab: POST /projects/{projectId}/repository/branches
+   * @param branchName name of branch to create
+   * @param fromSha branch/tag name or SHA to base the new branch on
+   * @returns {Promise<import('../virtualfs/types.ts').CreateBranchResult>} created branch info
+   */
+  async createBranch(branchName: string, fromSha: string): Promise<import('../virtualfs/types.ts').CreateBranchResult> {
+    const url = `${this.baseUrl}/repository/branches`
+    const body = JSON.stringify({ branch: branchName, ref: fromSha })
+    try {
+      const resp = await this.fetchWithRetry(url, { method: 'POST', headers: this.headers, body }, 4, 300)
+      const text = await resp.text().catch(() => '')
+      const data = text ? JSON.parse(text) : {}
+      const sha = data && data.commit && (data.commit.id || data.commit.sha) ? (data.commit.id || data.commit.sha) : fromSha
+      return { name: branchName, sha, ref: `refs/heads/${branchName}` }
+    } catch (error: any) {
+      const message = String(error && error.message ? error.message : error)
+      this._handleCreateBranchError(message, branchName)
+    }
+  }
+
+  /**
+   * Normalize common createBranch error messages into thrown Errors.
+   * @param {string} message error message text
+   * @param {string} branchName branch name attempted
+   * @returns {never}
+   */
+  private _handleCreateBranchError(message: string, branchName: string): never {
+    if (message.includes('400') || /Branch already exists/i.test(message)) {
+      throw new Error(`Branch '${branchName}' already exists`)
+    }
+    if (/401|403|Unauthorized/i.test(message)) {
+      throw new Error(`Authentication failed: ${message}`)
+    }
+    // Re-throw generic case
+    throw new Error(message)
+  }
+
+  /**
    * Map raw GitLab branch objects to adapter Branch item shape.
    * @param {any[]} parsed raw branch array
    * @param {any} repoMeta repository metadata

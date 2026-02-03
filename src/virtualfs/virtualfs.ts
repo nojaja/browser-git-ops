@@ -481,14 +481,9 @@ export class VirtualFS {
     if (maybeOptions && typeof maybeOptions.ref === 'string') {
       return await this._pullByRef(maybeOptions.ref, baseSnapshot)
     }
-
     if (remote === undefined || remote === null) {
-      // No args: try to use persisted adapterMeta.opts.branch if available
-      const instAdapter = await this.getAdapterInstance()
-      if (instAdapter && typeof instAdapter.resolveRef === 'function') {
-        return await this._pullUsingPersistedBranch(baseSnapshot)
-      }
-      // fallback to existing logic below which will try adapter or normalize empty head
+      const noArgumentsResult = await this._handlePullNoArgs(baseSnapshot)
+      if (noArgumentsResult) return noArgumentsResult
     }
 
     const descriptorRaw = await this._resolveDescriptor(remote, baseSnapshot)
@@ -552,6 +547,25 @@ export class VirtualFS {
     const pullResult: any = await this.remoteSynchronizer.pull(normalized, baseSnapshot)
     // do not persist branch change (we used existing branch)
     return { ...pullResult, remote: normalized, remotePaths: Object.keys(normalized.shas || {}) }
+  }
+
+  /**
+   * Handle the case when pull() is called with no args: try persisted adapter branch if possible.
+   * Returns the pull result when handled, or null to indicate caller should continue.
+   * @param {Record<string,string>=} baseSnapshot optional base snapshot
+   * @returns {Promise<any|null>}
+   */
+  private async _handlePullNoArgs(baseSnapshot?: Record<string, string>): Promise<any | null> {
+    const instAdapter = await this.getAdapterInstance()
+    if (instAdapter && typeof instAdapter.resolveRef === 'function') {
+      try {
+        return await this._pullUsingPersistedBranch(baseSnapshot)
+      } catch (error) {
+        if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('pull using persisted branch failed, continuing with empty remote', error)
+        return { remote: null, remotePaths: [], preIndexKeys: [], postIndexKeys: [], addedPaths: [] }
+      }
+    }
+    return null
   }
 
   /**
@@ -687,6 +701,74 @@ export class VirtualFS {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('persist repository metadata failed', error)
     })
     return result
+  }
+
+  /**
+   * Create a remote-only branch via the configured adapter.
+   * @param {{name:string, fromRef?:string}} input
+   * @returns {Promise<import('./types.ts').CreateBranchResult>}
+   */
+  async createBranch(input: import('./types.ts').CreateBranchInput): Promise<import('./types.ts').CreateBranchResult> {
+    if (!input || !input.name || typeof input.name !== 'string' || input.name.trim() === '') {
+      throw new Error('branch name is required')
+    }
+
+    const instAdapter = await this.getAdapterInstance()
+    if (!instAdapter) throw new Error('Adapter instance not available')
+    if (typeof instAdapter.createBranch !== 'function') throw new Error('Adapter does not support createBranch')
+
+    // Delegate resolution of the source ref to a helper to reduce complexity
+    const resolvedFrom = await this._resolveCreateBranchFrom(input, instAdapter)
+
+    const result = await instAdapter.createBranch(input.name, resolvedFrom)
+    return result as import('./types.ts').CreateBranchResult
+  }
+
+  /**
+   * Resolve a source reference for createBranch.
+   * Preference order: explicit input.fromRef, index.head, adapter default branch.
+   * Returns empty string when no resolution found.
+   * @param {import('./types.ts').CreateBranchInput} input createBranch input
+   * @param {any} instAdapter adapter instance
+   * @returns {Promise<string>} resolved ref or empty string
+   */
+  private async _resolveCreateBranchFrom(input: import('./types.ts').CreateBranchInput, instAdapter: any): Promise<string> {
+    // Prefer explicit input.fromRef
+    if (input && input.fromRef && typeof input.fromRef === 'string' && input.fromRef.trim() !== '') return input.fromRef
+
+    // Try persisted index head
+    try {
+      const index = await this.getIndex()
+      if (index && (index as any).head) return (index as any).head
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('[createBranch] getIndex error: ' + String(error))
+    }
+
+    // Try adapter default branch resolution
+    const adapterResolved = await this._resolveAdapterDefaultBranch(instAdapter)
+    if (adapterResolved) return adapterResolved
+
+    // fallback to empty string
+    return ''
+  }
+
+  /**
+   * Attempt to resolve the default branch via adapter metadata.
+   * @param {any} instAdapter adapter instance
+   * @returns {Promise<string|null>} resolved SHA or null when not found
+   */
+  private async _resolveAdapterDefaultBranch(instAdapter: any): Promise<string | null> {
+    if (this.adapterMeta && this.adapterMeta.opts && typeof instAdapter.resolveRef === 'function') {
+      try {
+        const defaultBranch = this.adapterMeta.opts.branch || 'main'
+        const resolved = await instAdapter.resolveRef(defaultBranch)
+        return resolved || null
+      } catch (error) {
+        if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('[createBranch] resolveRef error: ' + String(error))
+        return null
+      }
+    }
+    return null
   }
 
   /**

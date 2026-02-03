@@ -2,31 +2,24 @@
 
 A browser-native Git operations library that provides a VirtualFS and platform adapters for GitHub and GitLab. It implements multiple persistent backends (OPFS, IndexedDB, and an in-memory backend) and abstracts them behind a common VirtualFS API.
 
+- Live Demo: https://nojaja.github.io/browser-git-ops/
+
+**[日本語ドキュメント (Japanese)](README_ja.md)**
+
 Key features
 - VirtualFS: local workspace snapshoting and change-set generation (create/update/delete).
 - Multiple backends: `OpfsStorage` (OPFS), `IndexedDatabaseStorage` (IndexedDB), and `InMemoryStorage` (testing).
-- Platform adapters: `GitHubAdapter` and `GitLabAdapter` implementing common push/fetch flows.
+- Platform adapters: `GitHubAdapter` and `GitLabAdapter` implementing common push/fetch flows via Web APIs, enabling cross-origin operations without CORS proxy workarounds.
 
 Status summary
 - Core VirtualFS functionality implemented (delta generation, index management, local edits).
 - Persistence backends for OPFS and IndexedDB implemented.
 - GitHubAdapter includes primary push flow; GitLab adapter exists but may require extra environment verification.
 
-Quick install
+Quick Install via npm (library consumers)
 
 ```bash
-git clone https://github.com/nojaja/browser-git-ops.git
-cd browser-git-ops
-npm ci
-```
-
-Build & test
-
-```bash
-npm run build       # build browser bundles and types
-npm run test        # unit tests (Jest)
-npm run test:e2e    # Playwright E2E (runs after build)
-npm run lint        # ESLint
+npm i browser-git-ops
 ```
 
 Usage (basic)
@@ -49,6 +42,23 @@ async function example() {
   const pushInput = { parentSha: idx.head, message: 'Example push', changes: changes }
   const pushRes = await vfs.push(pushInput as any)
 }
+```
+
+install
+
+```bash
+git clone https://github.com/nojaja/browser-git-ops.git
+cd browser-git-ops
+npm ci
+```
+
+Build & test
+
+```bash
+npm run build       # build browser bundles and types
+npm run test        # unit tests (Jest)
+npm run test:e2e    # Playwright E2E (runs after build)
+npm run lint        # ESLint
 ```
 
 Project layout (excerpt)
