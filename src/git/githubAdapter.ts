@@ -29,10 +29,14 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
     super(options)
     const host = options.host || 'https://api.github.com'
     this.baseUrl = `${host}/repos/${options.owner}/${options.repo}`
+    // Only include Authorization header when a token is provided
     this.headers = {
-      Authorization: `token ${options.token}`,
       Accept: 'application/vnd.github+json',
       'Content-Type': 'application/json',
+    }
+    const rawToken = options && typeof options.token === 'string' ? options.token.trim() : ''
+    if (rawToken) {
+      (this.headers as any).Authorization = `token ${rawToken}`
     }
     this._fetchWithRetry = fetchWithRetry
   }
