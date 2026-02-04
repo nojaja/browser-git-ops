@@ -73,6 +73,16 @@ test.describe('GitLab fetch→add→push→delete→push シナリオ', () => {
       }
     })
 
+    page.once('dialog', async (dialog) => {
+      console.log(`Dialog message: ${dialog.message()}`);
+      await dialog.accept('GitLab_test01');
+    })
+    await page.click('#connectOpfs')
+
+    //select(#opfsRootsList)のoption(value="GitLab_test01")を選択する
+    await page.selectOption('#opfsRootsList', 'GitLab_test01')
+    await page.waitForTimeout(700)
+
     // リポジトリ情報をフォームに入力
     await page.fill(SELECTORS.repoInput, repoUrl)
     await page.fill(SELECTORS.tokenInput, token)

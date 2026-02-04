@@ -14,6 +14,16 @@ test.describe('Examples UI smoke', () => {
     await page.goto('http://127.0.0.1:8080')
     await page.waitForSelector('#repoInput')
 
+    page.once('dialog', async (dialog) => {
+      console.log(`Dialog message: ${dialog.message()}`);
+      await dialog.accept('GitLab_test01');
+    })
+    await page.click('#connectOpfs')
+
+    //select(#opfsRootsList)のoption(value="GitLab_test01")を選択する
+    await page.selectOption('#opfsRootsList', 'GitLab_test01')
+    await page.waitForTimeout(700)
+
     // load GitLab config (projectId/token/host) from test/conf/gitlab.config.json
     const candidates = [
       path.resolve(process.cwd(), 'test', 'conf', 'gitlab.config.json'),
@@ -38,21 +48,13 @@ test.describe('Examples UI smoke', () => {
     await page.click('#connectBtn')
     await page.waitForTimeout(500)
 
-    await page.click('#connectIndexedDb')
-    await page.waitForTimeout(700)
-
     await page.click('#listAdapters')
     await page.waitForTimeout(300)
 
-    const out = await page.locator('#output').innerText()
-
-    console.log('--- PAGE OUTPUT ---')
-    console.log(out)
-    console.log('--- CONSOLE MESSAGES ---')
-    for (const m of messages) console.log(m)
-
-    // Basic assertions: output contains adapter creation and vfs init attempt
-    expect(out).toContain('GitHubAdapter 作成')
-    expect(out).toContain('VirtualFS 作成')
+    const out = await page.locator('#output')
+    //outの配下のdivのdata-message-idのリストを取得してexpectで確認する
+    const messageIds = await out.locator('div[data-message-id]').evaluateAll(divs => divs.map(div => div.getAttribute('data-message-id')))
+    expect(messageIds).toContain('log.github.adapterCreated')
+    expect(messageIds).toContain('log.vfs.createdShort')
   })
 })
