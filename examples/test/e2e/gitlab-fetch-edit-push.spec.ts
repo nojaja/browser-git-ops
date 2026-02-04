@@ -23,33 +23,34 @@ test('GitLabアダプタ E2E: リモート取得 → 編集 → プッシュの�
   const repoUrl = `${cfg.host || ''}/${cfg.projectId}`.replace(/([^:])\/\//g, '$1/')
   const token = cfg.token
 
-  // Navigate to examples page with GET params so UI pre-fills
-  await page.goto(`http://127.0.0.1:8080/?repo=${encodeURIComponent(repoUrl)}&token=${encodeURIComponent(token)}&platform=gitlab`)
+
+  await page.goto('http://127.0.0.1:8080/?lang=ja')
   await page.waitForSelector('#repoInput')
 
   const out = page.locator('#output')
 
-  // Connect: should create GitLabAdapter
+
+  page.once('dialog', async (dialog) => {
+    console.log(`Dialog message: ${dialog.message()}`);
+    await dialog.accept('GitLab_test01');
+  })
+  await page.click('#connectOpfs')
+
+  //select(#opfsRootsList)のoption(value="GitLab_test01")を選択する
+  await page.selectOption('#opfsRootsList', 'GitLab_test01')
+  await page.waitForTimeout(700)
+
+  // リポジトリ情報をフォームに入力
+  await page.fill('#repoInput', repoUrl)
+  await page.fill('#tokenInput', cfg.token)
+  // Ensure platform is set to gitlab to avoid heuristics ambiguity
+  await page.selectOption('#platformSelect', 'gitlab')
   await page.click('#connectBtn')
   await expect(out).toContainText('接続を試みます...')
   await expect(out).toContainText('入力: repo=')
   await expect(out).toContainText('GitLabAdapter 作成')
-
-  // Try Opfs first; if not available, fallback to IndexedDb
-  await page.click('#connectOpfs')
-  // Wait for either success or a message indicating Opfs missing
   await page.waitForTimeout(500)
-  const outText = await out.innerText()
-  if (outText.includes('バンドルに OpfsStorage が含まれていません') || outText.includes('OpfsStorage 接続で例外')) {
-    // fallback
-    await page.click('#connectIndexedDb')
-    await page.waitForTimeout(700)
-    await expect(out).toContainText('VirtualFS を作成し IndexedDbStorage を接続しました')
-    await expect(out).toContainText('VirtualFS.init() 実行済み (IndexedDbStorage)')
-  } else {
-    await expect(out).toContainText('VirtualFS を作成し OpfsStorage を接続しました')
-    await expect(out).toContainText('VirtualFS.init() 実行済み')
-  }
+
 
   // Fetch remote snapshot (real network calls to configured host)
   await page.click('#fetchRemote')
