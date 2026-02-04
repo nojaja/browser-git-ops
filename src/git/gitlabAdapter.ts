@@ -21,10 +21,13 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     super(options)
     const host = options.host || 'https://gitlab.com'
     this.baseUrl = `${host}/api/v4/projects/${encodeURIComponent(options.projectId)}`
-    this.headers = {
-       'PRIVATE-TOKEN': options.token,
-       'Content-Type': 'application/json' 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
     }
+    if (typeof options.token === 'string' && options.token.trim().length > 0) {
+      headers['PRIVATE-TOKEN'] = options.token
+    }
+    this.headers = headers
   }
 
   /**
