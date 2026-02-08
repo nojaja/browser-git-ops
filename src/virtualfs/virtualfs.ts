@@ -544,6 +544,14 @@ export class VirtualFS {
     const resolvedSha = await instAdapter.resolveRef(reference)
     const descriptor = await instAdapter.fetchSnapshot(resolvedSha)
     const normalized: RemoteSnapshotDescriptor = typeof descriptor === 'string' ? await this._normalizeRemoteInput(descriptor, baseSnapshot) : (descriptor as RemoteSnapshotDescriptor)
+    // Ensure backend uses requested branch scope before writing base/index
+    try {
+      if (this.backend && typeof (this.backend as any).setBranch === 'function') {
+        ;(this.backend as any).setBranch(reference)
+      }
+    } catch (e) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('backend.setBranch failed', e)
+    }
     // v0.0.4: pull must NOT pass baseSnapshot to remoteSynchronizer
     const pullResult: any = await this.remoteSynchronizer.pull(normalized, undefined, instAdapter)
     // on success persist requested ref into adapter metadata (branch)
@@ -561,6 +569,14 @@ export class VirtualFS {
   private async _pullUsingPersistedBranch(baseSnapshot?: Record<string, string>): Promise<any> {
     const instAdapter = await this.getAdapterInstance()
     const branch = (this.adapterMeta && this.adapterMeta.opts && this.adapterMeta.opts.branch) || 'main'
+    // Ensure backend scope matches the persisted branch before pulling
+    try {
+      if (this.backend && typeof (this.backend as any).setBranch === 'function') {
+        ;(this.backend as any).setBranch(branch)
+      }
+    } catch (e) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('backend.setBranch failed', e)
+    }
     const resolvedSha = await instAdapter!.resolveRef(branch)
     const descriptor = await instAdapter!.fetchSnapshot(resolvedSha)
     const normalized: RemoteSnapshotDescriptor = typeof descriptor === 'string' ? await this._normalizeRemoteInput(descriptor, baseSnapshot) : (descriptor as RemoteSnapshotDescriptor)
@@ -600,6 +616,14 @@ export class VirtualFS {
     const newMeta = { ...(this.adapterMeta || {}), opts: { ...(this.adapterMeta && this.adapterMeta.opts) || {}, branch } }
     // keep current adapter instance if present
     await this.setAdapter(this.adapter || adapterInstance, newMeta)
+    // Also inform backend about branch scope when backend supports it
+    try {
+      if (this.backend && typeof (this.backend as any).setBranch === 'function') {
+        ;(this.backend as any).setBranch(branch)
+      }
+    } catch (e) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('backend.setBranch failed', e)
+    }
   }
 
   /**
