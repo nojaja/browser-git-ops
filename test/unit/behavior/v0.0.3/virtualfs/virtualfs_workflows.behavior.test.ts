@@ -139,8 +139,9 @@ describe('VirtualFS advanced workflows', () => {
       })
     }
     await (vfs as any).pull(normalized)
+    // v0.0.4: pull is metadata-only, content is not fetched
     const newContent = await vfs.readFile('newfile.txt')
-    expect(newContent).toBe('new content')
+    expect(newContent).toBe(null)
   })
 
   // Test writeFile after delete

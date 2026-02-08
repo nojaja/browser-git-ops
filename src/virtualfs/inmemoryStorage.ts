@@ -92,6 +92,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     if ((store.index as any).lastCommitKey) result.lastCommitKey = (store.index as any).lastCommitKey
     // Preserve adapter metadata if present
     if ((store.index as any).adapter) result.adapter = (store.index as any).adapter
+    
     return result
   }
 
@@ -171,7 +172,16 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     // the provided content directly; skip the generic metadata updater
     if (seg === SEG_INFO_WORKSPACE || seg === SEG_INFO_GIT) return
 
-    const wrapped = seg === SEG_WORKSPACE ? this._wrapStoreForInfoNoPrefix(store) : this._wrapStoreForInfoPrefix(store)
+    // conflictBlob is a content-only blob; don't update metadata as it would
+    // overwrite the conflict entry with minimal data and lose remoteSha/state fields
+    if (seg === 'conflictBlob') return
+
+    // For conflict segment, always use direct (unprefixed) info update to ensure
+    // workspace-local entries are maintained and existing fields like remoteSha
+    // are preserved in the conflict entry.
+    const wrapped = (seg === SEG_WORKSPACE || seg === 'conflict') 
+      ? this._wrapStoreForInfoNoPrefix(store) 
+      : this._wrapStoreForInfoPrefix(store)
     await updateInfoForWrite(wrapped, filepath, seg, content)
   }
 

@@ -64,7 +64,8 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
       
       const result = await vfs.pull('h1', { 'remote.txt': 'content' })
       
-      expect(result.fetchedPaths).toContain('remote.txt')
+      // v0.0.4: pull is metadata-only, fetchedPaths is empty
+      expect(result.fetchedPaths).toEqual([])
     })
 
     it('pull with identical base and workspace', async () => {

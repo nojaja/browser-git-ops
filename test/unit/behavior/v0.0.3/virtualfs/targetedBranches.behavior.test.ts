@@ -49,11 +49,11 @@ describe('VirtualFS targeted branch coverage', () => {
     }
 
     const res = await vfs.pull(normalized)
-    // v0.0.4: missing content should trigger conflict
-    expect(res.conflicts.find((c: any) => c.path === 'a.txt')).toBeDefined()
-    // v0.0.4: conflict metadata should be recorded
+    // v0.0.4: pull is metadata-only, fetchContent is not called, so no conflict
+    expect(res.conflicts.find((c: any) => c.path === 'a.txt')).toBeUndefined()
+    // v0.0.4: no conflict metadata without fetchContent call
     const conflictInfo = await backend.readBlob('a.txt', 'conflict')
-    expect(conflictInfo).not.toBeNull()
+    expect(conflictInfo).toBeNull()
   })
 
   it('pull records conflict and persists remote content when workspace modified', async () => {

@@ -45,6 +45,7 @@ export class ConflictManager {
         delete ie.remoteSha
         ie.state = 'base'
         ie.updatedAt = Date.now()
+        // Write updated entry to info blob
         await this.backend.writeBlob(filepath, JSON.stringify(ie), 'info')
       }
 
@@ -55,17 +56,8 @@ export class ConflictManager {
         // ignore
       }
 
-      await this.indexManager.saveIndex()
-      // Ensure index head reflects resolved remote state when possible
-      try {
-        if (ie && ie.baseSha) {
-          this.indexManager.setHead(ie.baseSha)
-          await this.indexManager.saveIndex()
-        }
-      } catch {
-        // best-effort: ignore errors when updating head
-      }
-      await this.indexManager.loadIndex()
+      // Note: entries are refreshed via backend.readIndex() in getIndex()
+      // No explicit reload needed here
       return true
     } catch {
       return false

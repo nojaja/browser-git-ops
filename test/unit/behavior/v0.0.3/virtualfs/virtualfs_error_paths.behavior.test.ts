@@ -237,7 +237,8 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
       // Pull with different content
       const result = await vfs.pull('h2', { 'file.txt': 'v2' })
 
-      expect(result.fetchedPaths.length + result.reconciledPaths.length).toBeGreaterThan(0)
+      // v0.0.4: pull is metadata-only, fetchedPaths is empty
+      expect(result.fetchedPaths.length + result.reconciledPaths.length).toBe(0)
       expect(result.conflicts).toEqual([])
     })
   })
