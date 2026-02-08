@@ -103,10 +103,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
   private _loadInMemoryWorkspaceInfo(store: any, result: IndexFile, branch: string): void {
     for (const [k, v] of store.infoBlobs.entries()) {
       if (k.startsWith(branch + BRANCH_SEP)) continue
-      try {
-        const parsed = JSON.parse(v)
-        result.entries[k] = parsed
-      } catch { continue }
+      const parsed = this._safeParseInfo(v, k)
+      if (parsed) result.entries[k] = parsed
     }
   }
 
@@ -119,11 +117,23 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
       if (!k.startsWith(branch + BRANCH_SEP)) continue
       const filepath = k.slice((branch + BRANCH_SEP).length)
       if (result.entries[filepath]) continue
-      try {
-        const parsed = JSON.parse(v)
-        if (parsed && parsed.state === 'deleted') continue
-        result.entries[filepath] = parsed
-      } catch { continue }
+      const parsed = this._safeParseInfo(v, k)
+      if (!parsed) continue
+      if (parsed && parsed.state === 'deleted') continue
+      result.entries[filepath] = parsed
+    }
+  }
+
+  /**
+   * Safely parse stored info JSON and log parse errors.
+   * @returns parsed object or null
+   */
+  private _safeParseInfo(v: string, key: string): any | null {
+    try {
+      return JSON.parse(v)
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('parse info failed', key, error)
+      return null
     }
   }
 
@@ -201,7 +211,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     const gitInfoTxt = store.infoBlobs.has(gitBaseKey) ? store.infoBlobs.get(gitBaseKey)! : null
     let existing: any = undefined
     if (gitInfoTxt) {
-      try { existing = JSON.parse(gitInfoTxt) } catch { existing = undefined }
+      try { existing = JSON.parse(gitInfoTxt) } catch (error) { if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('parse gitInfoTxt failed', error); existing = undefined }
     }
     const sha = await this.shaOf(content)
     const now = Date.now()
@@ -315,20 +325,11 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
    */
   private _readInMemoryBlobWithSegment(store: any, filepath: string, seg: string): string | null {
     const branch = this.currentBranch || 'main'
-    // Normalize info-git to info
-    if (seg === SEG_INFO_GIT) {
-      // explicit git-scoped info: prefer branch-prefixed entry
-      const key = `${branch}${BRANCH_SEP}${filepath}`
-      if (store.infoBlobs.has(key)) return store.infoBlobs.get(key)!
-      return null
-    }
-    if (seg === SEG_INFO_WORKSPACE) return store.infoBlobs.has(filepath) ? store.infoBlobs.get(filepath)! : null
-
-    // v0.0.4: conflictBlob segment uses prefixed key
-    if (seg === 'conflictBlob') {
-      const key = `${branch}${BRANCH_SEP}conflictBlob${BRANCH_SEP}${filepath}`
-      return store.conflictBlobs.has(key) ? store.conflictBlobs.get(key)! : null
-    }
+    // Delegate specific segment handling to helpers to reduce cognitive complexity
+    if (seg === SEG_INFO_WORKSPACE) return this._handleInfoWorkspaceSegment(store, filepath)
+    if (seg === SEG_INFO_GIT) return this._handleInfoGitSegment(store, branch, filepath)
+    if (seg === 'info') return this._handleInfoGenericSegment(store, branch, filepath)
+    if (seg === 'conflictBlob') return this._handleConflictBlobSegment(store, branch, filepath)
 
     const segmentToStore = {
       [SEG_WORKSPACE]: store.workspaceBlobs,
@@ -336,9 +337,94 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
       conflict: store.conflictBlobs,
       info: store.infoBlobs,
     } as Record<string, Map<string, string>>
-    const m = segmentToStore[seg]
+    return this._getFromSegmentMap(segmentToStore, seg, branch, filepath)
+  }
+
+  /**
+   * Handle explicit workspace-info segment read.
+   * @returns {string|null}
+   */
+  private _handleInfoWorkspaceSegment(store: any, filepath: string): string | null {
+    const infoWs = this._readInfoWorkspace(store, filepath)
+    return infoWs !== undefined ? infoWs : null
+  }
+
+  /**
+   * Handle explicit git-scoped info segment read.
+   * @returns {string|null}
+   */
+  private _handleInfoGitSegment(store: any, branch: string, filepath: string): string | null {
+    const infoGit = this._readInfoGit(store, branch, filepath)
+    return infoGit !== undefined ? infoGit : null
+  }
+
+  /**
+   * Handle generic info segment read (prefer workspace then git-prefixed).
+   * @returns {string|null}
+   */
+  private _handleInfoGenericSegment(store: any, branch: string, filepath: string): string | null {
+    const infoWs = this._readInfoWorkspace(store, filepath)
+    if (infoWs !== undefined) return infoWs
+    const infoGit = this._readInfoGit(store, branch, filepath)
+    return infoGit !== undefined ? infoGit : null
+  }
+
+  /**
+   * Handle conflictBlob explicit segment read.
+   * @returns {string|null}
+   */
+  private _handleConflictBlobSegment(store: any, branch: string, filepath: string): string | null {
+    const conflictBlob = this._readConflictBlob(store, branch, filepath)
+    return conflictBlob !== undefined ? conflictBlob : null
+  }
+
+  /**
+   * Read a branch-prefixed info entry if present.
+   * @param store storage object
+   * @param branch branch name
+   * @param filepath file path
+   * @returns {string|null|undefined} stored info string or undefined when not present
+   */
+  private _readInfoGit(store: any, branch: string, filepath: string): string | null | undefined {
+    if (store.infoBlobs.has(`${branch}${BRANCH_SEP}${filepath}`)) return store.infoBlobs.get(`${branch}${BRANCH_SEP}${filepath}`)!
+    return undefined
+  }
+
+  /**
+   * Read a workspace-local info entry if present.
+   * @param store storage object
+   * @param filepath file path
+   * @returns {string|null|undefined} stored info string or undefined when not present
+   */
+  private _readInfoWorkspace(store: any, filepath: string): string | null | undefined {
+    if (store.infoBlobs.has(filepath)) return store.infoBlobs.get(filepath)!
+    return undefined
+  }
+
+  /**
+   * Read an on-demand conflict blob if present.
+   * @param store storage object
+   * @param branch branch name
+   * @param filepath file path
+   * @returns {string|null|undefined} stored conflict blob or undefined when not present
+   */
+  private _readConflictBlob(store: any, branch: string, filepath: string): string | null | undefined {
+    const key = `${branch}${BRANCH_SEP}conflictBlob${BRANCH_SEP}${filepath}`
+    if (store.conflictBlobs.has(key)) return store.conflictBlobs.get(key)!
+    return undefined
+  }
+
+  /**
+   * Helper to read from a mapped segment store using prefixed/unprefixed keys.
+   * @param map segment->store map
+   * @param seg requested segment
+   * @param branch branch name for prefixed keys
+   * @param filepath file path to lookup
+   * @returns {string|null} stored value or null
+   */
+  private _getFromSegmentMap(map: Record<string, Map<string, string>>, seg: string, branch: string, filepath: string): string | null {
+    const m = map[seg]
     if (!m) return null
-    // First try unprefixed key (covers workspace and workspace-local info)
     if (m.has(filepath)) return m.get(filepath)!
     const key = `${branch}${BRANCH_SEP}${filepath}`
     return m.has(key) ? m.get(key)! : null
@@ -390,22 +476,31 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     if (!m) return []
 
     const p = prefix ? prefix.replace(/^\/+|\/+$/g, '') : ''
-    let keys = Array.from(m.keys())
-    // For info store include both unprefixed (workspace-local) keys and branch-prefixed keys
+    const allKeys = Array.from(m.keys())
+    const keys = this._resolveKeysForList(allKeys, String(seg), p, recursive)
+
+    return this._collectFilesInMemory(keys, store)
+  }
+
+  /**
+   * Resolve and filter keys for `listFiles` into final key list.
+   */
+  /**
+   * Resolve and filter keys for `listFiles` into final key list.
+   * @returns {string[]} filtered keys
+   */
+  private _resolveKeysForList(allKeys: string[], seg: string, p: string, recursive: boolean): string[] {
+    let keys = allKeys.slice()
     if (seg === 'info') {
       const branch = this.currentBranch || 'main'
       const unpref = keys.filter((k) => !k.startsWith(branch + BRANCH_SEP))
       const pref = keys.filter((k) => k.startsWith(branch + BRANCH_SEP)).map((k) => k.slice((branch + BRANCH_SEP).length))
-      // merge with workspace-local keys first (they take precedence)
-      const merged = Array.from(new Set(unpref.concat(pref)))
-      keys = merged
+      keys = Array.from(new Set(unpref.concat(pref)))
     } else if (seg !== SEG_WORKSPACE) {
       const branch = this.currentBranch || 'main'
       keys = keys.filter((k) => k.startsWith(branch + BRANCH_SEP)).map((k) => k.slice((branch + BRANCH_SEP).length))
     }
-    keys = this._filterKeys(keys, p, recursive)
-
-    return this._collectFilesInMemory(keys, store)
+    return this._filterKeys(keys, p, recursive)
   }
 
   /**

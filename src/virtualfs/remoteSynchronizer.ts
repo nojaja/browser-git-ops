@@ -212,9 +212,9 @@ export class RemoteSynchronizer {
    * リモートの追加/更新を処理する
    * @returns {Promise<void>}
    */
-  private async _processRemoteAddsAndUpdates(remoteShas: Record<string, string>, baseSnapshot: Record<string, string>, remoteHead: string, conflicts: Array<any>, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
+  private async _processRemoteAddsAndUpdates(remoteShas: Record<string, string>, baseSnapshot: Record<string, string>, remoteHead: string, conflicts: Array<any>, adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
     for (const [p, remoteSha] of Object.entries(remoteShas)) {
-      await this._handleRemotePath(p, remoteSha, baseSnapshot, conflicts, remoteHead, adapterInstance, normalized)
+      await this._handleRemotePath(p, remoteSha, baseSnapshot, conflicts, remoteHead, adapterInstance, _normalized)
     }
   }
 
@@ -266,7 +266,7 @@ export class RemoteSynchronizer {
    * 個別のリモートパスを処理する（新規/既存の振り分けを行う）
    * @returns {Promise<void>}
    */
-  private async _handleRemotePath(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, remoteHeadSha: string, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
+  private async _handleRemotePath(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, remoteHeadSha: string, adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
     let indexEntry: any = undefined
     const infoTxt = await this._backend.readBlob(p, 'info')
     if (infoTxt) indexEntry = JSON.parse(infoTxt)
@@ -282,28 +282,28 @@ export class RemoteSynchronizer {
       localBase = { sha: indexEntry.baseSha, content: baseBlob }
     }
 
-    if (!indexEntry) return await this._handleRemoteNew(p, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, localBase, remoteHeadSha, adapterInstance, normalized)
-    return await this._handleRemoteExisting(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, remoteHeadSha, adapterInstance, normalized)
+    if (!indexEntry) return await this._handleRemoteNew(p, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, localBase, remoteHeadSha, adapterInstance, _normalized)
+    return await this._handleRemoteExisting(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, remoteHeadSha, adapterInstance, _normalized)
   }
 
   /**
    * 新規ファイルに対する処理（追加 or conflict）
    * @returns {Promise<void>}
    */
-  private async _handleRemoteNew(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string } | undefined, localBase: { sha: string; content: string } | undefined, remoteHeadSha: string, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
+  private async _handleRemoteNew(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string } | undefined, localBase: { sha: string; content: string } | undefined, remoteHeadSha: string, adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
     const workspaceSha = localWorkspace ? localWorkspace.sha : undefined
     if (localWorkspace) {
-      await this._handleRemoteNewConflict(p, baseSnapshot[p], remoteHeadSha, conflicts, workspaceSha, localBase?.sha, normalized)
+      await this._handleRemoteNewConflict(p, baseSnapshot[p], remoteHeadSha, conflicts, workspaceSha, localBase?.sha, _normalized)
       return
     }
-    await this._handleRemoteNewAdd(p, perFileRemoteSha, baseSnapshot, remoteHeadSha, conflicts, workspaceSha, localBase?.sha, adapterInstance, normalized)
+    await this._handleRemoteNewAdd(p, perFileRemoteSha, baseSnapshot, remoteHeadSha, conflicts, workspaceSha, localBase?.sha, adapterInstance, _normalized)
   }
 
   /**
    * 新規でコンフリクトが発生した場合の処理
    * @returns {Promise<void>}
    */
-  private async _handleRemoteNewConflict(p: string, content: string | undefined, remoteHeadSha: string, conflicts: Array<any>, workspaceSha: string | undefined, baseSha: string | undefined, normalized?: RemoteSnapshotDescriptor): Promise<void> {
+  private async _handleRemoteNewConflict(p: string, content: string | undefined, remoteHeadSha: string, conflicts: Array<any>, workspaceSha: string | undefined, baseSha: string | undefined, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
     await this._conflictManager.persistRemoteContentAsConflict(p, content)
     let ie: any = undefined
     const infoTxt = await this._backend.readBlob(p, 'info')
@@ -321,7 +321,7 @@ export class RemoteSynchronizer {
    * 新規追加を処理する
    * @returns {Promise<void>}
    */
-  private async _handleRemoteNewAdd(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, remoteHeadSha: string, conflicts: Array<any>, workspaceSha: string | undefined, baseSha: string | undefined, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
+  private async _handleRemoteNewAdd(p: string, perFileRemoteSha: string, _baseSnapshot: Record<string, string>, _remoteHeadSha: string, _conflicts: Array<any>, _workspaceSha: string | undefined, _baseSha: string | undefined, _adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
     // Metadata-first: always record info with baseSha. Defer base blob write until on-demand fetch.
     const entry = { path: p, state: 'base', baseSha: perFileRemoteSha, updatedAt: Date.now() }
     await this._backend.writeBlob(p, JSON.stringify(entry), 'info')
@@ -332,13 +332,13 @@ export class RemoteSynchronizer {
    * 既存ファイルに対する更新/競合処理
    * @returns {Promise<void>}
    */
-  private async _handleRemoteExisting(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string } | undefined, remoteHeadSha: string, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
+  private async _handleRemoteExisting(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string } | undefined, remoteHeadSha: string, adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
     const baseSha = indexEntry.baseSha
     if (baseSha === perFileRemoteSha) return
     if (!localWorkspace || localWorkspace.sha === baseSha) {
-      await this._handleRemoteExistingUpdate(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, remoteHeadSha, adapterInstance, normalized)
+      await this._handleRemoteExistingUpdate(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, remoteHeadSha, adapterInstance, _normalized)
     } else {
-      await this._handleRemoteExistingConflict(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, remoteHeadSha, adapterInstance, normalized)
+      await this._handleRemoteExistingConflict(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, remoteHeadSha, adapterInstance, _normalized)
     }
   }
 
@@ -346,8 +346,7 @@ export class RemoteSynchronizer {
    * 既存ファイルの更新処理
    * @returns {Promise<void>}
    */
-  private async _handleRemoteExistingUpdate(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, remoteHeadSha: string, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
-    const baseSha = indexEntry.baseSha
+  private async _handleRemoteExistingUpdate(p: string, indexEntry: any, perFileRemoteSha: string, _baseSnapshot: Record<string, string>, _conflicts: Array<any>, _remoteHeadSha: string, _adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
     // Metadata-first: update info to new baseSha; defer base blob write until requested.
     indexEntry.baseSha = perFileRemoteSha
     indexEntry.state = 'base'
@@ -360,7 +359,7 @@ export class RemoteSynchronizer {
    * 既存ファイルで競合が発生した場合の処理
    * @returns {Promise<void>}
    */
-  private async _handleRemoteExistingConflict(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string }, remoteHeadSha: string, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
+  private async _handleRemoteExistingConflict(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string }, remoteHeadSha: string, _adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
     const baseSha = indexEntry.baseSha
     await this._conflictManager.persistRemoteContentAsConflict(p, baseSnapshot[p])
     this._conflictManager.setIndexEntryToConflict(p, indexEntry, remoteHeadSha)
@@ -428,67 +427,155 @@ export class RemoteSynchronizer {
     if (existing !== null) return existing
 
     // read info to find baseSha
-    let infoTxt: string | null = null
-    try {
-      infoTxt = await this._backend.readBlob(path, 'info')
-    } catch (e) {
-      infoTxt = null
-    }
-    if (!infoTxt) return null
-    let ie: any = null
-    try { ie = JSON.parse(infoTxt) } catch (e) { ie = null }
+    const ie: any = await this._readInfoEntry(path)
     if (!ie || !ie.baseSha) return null
-
     const baseSha = ie.baseSha
 
     // Try GitHub-style adapter first
-    if (adapterInstance && typeof adapterInstance.getBlob === 'function') {
-      try {
-        const b = await adapterInstance.getBlob(baseSha)
-        if (b && typeof b.content !== 'undefined') {
-          // decode base64 if needed; strip newlines which GitHub may include
-          const enc = b.encoding || 'utf-8'
-          let content: string
-          if (enc === 'base64') {
-            const safe = (b.content || '').replace(/\n/g, '')
-            // universal base64 -> UTF-8 decoding: prefer Buffer (Node), fallback to atob+TextDecoder (browser)
-            if (typeof Buffer !== 'undefined' && typeof (Buffer as any).from === 'function') {
-              content = Buffer.from(safe, 'base64').toString('utf8')
-            } else if (typeof atob === 'function') {
-              const bin = atob(safe)
-              const len = bin.length
-              const bytes = new Uint8Array(len)
-              for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i)
-              content = (typeof TextDecoder !== 'undefined') ? new TextDecoder().decode(bytes) : String.fromCharCode.apply(null, Array.from(bytes))
-            } else {
-              // last resort: attempt to return raw content
-              content = b.content
-            }
-          } else {
-            content = b.content
-          }
-          await this._backend.writeBlob(path, content, 'base')
-          return content
-        }
-      } catch (error) {
-        return null
-      }
-    }
+    const fromAdapter = await this._tryFetchBaseWithAdapter(adapterInstance, baseSha, path)
+    if (fromAdapter !== undefined) return fromAdapter
 
     // Fallback: adapter may expose a raw file fetch API (GitLab-style)
-    if (adapterInstance && typeof adapterInstance._fetchFileRaw === 'function') {
-      try {
-        const raw = await adapterInstance._fetchFileRaw(path, ie.branch || 'main')
-        if (typeof raw === 'string') {
-          await this._backend.writeBlob(path, raw, 'base')
-          return raw
-        }
-      } catch (error) {
-        return null
-      }
-    }
+    const rawFetch = await this._tryFetchRawFile(adapterInstance, path, ie)
+    if (rawFetch !== undefined) return rawFetch
 
     return null
+  }
+
+  /**
+   * Read and parse the stored info entry for `path`.
+   * Returns parsed object or null when missing/invalid.
+    * @returns {Promise<any|null>} parsed object or null
+   */
+  private async _readInfoEntry(path: string): Promise<any | null> {
+    try {
+      const infoTxt = await this._backend.readBlob(path, 'info')
+      if (!infoTxt) return null
+      try {
+        return JSON.parse(infoTxt)
+      } catch (error) {
+        if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('parse infoTxt failed', path, error)
+        return null
+      }
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('readBlob(info) failed', path, error)
+      return null
+    }
+  }
+
+  /**
+   * Attempt to fetch base content using adapterInstance.getBlob.
+   * Returns string when fetched, null when fetch attempted but failed, or undefined when adapter not supported.
+    * @returns {Promise<string|null|undefined>} fetched content, null, or undefined
+   */
+  private async _tryFetchBaseWithAdapter(adapterInstance: any, baseSha: string, path: string): Promise<string | null | undefined> {
+    if (!adapterInstance || typeof adapterInstance.getBlob !== 'function') return undefined
+    try {
+      const b = await adapterInstance.getBlob(baseSha)
+      if (b && typeof b.content !== 'undefined') return await this._handleFetchedBlob(b, path)
+      return null
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('adapter.getBlob failed', error)
+      return null
+    }
+  }
+
+  /**
+   * Handle a fetched blob-like object: decode if base64 and persist into backend.
+   * Returns decoded content string, or null on failure.
+   * @returns {Promise<string|null>} decoded content or null on failure
+   */
+  private async _handleFetchedBlob(b: any, path: string): Promise<string | null> {
+    try {
+      const enc = b.encoding || 'utf-8'
+      const content = enc === 'base64' ? this._decodeBase64ToString((b.content || '').replace(/\n/g, '')) : b.content
+      await this._backend.writeBlob(path, content, 'base')
+      return content
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('handleFetchedBlob failed', error)
+      return null
+    }
+  }
+
+  /**
+   * Attempt to fetch raw file using adapterInstance._fetchFileRaw if available.
+   * Returns string when fetched, null when attempted but failed, or undefined when adapter not supported.
+    * @returns {Promise<string|null|undefined>} fetched content, null, or undefined
+   */
+  private async _tryFetchRawFile(adapterInstance: any, path: string, ie: any): Promise<string | null | undefined> {
+    if (!adapterInstance || typeof adapterInstance._fetchFileRaw !== 'function') return undefined
+    try {
+      const raw = await adapterInstance._fetchFileRaw(path, ie.branch || 'main')
+      if (typeof raw === 'string') {
+        await this._backend.writeBlob(path, raw, 'base')
+        return raw
+      }
+      return null
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('adapter._fetchFileRaw failed', error)
+      return null
+    }
+  }
+
+  /**
+   * Decode a base64 string into UTF-8 text. Uses global Buffer when available,
+   * falls back to atob/TextDecoder for browsers.
+   * @returns {string} decoded UTF-8 string
+   */
+  private _decodeBase64ToString(safe: string): string {
+    // Try Buffer-based decode first, then atob-based decode, otherwise return input
+    const bufDecoded = this._tryDecodeWithBuffer(safe)
+    if (typeof bufDecoded === 'string') return bufDecoded
+    const atobDecoded = this._tryDecodeWithAtob(safe)
+    if (typeof atobDecoded === 'string') return atobDecoded
+    return safe
+  }
+
+  /**
+   * Convert a binary string (result of atob) into a UTF-8 string.
+   * @param bin binary string
+   * @returns {string} decoded UTF-8 string
+   */
+  private _binToUtf8(bin: string): string {
+    const length_ = bin.length
+    const bytes = new Uint8Array(length_)
+    for (let index = 0; index < length_; index++) bytes[index] = bin.charCodeAt(index)
+    return (typeof TextDecoder !== 'undefined') ? new TextDecoder().decode(bytes) : String.fromCharCode.apply(null, Array.from(bytes))
+  }
+
+  /**
+   * Try to decode base64 using a global Buffer if available.
+   * Returns decoded string or undefined when Buffer not available.
+   * @param safe base64 string
+   * @returns {string|undefined}
+   */
+  private _tryDecodeWithBuffer(safe: string): string | undefined {
+    try {
+      const bufGlobal = (globalThis as any).Buffer
+      if (typeof bufGlobal !== 'undefined' && typeof bufGlobal.from === 'function') {
+        return bufGlobal.from(safe, 'base64').toString('utf8')
+      }
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('buffer decode failed', error)
+    }
+    return undefined
+  }
+
+  /**
+   * Try to decode base64 using atob/TextDecoder in browser.
+   * Returns decoded string or undefined when atob not available or parse fails.
+   * @param safe base64 string
+   * @returns {string|undefined}
+   */
+  private _tryDecodeWithAtob(safe: string): string | undefined {
+    try {
+      if (typeof atob !== 'function') return undefined
+      const bin = atob(safe)
+      return this._binToUtf8(bin)
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('atob decode failed', error)
+      return undefined
+    }
   }
 }
 

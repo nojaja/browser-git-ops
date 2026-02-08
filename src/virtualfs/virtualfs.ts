@@ -124,7 +124,8 @@ export class VirtualFS {
     try {
       const index = await this.indexManager.getIndex()
       this.adapterMeta = (index as any).adapter || null
-    } catch {
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('loadIndex getIndex failed', error)
       this.adapterMeta = null
     }
   }
@@ -139,20 +140,35 @@ export class VirtualFS {
     this.adapter = adapter
     this.adapterMeta = meta || null
     // If adapter instance provided, propagate logger when available
+    await this._tryInjectLogger()
+    await this._tryPersistAdapterMeta()
+  }
+  /**
+   * Try to inject the configured logger into the adapter instance (best-effort).
+   * @returns {Promise<void>}
+   */
+  private async _tryInjectLogger(): Promise<void> {
     try {
       if (this.adapter && this.logger && typeof (this.adapter as any).setLogger === 'function') {
         (this.adapter as any).setLogger(this.logger)
       }
-    } catch {
-      // best-effort logging injection; ignore failures
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('adapter.setLogger failed', error)
     }
+  }
+
+  /**
+   * Persist adapter metadata into the index file (best-effort).
+   * @returns {Promise<void>}
+   */
+  private async _tryPersistAdapterMeta(): Promise<void> {
     try {
       const index = await this.indexManager.getIndex()
       if (this.adapterMeta) (index as any).adapter = this.adapterMeta
       else delete (index as any).adapter
       await this.backend.writeIndex(index)
-    } catch {
-      // best-effort persistence; ignore failures here
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('writeIndex failed', error)
     }
   }
 
@@ -168,7 +184,8 @@ export class VirtualFS {
       const index = await this.indexManager.getIndex()
       this.adapterMeta = (index as any).adapter || null
       return this.adapterMeta
-    } catch {
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('getAdapter getIndex failed', error)
       return null
     }
   }
@@ -180,14 +197,7 @@ export class VirtualFS {
   async getAdapterInstance(): Promise<any | null> {
     if (this.adapter) return this.adapter
     // ensure adapterMeta populated from loaded index
-    if (!this.adapterMeta) {
-      try {
-        const index = await this.indexManager.getIndex()
-        this.adapterMeta = (index as any).adapter || null
-      } catch {
-        this.adapterMeta = null
-      }
-    }
+    if (!this.adapterMeta) await this._ensureAdapterMetaLoaded()
     if (!this.adapterMeta || !this.adapterMeta.type) return null
     const type = this.adapterMeta.type
     const options = this.adapterMeta.opts || {}
@@ -195,6 +205,20 @@ export class VirtualFS {
     const created = this._instantiateAdapter(type, options)
     if (created) this.adapter = created
     return this.adapter || null
+  }
+
+  /**
+   * Load adapterMeta from index if not present.
+   * @returns {Promise<void>}
+   */
+  private async _ensureAdapterMetaLoaded(): Promise<void> {
+    try {
+      const index = await this.indexManager.getIndex()
+      this.adapterMeta = (index as any).adapter || null
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('getAdapterInstance helper getIndex failed', error)
+      this.adapterMeta = null
+    }
   }
 
   /**
@@ -210,7 +234,8 @@ export class VirtualFS {
       if (this.logger) optionsWithLogger.logger = this.logger
       if (type === 'github') return new GitHubAdapter(optionsWithLogger)
       if (type === 'gitlab') return new GitLabAdapter(optionsWithLogger)
-    } catch {
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('instantiate adapter failed', error)
       return null
     }
     return null
@@ -545,13 +570,7 @@ export class VirtualFS {
     const descriptor = await instAdapter.fetchSnapshot(resolvedSha)
     const normalized: RemoteSnapshotDescriptor = typeof descriptor === 'string' ? await this._normalizeRemoteInput(descriptor, baseSnapshot) : (descriptor as RemoteSnapshotDescriptor)
     // Ensure backend uses requested branch scope before writing base/index
-    try {
-      if (this.backend && typeof (this.backend as any).setBranch === 'function') {
-        ;(this.backend as any).setBranch(reference)
-      }
-    } catch (e) {
-      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('backend.setBranch failed', e)
-    }
+    await this._trySetBackendBranch(reference)
     // v0.0.4: pull must NOT pass baseSnapshot to remoteSynchronizer
     const pullResult: any = await this.remoteSynchronizer.pull(normalized, undefined, instAdapter)
     // on success persist requested ref into adapter metadata (branch)
@@ -570,13 +589,7 @@ export class VirtualFS {
     const instAdapter = await this.getAdapterInstance()
     const branch = (this.adapterMeta && this.adapterMeta.opts && this.adapterMeta.opts.branch) || 'main'
     // Ensure backend scope matches the persisted branch before pulling
-    try {
-      if (this.backend && typeof (this.backend as any).setBranch === 'function') {
-        ;(this.backend as any).setBranch(branch)
-      }
-    } catch (e) {
-      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('backend.setBranch failed', e)
-    }
+    await this._trySetBackendBranch(branch)
     const resolvedSha = await instAdapter!.resolveRef(branch)
     const descriptor = await instAdapter!.fetchSnapshot(resolvedSha)
     const normalized: RemoteSnapshotDescriptor = typeof descriptor === 'string' ? await this._normalizeRemoteInput(descriptor, baseSnapshot) : (descriptor as RemoteSnapshotDescriptor)
@@ -617,12 +630,22 @@ export class VirtualFS {
     // keep current adapter instance if present
     await this.setAdapter(this.adapter || adapterInstance, newMeta)
     // Also inform backend about branch scope when backend supports it
+    await this._trySetBackendBranch(branch)
+
+  }
+
+  /**
+   * Best-effort: set backend branch scope when backend supports it.
+   * @param branch branch name to set
+   * @returns {Promise<void>}
+   */
+  private async _trySetBackendBranch(branch: string): Promise<void> {
     try {
       if (this.backend && typeof (this.backend as any).setBranch === 'function') {
         ;(this.backend as any).setBranch(branch)
       }
-    } catch (e) {
-      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('backend.setBranch failed', e)
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('backend.setBranch failed', error)
     }
   }
 
@@ -904,7 +927,8 @@ export class VirtualFS {
     if (typeof resolved !== 'string') return resolved as RemoteSnapshotDescriptor
     try {
       return await this._normalizeRemoteInput(resolved, {})
-    } catch {
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('_toNormalizedDescriptor normalize failed', error)
       return null
     }
   }
