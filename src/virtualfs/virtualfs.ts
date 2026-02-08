@@ -270,7 +270,23 @@ export class VirtualFS {
    * @returns {Promise<string|null>} ファイル内容または null
    */
   async readFile(filepath: string) {
-    return await this.localFileManager.readFile(filepath)
+    // Try workspace/base first
+    let content = await this.localFileManager.readFile(filepath)
+    if (content !== null) return content
+
+    // On-demand: attempt to fetch base via RemoteSynchronizer using adapter if available
+    try {
+      const adapter = await this.getAdapterInstance()
+      if (adapter && this.remoteSynchronizer && typeof (this.remoteSynchronizer as any).fetchBaseIfMissing === 'function') {
+        await (this.remoteSynchronizer as any).fetchBaseIfMissing(filepath, adapter)
+        // re-check after on-demand fetch
+        content = await this.localFileManager.readFile(filepath)
+      }
+    } catch {
+      // best-effort: if on-demand fetch fails, fall back to null
+    }
+
+    return content
   }
 
   /**
@@ -493,7 +509,10 @@ export class VirtualFS {
     const preIndex = await this.getIndex()
     const preIndexKeys = Object.keys(preIndex.entries)
 
-    const pullResult: any = await this.remoteSynchronizer.pull(normalized, baseSnapshot)
+    const instAdapter = await this.getAdapterInstance()
+    // v0.0.4: pull must NOT pass baseSnapshot to remoteSynchronizer
+    // metadata-first: only fetch tree, base content deferred until on-demand
+    const pullResult: any = await this.remoteSynchronizer.pull(normalized, undefined, instAdapter)
 
     const postIndex = await this.getIndex()
     const postIndexKeys = Object.keys(postIndex.entries)
@@ -525,7 +544,8 @@ export class VirtualFS {
     const resolvedSha = await instAdapter.resolveRef(reference)
     const descriptor = await instAdapter.fetchSnapshot(resolvedSha)
     const normalized: RemoteSnapshotDescriptor = typeof descriptor === 'string' ? await this._normalizeRemoteInput(descriptor, baseSnapshot) : (descriptor as RemoteSnapshotDescriptor)
-    const pullResult: any = await this.remoteSynchronizer.pull(normalized, baseSnapshot)
+    // v0.0.4: pull must NOT pass baseSnapshot to remoteSynchronizer
+    const pullResult: any = await this.remoteSynchronizer.pull(normalized, undefined, instAdapter)
     // on success persist requested ref into adapter metadata (branch)
     await this._persistAdapterBranchMeta(reference, instAdapter).catch((error) => {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('persisting adapter metadata failed', error)
@@ -544,7 +564,8 @@ export class VirtualFS {
     const resolvedSha = await instAdapter!.resolveRef(branch)
     const descriptor = await instAdapter!.fetchSnapshot(resolvedSha)
     const normalized: RemoteSnapshotDescriptor = typeof descriptor === 'string' ? await this._normalizeRemoteInput(descriptor, baseSnapshot) : (descriptor as RemoteSnapshotDescriptor)
-    const pullResult: any = await this.remoteSynchronizer.pull(normalized, baseSnapshot)
+    // v0.0.4: pull must NOT pass baseSnapshot to remoteSynchronizer
+    const pullResult: any = await this.remoteSynchronizer.pull(normalized, undefined, instAdapter)
     // do not persist branch change (we used existing branch)
     return { ...pullResult, remote: normalized, remotePaths: Object.keys(normalized.shas || {}) }
   }

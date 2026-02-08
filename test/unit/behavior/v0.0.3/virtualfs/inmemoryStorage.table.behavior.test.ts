@@ -66,7 +66,9 @@ describe('InMemoryStorage - table-driven branch tests', () => {
     // populate segments
     await s.writeBlob('f1.txt', 'w', 'workspace')
     await s.writeBlob('f1.txt', 'B', 'base')
-    await s.writeBlob('f1.txt', 'C', 'conflict')
+    // v0.0.4: conflict segment stores Info JSON metadata
+    const conflictInfo = JSON.stringify({ path: 'f1.txt', state: 'conflict', updatedAt: Date.now() })
+    await s.writeBlob('f1.txt', conflictInfo, 'conflict')
     await s.writeBlob('f1.txt', JSON.stringify({x:1}), 'info')
 
     if (delSeg) await s.deleteBlob('f1.txt', delSeg)
@@ -81,7 +83,10 @@ describe('InMemoryStorage - table-driven branch tests', () => {
       expect(w).toBeNull()
       // other segments should remain
       expect(b).toBe('B')
-      expect(c).toBe('C')
+      // v0.0.4: conflict segment contains Info JSON metadata
+      expect(c).not.toBeNull()
+      const parsed = JSON.parse(c!)
+      expect(parsed.state).toBe('conflict')
       expect(i).toBe(JSON.stringify({x:1}))
     } else {
       // all deleted

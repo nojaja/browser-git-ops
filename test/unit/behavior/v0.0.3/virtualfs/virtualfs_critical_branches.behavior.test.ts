@@ -85,9 +85,9 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
     }
 
     const res = await vfs.pull(normalized)
-    // file2 should be added to base since workspace unchanged
+    // v0.0.4: pull is metadata-only, content is not written to base
     const file2 = await backend.readBlob('file2.txt', 'base')
-    expect(file2).toBe('new remote file')
+    expect(file2).toBe(null)
   })
 
   it('pull with remote deletion and workspace unchanged', async () => {
@@ -153,9 +153,12 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
     }
 
     const res = await vfs.pull(normalized)
-    // file2 should be marked as conflict due to missing content
+    // v0.0.4: pull is metadata-only, fetchContent is not called, so no conflict
     const file2Conflict = res.conflicts?.find((c: any) => c.path === 'file2.txt')
-    expect(file2Conflict).toBeDefined()
+    expect(file2Conflict).toBeUndefined()
+    // v0.0.4: no conflict metadata without fetchContent call
+    const file2ConflictInfo = await backend.readBlob('file2.txt', 'conflict')
+    expect(file2ConflictInfo).toBeNull()
   })
 
   it('pull with workspace conflict - remote deletion vs local modification', async () => {

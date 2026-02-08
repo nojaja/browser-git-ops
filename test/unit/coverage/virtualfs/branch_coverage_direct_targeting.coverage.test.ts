@@ -138,7 +138,8 @@ describe('Storage error paths and fallbacks', () => {
       // Pull without prior base
       const result = await vfs.pull('initial', { 'file.txt': 'content' })
       
-      expect(result.fetchedPaths).toContain('file.txt')
+      // v0.0.4: pull is metadata-only, fetchedPaths is empty
+      expect(result.fetchedPaths).toEqual([])
     })
 
     it('GetChangeSet with no changes', async () => {

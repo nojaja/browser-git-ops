@@ -40,7 +40,8 @@ describe('GitHubAdapter branch coverage', () => {
       return makeRes(false, 404, {})
     }
     const r1 = await a.getBlob('sha-b64')
-    expect(r1.content).toBe('hello')
+    // Adapter returns raw API content; decode for assertion
+    expect(Buffer.from((r1.content || '').replace(/\n/g, ''), 'base64').toString('utf8')).toBe('hello')
     expect(r1.encoding).toBe('base64')
 
     const r2 = await a.getBlob('sha-raw')

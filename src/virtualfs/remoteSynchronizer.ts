@@ -34,7 +34,7 @@ export class RemoteSynchronizer {
    * @param {Record<string,string>=} baseSnapshot - オプションのベーススナップショット
    * @returns {Promise<object>} conflicts, fetchedPaths, reconciledPaths を含む結果オブジェクト
    */
-  async pull(remote: RemoteSnapshotDescriptor | string, baseSnapshot?: Record<string, string>): Promise<object> {
+  async pull(remote: RemoteSnapshotDescriptor | string, baseSnapshot?: Record<string, string>, adapterInstance?: any): Promise<object> {
     const normalized = await this._normalizeRemoteInput(remote, baseSnapshot)
 
     const conflicts: Array<any> = []
@@ -46,21 +46,22 @@ export class RemoteSynchronizer {
       if (!classified) pathsToFetch.push(p)
     }
 
-    const fetched = await normalized.fetchContent(pathsToFetch)
-    await this._processRemoteAddsAndUpdates(normalized.shas, fetched, normalized.headSha, conflicts)
+    // Metadata-first: do not fetch contents during pull.
+    const fetched: Record<string, string> = {}
+    await this._processRemoteAddsAndUpdates(normalized.shas, fetched, normalized.headSha, conflicts, adapterInstance, normalized)
     await this._processRemoteDeletions(normalized.shas, conflicts)
 
     if (conflicts.length === 0) {
       this._indexManager.setHead(normalized.headSha)
         await this._indexManager.saveIndex()
-      return { conflicts, fetchedPaths: pathsToFetch, reconciledPaths }
+      return { conflicts, fetchedPaths: Object.keys(fetched), reconciledPaths }
     }
 
     await this._conflictManager.promoteResolvedConflicts(conflicts, fetched, normalized.headSha)
 
     if (reconciledPaths.length > 0) await this._indexManager.saveIndex()
 
-    return { conflicts, fetchedPaths: pathsToFetch, reconciledPaths }
+    return { conflicts, fetchedPaths: Object.keys(fetched), reconciledPaths }
   }
 
   /**
@@ -211,9 +212,9 @@ export class RemoteSynchronizer {
    * リモートの追加/更新を処理する
    * @returns {Promise<void>}
    */
-  private async _processRemoteAddsAndUpdates(remoteShas: Record<string, string>, baseSnapshot: Record<string, string>, remoteHead: string, conflicts: Array<any>): Promise<void> {
+  private async _processRemoteAddsAndUpdates(remoteShas: Record<string, string>, baseSnapshot: Record<string, string>, remoteHead: string, conflicts: Array<any>, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
     for (const [p, remoteSha] of Object.entries(remoteShas)) {
-      await this._handleRemotePath(p, remoteSha, baseSnapshot, conflicts, remoteHead)
+      await this._handleRemotePath(p, remoteSha, baseSnapshot, conflicts, remoteHead, adapterInstance, normalized)
     }
   }
 
@@ -265,7 +266,7 @@ export class RemoteSynchronizer {
    * 個別のリモートパスを処理する（新規/既存の振り分けを行う）
    * @returns {Promise<void>}
    */
-  private async _handleRemotePath(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, remoteHeadSha: string): Promise<void> {
+  private async _handleRemotePath(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, remoteHeadSha: string, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
     let indexEntry: any = undefined
     const infoTxt = await this._backend.readBlob(p, 'info')
     if (infoTxt) indexEntry = JSON.parse(infoTxt)
@@ -281,28 +282,28 @@ export class RemoteSynchronizer {
       localBase = { sha: indexEntry.baseSha, content: baseBlob }
     }
 
-    if (!indexEntry) return await this._handleRemoteNew(p, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, localBase, remoteHeadSha)
-    return await this._handleRemoteExisting(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, remoteHeadSha)
+    if (!indexEntry) return await this._handleRemoteNew(p, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, localBase, remoteHeadSha, adapterInstance, normalized)
+    return await this._handleRemoteExisting(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, remoteHeadSha, adapterInstance, normalized)
   }
 
   /**
    * 新規ファイルに対する処理（追加 or conflict）
    * @returns {Promise<void>}
    */
-  private async _handleRemoteNew(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string } | undefined, localBase: { sha: string; content: string } | undefined, remoteHeadSha: string): Promise<void> {
+  private async _handleRemoteNew(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string } | undefined, localBase: { sha: string; content: string } | undefined, remoteHeadSha: string, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
     const workspaceSha = localWorkspace ? localWorkspace.sha : undefined
     if (localWorkspace) {
-      await this._handleRemoteNewConflict(p, baseSnapshot[p], remoteHeadSha, conflicts, workspaceSha, localBase?.sha)
+      await this._handleRemoteNewConflict(p, baseSnapshot[p], remoteHeadSha, conflicts, workspaceSha, localBase?.sha, normalized)
       return
     }
-    await this._handleRemoteNewAdd(p, perFileRemoteSha, baseSnapshot, remoteHeadSha, conflicts, workspaceSha, localBase?.sha)
+    await this._handleRemoteNewAdd(p, perFileRemoteSha, baseSnapshot, remoteHeadSha, conflicts, workspaceSha, localBase?.sha, adapterInstance, normalized)
   }
 
   /**
    * 新規でコンフリクトが発生した場合の処理
    * @returns {Promise<void>}
    */
-  private async _handleRemoteNewConflict(p: string, content: string | undefined, remoteHeadSha: string, conflicts: Array<any>, workspaceSha: string | undefined, baseSha: string | undefined): Promise<void> {
+  private async _handleRemoteNewConflict(p: string, content: string | undefined, remoteHeadSha: string, conflicts: Array<any>, workspaceSha: string | undefined, baseSha: string | undefined, normalized?: RemoteSnapshotDescriptor): Promise<void> {
     await this._conflictManager.persistRemoteContentAsConflict(p, content)
     let ie: any = undefined
     const infoTxt = await this._backend.readBlob(p, 'info')
@@ -310,6 +311,9 @@ export class RemoteSynchronizer {
     if (!ie) ie = { path: p }
       await this._conflictManager.setIndexEntryToConflict(p, ie, remoteHeadSha)
       await this._indexManager.saveIndex()
+    // v0.0.4: Store remote metadata (info) in conflict segment for on-demand fetching
+    const remoteInfo = { path: p, baseSha: remoteHeadSha, state: 'conflict', updatedAt: Date.now() }
+    await this._backend.writeBlob(p, JSON.stringify(remoteInfo), 'conflict')
     conflicts.push({ path: p, remoteSha: remoteHeadSha, workspaceSha, baseSha })
   }
 
@@ -317,34 +321,24 @@ export class RemoteSynchronizer {
    * 新規追加を処理する
    * @returns {Promise<void>}
    */
-  private async _handleRemoteNewAdd(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, remoteHeadSha: string, conflicts: Array<any>, workspaceSha: string | undefined, baseSha: string | undefined): Promise<void> {
-    const content = baseSnapshot[p]
-    if (typeof content === 'undefined') {
-      let ie: any = undefined
-      const infoTxt = await this._backend.readBlob(p, 'info')
-      if (infoTxt) ie = JSON.parse(infoTxt)
-      if (!ie) ie = { path: p }
-      await this._conflictManager.setIndexEntryToConflict(p, ie, remoteHeadSha)
-      conflicts.push({ path: p, remoteSha: remoteHeadSha, workspaceSha, baseSha })
-        await this._indexManager.saveIndex()
-      return
-    }
+  private async _handleRemoteNewAdd(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, remoteHeadSha: string, conflicts: Array<any>, workspaceSha: string | undefined, baseSha: string | undefined, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
+    // Metadata-first: always record info with baseSha. Defer base blob write until on-demand fetch.
     const entry = { path: p, state: 'base', baseSha: perFileRemoteSha, updatedAt: Date.now() }
     await this._backend.writeBlob(p, JSON.stringify(entry), 'info')
-    await this._backend.writeBlob(p, content, 'base')
+    // Note: base content is NOT eagerly fetched here. On-demand fetch occurs when readBlob('base') is required.
   }
 
   /**
    * 既存ファイルに対する更新/競合処理
    * @returns {Promise<void>}
    */
-  private async _handleRemoteExisting(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string } | undefined, remoteHeadSha: string): Promise<void> {
+  private async _handleRemoteExisting(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string } | undefined, remoteHeadSha: string, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
     const baseSha = indexEntry.baseSha
     if (baseSha === perFileRemoteSha) return
     if (!localWorkspace || localWorkspace.sha === baseSha) {
-      await this._handleRemoteExistingUpdate(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, remoteHeadSha)
+      await this._handleRemoteExistingUpdate(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, remoteHeadSha, adapterInstance, normalized)
     } else {
-      await this._handleRemoteExistingConflict(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, remoteHeadSha)
+      await this._handleRemoteExistingConflict(p, indexEntry, perFileRemoteSha, baseSnapshot, conflicts, localWorkspace, remoteHeadSha, adapterInstance, normalized)
     }
   }
 
@@ -352,34 +346,28 @@ export class RemoteSynchronizer {
    * 既存ファイルの更新処理
    * @returns {Promise<void>}
    */
-  private async _handleRemoteExistingUpdate(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, remoteHeadSha: string): Promise<void> {
+  private async _handleRemoteExistingUpdate(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, remoteHeadSha: string, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
     const baseSha = indexEntry.baseSha
-    const content = baseSnapshot[p]
-    if (typeof content === 'undefined') {
-      indexEntry.state = 'conflict'
-      indexEntry.remoteSha = remoteHeadSha
-      indexEntry.updatedAt = Date.now()
-      await this._backend.writeBlob(p, JSON.stringify(indexEntry), 'info')
-      await this._indexManager.saveIndex()
-      conflicts.push({ path: p, baseSha, remoteSha: remoteHeadSha, workspaceSha: undefined })
-      return
-    }
+    // Metadata-first: update info to new baseSha; defer base blob write until requested.
     indexEntry.baseSha = perFileRemoteSha
     indexEntry.state = 'base'
     indexEntry.updatedAt = Date.now()
     await this._backend.writeBlob(p, JSON.stringify(indexEntry), 'info')
-    await this._backend.writeBlob(p, content, 'base')
+    // Note: base content is NOT eagerly fetched here. On-demand fetch occurs when readBlob('base') is required.
   }
 
   /**
    * 既存ファイルで競合が発生した場合の処理
    * @returns {Promise<void>}
    */
-  private async _handleRemoteExistingConflict(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string }, remoteHeadSha: string): Promise<void> {
+  private async _handleRemoteExistingConflict(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string }, remoteHeadSha: string, adapterInstance?: any, normalized?: RemoteSnapshotDescriptor): Promise<void> {
     const baseSha = indexEntry.baseSha
     await this._conflictManager.persistRemoteContentAsConflict(p, baseSnapshot[p])
     this._conflictManager.setIndexEntryToConflict(p, indexEntry, remoteHeadSha)
     await this._indexManager.saveIndex()
+    // v0.0.4: Store remote metadata (info) in conflict segment for on-demand fetching
+    const remoteInfo = { path: p, baseSha: perFileRemoteSha, state: 'conflict', updatedAt: Date.now() }
+    await this._backend.writeBlob(p, JSON.stringify(remoteInfo), 'conflict')
     conflicts.push({ path: p, baseSha, remoteSha: remoteHeadSha, workspaceSha: localWorkspace?.sha })
   }
 
@@ -426,6 +414,81 @@ export class RemoteSynchronizer {
     } else if (ch.type === 'delete') {
       await this._applier.applyDelete(ch)
     }
+  }
+
+  /**
+   * On-demand: fetch and store base content for a single path when missing.
+   * @param {string} path
+   * @param {any=} adapterInstance optional adapter instance to fetch remote content
+   * @returns {Promise<string|null>} fetched content or null
+   */
+  async fetchBaseIfMissing(path: string, adapterInstance?: any): Promise<string | null> {
+    // return existing base if present
+    const existing = await this._backend.readBlob(path, 'base')
+    if (existing !== null) return existing
+
+    // read info to find baseSha
+    let infoTxt: string | null = null
+    try {
+      infoTxt = await this._backend.readBlob(path, 'info')
+    } catch (e) {
+      infoTxt = null
+    }
+    if (!infoTxt) return null
+    let ie: any = null
+    try { ie = JSON.parse(infoTxt) } catch (e) { ie = null }
+    if (!ie || !ie.baseSha) return null
+
+    const baseSha = ie.baseSha
+
+    // Try GitHub-style adapter first
+    if (adapterInstance && typeof adapterInstance.getBlob === 'function') {
+      try {
+        const b = await adapterInstance.getBlob(baseSha)
+        if (b && typeof b.content !== 'undefined') {
+          // decode base64 if needed; strip newlines which GitHub may include
+          const enc = b.encoding || 'utf-8'
+          let content: string
+          if (enc === 'base64') {
+            const safe = (b.content || '').replace(/\n/g, '')
+            // universal base64 -> UTF-8 decoding: prefer Buffer (Node), fallback to atob+TextDecoder (browser)
+            if (typeof Buffer !== 'undefined' && typeof (Buffer as any).from === 'function') {
+              content = Buffer.from(safe, 'base64').toString('utf8')
+            } else if (typeof atob === 'function') {
+              const bin = atob(safe)
+              const len = bin.length
+              const bytes = new Uint8Array(len)
+              for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i)
+              content = (typeof TextDecoder !== 'undefined') ? new TextDecoder().decode(bytes) : String.fromCharCode.apply(null, Array.from(bytes))
+            } else {
+              // last resort: attempt to return raw content
+              content = b.content
+            }
+          } else {
+            content = b.content
+          }
+          await this._backend.writeBlob(path, content, 'base')
+          return content
+        }
+      } catch (error) {
+        return null
+      }
+    }
+
+    // Fallback: adapter may expose a raw file fetch API (GitLab-style)
+    if (adapterInstance && typeof adapterInstance._fetchFileRaw === 'function') {
+      try {
+        const raw = await adapterInstance._fetchFileRaw(path, ie.branch || 'main')
+        if (typeof raw === 'string') {
+          await this._backend.writeBlob(path, raw, 'base')
+          return raw
+        }
+      } catch (error) {
+        return null
+      }
+    }
+
+    return null
   }
 }
 

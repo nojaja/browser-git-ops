@@ -100,15 +100,17 @@ describe('VirtualFS full GitLab flow (pull, edit, delete, push)', () => {
       'GitLab_test01/workspace/info/t5.txt',
       'GitLab_test01/.git/main/info/t2.txt',
       'GitLab_test01/.git/main/info/t1.txt',
-      'GitLab_test01/.git/main/info/README.md',
+      'GitLab_test01/.git/main/info/README.md'
+    ]
+/* v0.0.4では編集のタイミング以外ではinfoのみ取得となったため、下記は存在しない
+      'GitLab_test01/.git/main/base/t4.txt',
       'GitLab_test01/.git/main/base/tt2.txt',
       'GitLab_test01/.git/main/base/tt1.txt',
-      'GitLab_test01/.git/main/base/t4.txt',
       'GitLab_test01/.git/main/base/t3.txt',
       'GitLab_test01/.git/main/base/t2.txt',
       'GitLab_test01/.git/main/base/t1.txt',
       'GitLab_test01/.git/main/base/README.md'
-    ]
+*/
 
     // additionally verify the returned set matches expected set (order-insensitive)
     const returnedPaths = filesRaw.map((f:any) => f.path).sort()

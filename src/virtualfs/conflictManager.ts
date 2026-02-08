@@ -34,7 +34,7 @@ export class ConflictManager {
    */
   async resolveConflict(filepath: string): Promise<boolean> {
     try {
-      const remoteContent = await this.backend.readBlob(filepath, 'conflict')
+      const remoteContent = await this.backend.readBlob(filepath, 'conflictBlob')
       const ie: any = await this._loadIndexEntry(filepath)
 
       if (ie && ie.remoteSha) {
@@ -45,26 +45,19 @@ export class ConflictManager {
         delete ie.remoteSha
         ie.state = 'base'
         ie.updatedAt = Date.now()
+        // Write updated entry to info blob
         await this.backend.writeBlob(filepath, JSON.stringify(ie), 'info')
       }
 
       try {
         await this.backend.deleteBlob(filepath, 'conflict')
+        await this.backend.deleteBlob(filepath, 'conflictBlob')
       } catch {
         // ignore
       }
 
-      await this.indexManager.saveIndex()
-      // Ensure index head reflects resolved remote state when possible
-      try {
-        if (ie && ie.baseSha) {
-          this.indexManager.setHead(ie.baseSha)
-          await this.indexManager.saveIndex()
-        }
-      } catch {
-        // best-effort: ignore errors when updating head
-      }
-      await this.indexManager.loadIndex()
+      // Note: entries are refreshed via backend.readIndex() in getIndex()
+      // No explicit reload needed here
       return true
     } catch {
       return false
@@ -96,7 +89,7 @@ export class ConflictManager {
   async persistRemoteContentAsConflict(p: string, content: string | undefined): Promise<void> {
     if (typeof content === 'undefined') return
     try {
-      await this.backend.writeBlob(p, content, 'conflict')
+      await this.backend.writeBlob(p, content, 'conflictBlob')
     } catch {
       return
     }
@@ -130,6 +123,9 @@ export class ConflictManager {
     if (!ie) return
     let content = typeof baseSnapshot[p] !== 'undefined' ? baseSnapshot[p] : null
     if (content === null) {
+      content = await this.backend.readBlob(p, 'conflictBlob')
+    }
+    if (content === null) {
       content = await this.backend.readBlob(p, 'base')
     }
     if (content !== null) {
@@ -141,6 +137,7 @@ export class ConflictManager {
     ie.updatedAt = Date.now()
     await this.backend.writeBlob(p, JSON.stringify(ie), 'info')
     await this.backend.deleteBlob(p, 'conflict')
+    await this.backend.deleteBlob(p, 'conflictBlob')
   }
 
   /**

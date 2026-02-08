@@ -21,8 +21,9 @@ describe('VirtualFS pull/push', () => {
     expect(res.conflicts.length).toBe(0)
     const idx = await vfs.getIndex()
     expect(idx.head).toBe('head2')
+    // v0.0.4: pull is metadata-only, content remains v1
     const content = await vfs.readFile('a.txt')
-    expect(content).toBe('v2')
+    expect(content).toBe('v1')
   })
 
   it('pull reports conflict when workspace modified', async () => {

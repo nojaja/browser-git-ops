@@ -7,6 +7,7 @@ const VAR_WORKSPACE = 'workspace'
 // `.git/{branch}/{segment}` while workspace remains under `workspace`.
 const SEG_BASE = 'base'
 const SEG_CONFLICT = 'conflict'
+const SEG_CONFLICT_BLOB = 'conflictBlob'
 const SEG_INFO = 'info'
 
 /** OPFS (origin private file system) を利用する永続化実装 */
@@ -97,7 +98,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * @returns {string[]} segment directory names
    */
   private getVariants(): string[] {
-    return [VAR_WORKSPACE, SEG_BASE, SEG_CONFLICT]
+    return [VAR_WORKSPACE, SEG_BASE, SEG_CONFLICT, SEG_CONFLICT_BLOB]
   }
 
   private rootDir = 'apigit_storage'
@@ -150,11 +151,11 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * Map logical segment to concrete prefix used on OPFS.
     * @returns {string} concrete prefix path for the given segment
    */
-  private _segmentToPrefix(segment: 'workspace' | 'base' | 'conflict' | 'info'): string {
+  private _segmentToPrefix(segment: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info'): string {
     // Workspace content is now stored under workspace/base
     if (segment === 'workspace') return `${VAR_WORKSPACE}/base`
     // info for git-managed segments remains under .git/{branch}/info
-    const segName = segment === 'base' ? SEG_BASE : segment === 'info' ? SEG_INFO : SEG_CONFLICT
+    const segName = segment === 'base' ? SEG_BASE : segment === 'info' ? SEG_INFO : segment === 'conflictBlob' ? SEG_CONFLICT_BLOB : SEG_CONFLICT
     const branch = this.currentBranch || 'main'
     return `.git/${branch}/${segName}`
   }
@@ -363,9 +364,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * blob を書き込む
    * @returns {Promise<void>} 書込完了時に解決
    */
-  async writeBlob(filepath: string, content: string, segment?: 'workspace' | 'base' | 'conflict' | 'info'): Promise<void> {
+  async writeBlob(filepath: string, content: string, segment?: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info'): Promise<void> {
     // Support special pseudo-segments to persist/read info explicitly
-    const seg: 'workspace' | 'base' | 'conflict' | 'info' | 'info-workspace' | 'info-git' = (segment ?? 'workspace') as any
+    const seg: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info' | 'info-workspace' | 'info-git' = (segment ?? 'workspace') as any
     const root = await this.getOpfsRoot()
     if (!root) throw new Error('OPFS not available')
     // Determine destination for actual blob write
@@ -379,7 +380,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     await this._writeToPrefix(root, prefix, filepath, content)
 
     // if writing to info segment itself, do not create recursive info entry
-    if (seg === 'info') return
+    if (seg === 'info' || seg === 'conflictBlob') return
 
     // create/update corresponding info entry summarizing this file
     const sha = await this.shaOf(content)
@@ -391,7 +392,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * Build and persist info metadata for a file written to a segment.
    * @returns {Promise<void>}
    */
-  private async _updateInfoForWrite(root: any, seg: 'workspace' | 'base' | 'conflict' | 'info', filepath: string, sha: string, now: number): Promise<void> {
+  private async _updateInfoForWrite(root: any, seg: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info', filepath: string, sha: string, now: number): Promise<void> {
+    if (seg === 'conflictBlob') return
     const existing = await this._getExistingInfo(root, seg, filepath)
 
     let entry: any = { path: filepath, updatedAt: now }
@@ -408,7 +410,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * Attempt to load existing info metadata used as basis when updating info.
    * @returns {Promise<any>} parsed existing info object or empty object
    */
-  private async _getExistingInfo(root: any, seg: 'workspace' | 'base' | 'conflict' | 'info', filepath: string): Promise<any> {
+  private async _getExistingInfo(root: any, seg: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info', filepath: string): Promise<any> {
     try {
       if (seg === 'workspace') {
         const gitBase = await this.readFromPrefix(root, this._segmentToPrefix('base'), filepath).catch(() => null)
@@ -505,7 +507,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * Read blob from a resolved root. Extracted to reduce cognitive complexity of public entry.
    * @returns {Promise<string|null>}
    */
-  private async _readBlobFromRoot(root: any, segment: 'workspace' | 'base' | 'conflict' | 'info' | undefined, filepath: string): Promise<string | null> {
+  private async _readBlobFromRoot(root: any, segment: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info' | undefined, filepath: string): Promise<string | null> {
     // segment指定がある場合はそのまま返却
     if (segment !== undefined) {
       return await this._readFromSegment(root, segment, filepath)
@@ -521,7 +523,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * Read from a specific segment prefix.
     * @returns {Promise<string|null>} file text or null
     */
-  private async _readFromSegment(root: any, segment: 'workspace' | 'base' | 'conflict' | 'info' | 'info-git' | 'info-workspace', filepath: string): Promise<string | null> {
+  private async _readFromSegment(root: any, segment: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info' | 'info-git' | 'info-workspace', filepath: string): Promise<string | null> {
     try {
       if (segment === 'info') {
         // prefer workspace-local info first, then git-scoped info
@@ -572,6 +574,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     }
     if (segment === 'base') { await this.removeAtPrefix(root, this._segmentToPrefix('base'), filepath); return }
     if (segment === 'conflict') { await this.removeAtPrefix(root, this._segmentToPrefix('conflict'), filepath); return }
+    if (segment === 'conflictBlob') { await this.removeAtPrefix(root, this._segmentToPrefix('conflictBlob'), filepath); return }
     if (segment === 'info') {
       // delete workspace-local info and git-scoped info for this branch
       await this.removeAtPrefix(root, `${VAR_WORKSPACE}/info`, filepath)

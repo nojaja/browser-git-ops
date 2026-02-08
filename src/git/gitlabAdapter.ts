@@ -476,6 +476,11 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * @returns {Promise<string>} head SHA or branch
    */
   private async _determineHeadSha(branch: string): Promise<string> {
+    // If caller already passed a commit-ish SHA, avoid calling the branches API
+    // (GitLab returns 404 for branches/<sha> in many setups). Accept common
+    // short/long hex SHAs and return as-is to avoid noisy 404s.
+    if (typeof branch === 'string' && /^[0-9a-f]{7,40}$/.test(branch)) return branch
+
     try {
       const branchResponse = await this.fetchWithRetry(`${this.baseUrl}/repository/branches/${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
       if (!branchResponse?.ok) return branch

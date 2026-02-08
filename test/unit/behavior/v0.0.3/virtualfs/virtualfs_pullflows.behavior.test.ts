@@ -70,8 +70,9 @@ describe('VirtualFS pull and conflict flows', () => {
 
     await (vfs as any).pull(normalized)
 
+    // v0.0.4: pull is metadata-only, content is not fetched
     const content = await vfs.readFile('newfile.txt')
-    expect(content).toBe('remote content')
+    expect(content).toBe(null)
   })
 
   // Test pull with file deleted locally but present remotely
@@ -201,7 +202,8 @@ describe('VirtualFS pull and conflict flows', () => {
 
     await (vfs as any).pull(normalized)
 
-    expect(await vfs.readFile('a.txt')).toBe('av2')
-    expect(await vfs.readFile('b.txt')).toBe('bv1')
-  })
+    // v0.0.4: pull is metadata-only, content is not fetched
+    expect(await vfs.readFile('a.txt')).toBe('av1')
+    // b.txt was not in base before, so it will be null
+    expect(await vfs.readFile('b.txt')).toBe(null)  })
 })

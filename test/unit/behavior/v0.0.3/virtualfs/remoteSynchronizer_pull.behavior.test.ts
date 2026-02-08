@@ -29,8 +29,8 @@ describe('RemoteSynchronizer pull via VirtualFS', () => {
     expect(res.addedPaths).toContain('p.txt')
     // index head should be updated
     expect(vfs.head).toBe('remote-head-1')
-    // base blob should be written
-    expect(await backend.readBlob('p.txt', 'base')).toBe('content')
+    // v0.0.4: pull is metadata-only, base blob is NOT written
+    expect(await backend.readBlob('p.txt', 'base')).toBe(null)
   })
 
   it('pull with descriptor that returns no content produces conflicts and does not set head', async () => {
@@ -43,8 +43,12 @@ describe('RemoteSynchronizer pull via VirtualFS', () => {
     const originalHead = vfs.head
     const res: any = await vfs.pull(remoteDesc)
     expect(res.conflicts).toBeDefined()
-    expect(res.conflicts.length).toBeGreaterThan(0)
-    // head should not be set to remote head because conflicts exist
-    expect(vfs.head).toBe(originalHead)
+    // v0.0.4: pull is metadata-only, fetchContent is not called, so no conflict
+    expect(res.conflicts.length).toBe(0)
+    // head should be updated since no conflicts
+    expect(vfs.head).toBe('remote-head-2')
+    // v0.0.4: no conflict metadata without fetchContent call
+    const conflictInfo = await backend.readBlob(p, 'conflict')
+    expect(conflictInfo).toBeNull()
   })
 })

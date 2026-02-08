@@ -452,13 +452,9 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
     const index = await response.json()
     if (!index || typeof index.content === 'undefined') throw new NonRetryableError('getBlob: content not found')
     const enc = index.encoding || 'utf-8'
-    let content: string
-    if (enc === 'base64') {
-      content = atob((index.content || '').replace(/\n/g, ''))
-    } else {
-      content = index.content
-    }
-    return { content, encoding: enc }
+    // Return API content as-is (do not decode here). Decoding is responsibility
+    // of the caller so that adapter remains a thin mapping over the remote API.
+    return { content: index.content, encoding: enc }
   }
 
   /**
@@ -576,6 +572,13 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   private async _fetchBlobContentOrNull(f: any) {
     try {
       const b = await this.getBlob(f.sha)
+      // If the adapter returned a base64 payload, decode here for
+      // fetchSnapshot/fetchContent callers so they receive decoded text.
+      if (b && b.encoding === 'base64' && typeof b.content === 'string') {
+        const safe = (b.content || '').replace(/\n/g, '')
+        const decoded = Buffer.from(safe, 'base64').toString('utf8')
+        return { path: f.path, content: decoded }
+      }
       return { path: f.path, content: b.content }
     } catch (error) {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('fetchSnapshot blob failed', f.path, error)

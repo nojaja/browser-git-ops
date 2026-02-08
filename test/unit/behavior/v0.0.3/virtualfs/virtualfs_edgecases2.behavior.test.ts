@@ -172,8 +172,9 @@ describe('VirtualFS advanced edge cases', () => {
 
     await (vfs as any).pull(normalized)
 
+    // v0.0.4: pull is metadata-only, content is not fetched
     const content = await vfs.readFile('remote.txt')
-    expect(content).toBe('remote data')
+    expect(content).toBe(null)
   })
 
   // Test applyBaseSnapshot with empty snapshot
