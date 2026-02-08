@@ -3,9 +3,12 @@ strict digraph "dependency-cruiser output"{
     node [shape="box" style="rounded, filled" height="0.2" color="black" fillcolor="#ffffcc" fontcolor="black" fontname="Helvetica" fontsize="9"]
     edge [arrowhead="normal" arrowsize="0.6" penwidth="2.0" color="#00000033" fontname="Helvetica" fontsize="9"]
 
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/git" {label="git" "src/git/abstractAdapter.ts" [label=<abstractAdapter.ts> tooltip="abstractAdapter.ts" URL="src/git/abstractAdapter.ts" fillcolor="#ddfeff"] } }
     subgraph "cluster_src" {label="src" subgraph "cluster_src/git" {label="git" "src/git/adapter.ts" [label=<adapter.ts> tooltip="adapter.ts" URL="src/git/adapter.ts" fillcolor="#ccffcc"] } }
     subgraph "cluster_src" {label="src" subgraph "cluster_src/git" {label="git" "src/git/githubAdapter.ts" [label=<githubAdapter.ts> tooltip="githubAdapter.ts" URL="src/git/githubAdapter.ts" fillcolor="#ddfeff"] } }
+    "src/git/githubAdapter.ts" -> "src/git/abstractAdapter.ts"
     subgraph "cluster_src" {label="src" subgraph "cluster_src/git" {label="git" "src/git/gitlabAdapter.ts" [label=<gitlabAdapter.ts> tooltip="gitlabAdapter.ts" URL="src/git/gitlabAdapter.ts" fillcolor="#ddfeff"] } }
+    "src/git/gitlabAdapter.ts" -> "src/git/abstractAdapter.ts"
     subgraph "cluster_src" {label="src" "src/index.ts" [label=<index.ts> tooltip="index.ts" URL="src/index.ts" fillcolor="#ddfeff"] }
     "src/index.ts" -> "src/git/githubAdapter.ts" [arrowhead="inv"]
     "src/index.ts" -> "src/git/gitlabAdapter.ts" [arrowhead="inv"]
