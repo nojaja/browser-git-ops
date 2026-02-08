@@ -209,6 +209,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     if (seg === SEG_WORKSPACE) store.workspaceBlobs.set(filepath, content)
     else if (seg === 'base') store.baseBlobs.set(`${branch}${BRANCH_SEP}${filepath}`, content)
     else if (seg === 'conflict') store.conflictBlobs.set(`${branch}${BRANCH_SEP}${filepath}`, content)
+    // v0.0.4: conflictBlob segment for on-demand fetched conflict content
+    else if (seg === 'conflictBlob') store.conflictBlobs.set(`${branch}${BRANCH_SEP}conflictBlob${BRANCH_SEP}${filepath}`, content)
     // Writes to the generic 'info' segment should create/update the
     // workspace-local (unprefixed) info entry so that subsequent
     // readBlob('info') returns the expected value. Dedicated helpers
@@ -227,6 +229,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     if (seg === SEG_WORKSPACE) return this._buildWorkspaceInfoEntry(existing, filepath, sha, now)
     if (seg === 'base') return this._buildBaseInfoEntry(existing, filepath, sha, now)
     if (seg === 'conflict') return this._buildConflictInfoEntry(existing, filepath, now)
+    // v0.0.4: conflictBlob is same as conflict (don't update info)
+    if (seg === 'conflictBlob') return this._buildConflictInfoEntry(existing, filepath, now)
     return { path: filepath, updatedAt: now }
   }
 
@@ -310,6 +314,12 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     }
     if (seg === SEG_INFO_WORKSPACE) return store.infoBlobs.has(filepath) ? store.infoBlobs.get(filepath)! : null
 
+    // v0.0.4: conflictBlob segment uses prefixed key
+    if (seg === 'conflictBlob') {
+      const key = `${branch}${BRANCH_SEP}conflictBlob${BRANCH_SEP}${filepath}`
+      return store.conflictBlobs.has(key) ? store.conflictBlobs.get(key)! : null
+    }
+
     const segmentToStore = {
       [SEG_WORKSPACE]: store.workspaceBlobs,
       base: store.baseBlobs,
@@ -335,6 +345,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     if (segment === SEG_WORKSPACE) { store.workspaceBlobs.delete(filepath); return }
     if (segment === 'base') { store.baseBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`); return }
     if (segment === 'conflict') { store.conflictBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`); return }
+    // v0.0.4: conflictBlob segment deletion
+    if (segment === 'conflictBlob') { store.conflictBlobs.delete(`${branch}${BRANCH_SEP}conflictBlob${BRANCH_SEP}${filepath}`); return }
     if (segment === 'info') { store.infoBlobs.delete(filepath); store.infoBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`); return }
     if (segment === SEG_INFO_WORKSPACE) { store.infoBlobs.delete(filepath); return }
     if (segment === SEG_INFO_GIT) { store.infoBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`); return }
@@ -342,6 +354,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     store.workspaceBlobs.delete(filepath)
     store.baseBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`)
     store.conflictBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`)
+    store.conflictBlobs.delete(`${branch}${BRANCH_SEP}conflictBlob${BRANCH_SEP}${filepath}`)
     store.infoBlobs.delete(`${branch}${BRANCH_SEP}${filepath}`)
     store.infoBlobs.delete(filepath)
   }

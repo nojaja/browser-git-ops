@@ -124,6 +124,8 @@ function applyI18nToElements() {
     const actionsMap: [string, string][] = [
       ['listAdapters', 'actions.listAdapters'],
       ['showSnapshot', 'actions.showSnapshot'],
+      ['showFileContent', 'actions.showFileContent'],
+      ['showConflictContent', 'actions.showConflictContent'],
       ['revertChange', 'actions.revertChange'],
       ['fetchRemote', 'actions.fetchRemote'],
       ['resolveConflict', 'actions.resolveConflict'],
@@ -202,6 +204,8 @@ function renderUI() {
         <h2>${t('actions.title')}</h2>
           <button id="listAdapters">${t('actions.listAdapters')}</button>
           <button id="showSnapshot">${t('actions.showSnapshot')}</button>
+          <button id="showFileContent">${t('actions.showFileContent')}</button>
+          <button id="showConflictContent">${t('actions.showConflictContent')}</button>
           <button id="revertChange">${t('actions.revertChange')}</button>
           <button id="fetchRemote">${t('actions.fetchRemote')}</button>
           <button id="resolveConflict">${t('actions.resolveConflict')}</button>
@@ -1344,13 +1348,7 @@ async function main() {
           }
           appendOutput('log.showSnapshot.count', { count: paths.length })
           for (const p of paths) {
-            try {
-              const content = await currentVfs.readFile(p)
-              const snippet = typeof content === 'string' ? content.slice(0, 200).replace(/\r?\n/g, '\\n') : String(content)
-              appendOutput('log.showSnapshot.fileEntry', { path: p, snippet })
-            } catch (e) {
-              appendOutput('log.showSnapshot.fileReadError', { path: p, err: String(e) })
-            }
+            appendOutput('log.showSnapshot.fileEntry', { path: p })
           }
         } catch (e) {
           appendOutput('error.showSnapshot.failed', { err: String(e) })
@@ -1358,6 +1356,62 @@ async function main() {
         appendTrace('trace.empty')
       } catch (e) {
         appendOutput('error.showSnapshot.unexpected', { err: String(e) })
+      }
+    })()
+  })
+
+  const showFileContentBtn = el('showFileContent') as HTMLButtonElement
+  showFileContentBtn.addEventListener('click', () => {
+    ; (async () => {
+      try {
+        if (!currentVfs) {
+          appendOutput('error.showFileContent.vfsNotInit')
+          return
+        }
+        const path = (prompt(t('prompt.showFileContent.path')) || '').trim()
+        if (!path) return
+        appendOutput('log.showFileContent.start', { path })
+        try {
+          appendTrace('trace.raw', { msg: `const content = await currentVfs.readFile(${path})` })
+          const content = await currentVfs.readFile(path)
+          const text = content === null ? t('ui.empty') : (typeof content === 'string' ? content : String(content))
+          appendOutput('log.showFileContent.content', { path, content: text })
+        } catch (e) {
+          appendOutput('error.showFileContent.readFailed', { path, err: String(e) })
+        }
+        appendTrace('trace.empty')
+      } catch (e) {
+        appendOutput('error.showFileContent.failed', { err: String(e) })
+      }
+    })()
+  })
+
+  const showConflictContentBtn = el('showConflictContent') as HTMLButtonElement
+  showConflictContentBtn.addEventListener('click', () => {
+    ; (async () => {
+      try {
+        if (!currentVfs) {
+          appendOutput('error.showConflictContent.vfsNotInit')
+          return
+        }
+        if (typeof currentVfs.readConflict !== 'function') {
+          appendOutput('error.showConflictContent.notImplemented')
+          return
+        }
+        const path = (prompt(t('prompt.showConflictContent.path')) || '').trim()
+        if (!path) return
+        appendOutput('log.showConflictContent.start', { path })
+        try {
+          appendTrace('trace.raw', { msg: `const content = await currentVfs.readConflict(${path})` })
+          const content = await currentVfs.readConflict(path)
+          const text = content === null ? t('ui.empty') : (typeof content === 'string' ? content : String(content))
+          appendOutput('log.showConflictContent.content', { path, content: text })
+        } catch (e) {
+          appendOutput('error.showConflictContent.readFailed', { path, err: String(e) })
+        }
+        appendTrace('trace.empty')
+      } catch (e) {
+        appendOutput('error.showConflictContent.failed', { err: String(e) })
       }
     })()
   })

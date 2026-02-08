@@ -19,7 +19,11 @@ describe('OpfsStorage + GitLab pull', () => {
     'GitLab_test01/.git/main/info/t3.txt',
     'GitLab_test01/.git/main/info/t2.txt',
     'GitLab_test01/.git/main/info/t1.txt',
-    'GitLab_test01/.git/main/info/README.md',
+    'GitLab_test01/.git/main/info/README.md'
+  ]
+  // v0.0.4では編集のタイミング以外ではinfoのみ取得となったため
+  // 下記がraw URIs/pathsに存在しない事を確認する
+  const NOT_EXPECTED_FILES_RAW = [
     'GitLab_test01/.git/main/base/tt2.txt',
     'GitLab_test01/.git/main/base/tt1.txt',
     'GitLab_test01/.git/main/base/t4.txt',
@@ -91,6 +95,10 @@ describe('OpfsStorage + GitLab pull', () => {
     const filesRaw = await backend.listFilesRaw()
     const returned = filesRaw.map((f: any) => f.path)
     expect(returned.slice().sort()).toEqual(EXPECTED_FILES_RAW.slice().sort())
+    //NOT_EXPECTED_FILES_RAWに含まれるパスが存在しない事を確認
+    for (const p of NOT_EXPECTED_FILES_RAW) {
+      expect(returned.includes(p)).toBeFalsy()
+    }
 
   })
 })

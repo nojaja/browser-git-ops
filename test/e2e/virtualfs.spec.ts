@@ -72,8 +72,8 @@ test.describe('VirtualFS E2E (browser)', () => {
       const exists = vfs.readFile('foo.txt') !== ''
       return { s1, s2, exists }
     })
-    expect(state.s1).toBe('added')
-    expect(state.s2).toBe('added')
+    expect(state.s1).toBe('create')
+    expect(state.s2).toBe('create')
     expect(state.exists).toBe(false)
   })
 
@@ -467,11 +467,17 @@ test.describe('VirtualFS E2E (mocked API)', () => {
     let first = true;
     await page.route('**/api/commit', async (route) => {
       if (first) { first = false; await route.fulfill({ status: 500, body: 'fail' }); }
-      else { await route.continue(); }
+      else { await route.fallback(); }
     });
     // attempt push and then retry (first attempt should fail, second should succeed)
     await expect(page.evaluate(() => window.vfs.push())).rejects.toBeDefined();
-    await expect(page.evaluate(() => window.vfs.push())).resolves.toBeUndefined();
+    let retryFailed = false;
+    try {
+      await page.evaluate(() => window.vfs.push());
+    } catch {
+      retryFailed = true;
+    }
+    expect(retryFailed).toBe(false);
 
     // Then: no duplicate commits created (at most one successful commit)
     const commits = api.getCommits();

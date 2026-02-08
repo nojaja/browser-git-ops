@@ -17,7 +17,11 @@ const EXPECTED_FILES_AFTER_DELETE = [
   'GitLab_test01/.git/main/info/t3.txt',
   'GitLab_test01/.git/main/info/t2.txt',
   'GitLab_test01/.git/main/info/t1.txt',
-  'GitLab_test01/.git/main/info/README.md',
+  'GitLab_test01/.git/main/info/README.md'
+]
+  // v0.0.4では編集のタイミング以外ではinfoのみ取得となったため
+  // 下記がraw URIs/pathsに存在しない事を確認する
+  const NOT_EXPECTED_FILES_AFTER_DELETE = [
   'GitLab_test01/.git/main/base/tt2.txt',
   'GitLab_test01/.git/main/base/tt1.txt',
   'GitLab_test01/.git/main/base/t5.txt',
@@ -25,7 +29,7 @@ const EXPECTED_FILES_AFTER_DELETE = [
   'GitLab_test01/.git/main/base/t2.txt',
   'GitLab_test01/.git/main/base/t1.txt',
   'GitLab_test01/.git/main/base/README.md'
-]
+  ]
 
 const EXPECTED_FILES_AFTER_RESTORE = [
   'GitLab_test01/index',
@@ -35,7 +39,11 @@ const EXPECTED_FILES_AFTER_RESTORE = [
   'GitLab_test01/.git/main/info/t3.txt',
   'GitLab_test01/.git/main/info/t2.txt',
   'GitLab_test01/.git/main/info/t1.txt',
-  'GitLab_test01/.git/main/info/README.md',
+  'GitLab_test01/.git/main/info/README.md'
+]
+  // v0.0.4では編集のタイミング以外ではinfoのみ取得となったため
+  // 下記がraw URIs/pathsに存在しない事を確認する
+  const NOT_EXPECTED_FILES_AFTER_RESTORE = [
   'GitLab_test01/.git/main/base/tt2.txt',
   'GitLab_test01/.git/main/base/tt1.txt',
   'GitLab_test01/.git/main/base/t5.txt',
@@ -43,7 +51,8 @@ const EXPECTED_FILES_AFTER_RESTORE = [
   'GitLab_test01/.git/main/base/t2.txt',
   'GitLab_test01/.git/main/base/t1.txt',
   'GitLab_test01/.git/main/base/README.md'
-]
+  ]
+
 
 const EXPECTED_AFTER_DELETE_PATHS = [
   'tt2.txt','tt1.txt','t3.txt','t2.txt','t1.txt','README.md'
@@ -125,6 +134,11 @@ describe('design/listFilesRaw', () => {
     const filesRaw = await backend.listFilesRaw();
     const pathsFromFilesRaw = filesRaw.map((f: any) => f.path);
     expect(pathsFromFilesRaw.sort()).toEqual(EXPECTED_FILES_AFTER_DELETE.slice().sort())
+    //NOT_EXPECTED_FILES_RAWに含まれるパスが存在しない事を確認
+    for (const p of NOT_EXPECTED_FILES_AFTER_DELETE) {
+      expect(pathsFromFilesRaw.includes(p)).toBeFalsy()
+    }
+    
 
     // ⑧ 削除を元に戻す
     await backend.deleteBlob('t5.txt', 'workspace');
@@ -137,6 +151,10 @@ describe('design/listFilesRaw', () => {
     const filesRaw2 = await backend.listFilesRaw();
     const pathsFromFilesRaw2 = filesRaw2.map((f: any) => f.path);
     expect(pathsFromFilesRaw2.slice().sort()).toEqual(EXPECTED_FILES_AFTER_RESTORE.slice().sort());
+    //NOT_EXPECTED_FILES_RAWに含まれるパスが存在しない事を確認
+    for (const p of NOT_EXPECTED_FILES_AFTER_RESTORE) {
+      expect(pathsFromFilesRaw2.includes(p)).toBeFalsy()
+    }
   });
 });
 
@@ -150,7 +168,11 @@ describe('OpfsStorage.listFilesRaw - paths match expected constants', () => {
     'GitLab_test01/.git/main/info/t3.txt',
     'GitLab_test01/.git/main/info/t2.txt',
     'GitLab_test01/.git/main/info/t1.txt',
-    'GitLab_test01/.git/main/info/README.md',
+    'GitLab_test01/.git/main/info/README.md'
+  ] as const
+  // v0.0.4では編集のタイミング以外ではinfoのみ取得となったため
+  // 下記がraw URIs/pathsに存在しない事を確認する
+  const NOT_EXPECTED_FILES_RAW_BEFORE_DELETE = [
     'GitLab_test01/.git/main/base/tt2.txt',
     'GitLab_test01/.git/main/base/tt1.txt',
     'GitLab_test01/.git/main/base/t5.txt',
@@ -158,7 +180,8 @@ describe('OpfsStorage.listFilesRaw - paths match expected constants', () => {
     'GitLab_test01/.git/main/base/t2.txt',
     'GitLab_test01/.git/main/base/t1.txt',
     'GitLab_test01/.git/main/base/README.md'
-  ] as const
+  ]
+
 
   const expectedFilesRawAfterDelete = [
     'GitLab_test01/workspace/info/t5.txt',
@@ -169,7 +192,11 @@ describe('OpfsStorage.listFilesRaw - paths match expected constants', () => {
     'GitLab_test01/.git/main/info/t3.txt',
     'GitLab_test01/.git/main/info/t2.txt',
     'GitLab_test01/.git/main/info/t1.txt',
-    'GitLab_test01/.git/main/info/README.md',
+    'GitLab_test01/.git/main/info/README.md'
+  ] as const
+  // v0.0.4では編集のタイミング以外ではinfoのみ取得となったため
+  // 下記がraw URIs/pathsに存在しない事を確認する
+  const NOT_EXPECTED_FILES_RAW_AFTER_DELETE = [
     'GitLab_test01/.git/main/base/tt2.txt',
     'GitLab_test01/.git/main/base/tt1.txt',
     'GitLab_test01/.git/main/base/t5.txt',
@@ -177,7 +204,7 @@ describe('OpfsStorage.listFilesRaw - paths match expected constants', () => {
     'GitLab_test01/.git/main/base/t2.txt',
     'GitLab_test01/.git/main/base/t1.txt',
     'GitLab_test01/.git/main/base/README.md'
-  ] as const
+  ]
 
   beforeEach(() => {
     jest.resetAllMocks()
@@ -239,6 +266,11 @@ describe('OpfsStorage.listFilesRaw - paths match expected constants', () => {
     const filesRawBefore = await backend.listFilesRaw()
     const returnedPathsBefore = filesRawBefore.map((f:any) => f.path).sort()
     expect(returnedPathsBefore).toEqual(expectedFilesRawBeforeDelete.slice().sort())
+    //NOT_EXPECTED_FILES_RAWに含まれるパスが存在しない事を確認
+    for (const p of NOT_EXPECTED_FILES_RAW_BEFORE_DELETE) {
+      expect(returnedPathsBefore.includes(p)).toBeFalsy()
+    }
+
 
     // ⑥ファイルの削除 (t5.txt)
     await currentVfs.deleteFile('t5.txt')
@@ -255,5 +287,9 @@ describe('OpfsStorage.listFilesRaw - paths match expected constants', () => {
     const filesRawAfter = await backend.listFilesRaw()
     const returnedPathsAfter = filesRawAfter.map((f:any) => f.path).sort()
     expect(returnedPathsAfter).toEqual(expectedFilesRawAfterDelete.slice().sort())
+    //NOT_EXPECTED_FILES_RAWに含まれるパスが存在しない事を確認
+    for (const p of NOT_EXPECTED_FILES_RAW_AFTER_DELETE) {
+      expect(returnedPathsAfter.includes(p)).toBeFalsy() 
+    }
   })
 })

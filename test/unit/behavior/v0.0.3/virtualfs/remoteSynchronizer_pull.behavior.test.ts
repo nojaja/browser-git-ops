@@ -46,5 +46,8 @@ describe('RemoteSynchronizer pull via VirtualFS', () => {
     expect(res.conflicts.length).toBeGreaterThan(0)
     // head should not be set to remote head because conflicts exist
     expect(vfs.head).toBe(originalHead)
+    // v0.0.4: conflict metadata should be recorded even without content
+    const conflictInfo = await backend.readBlob(p, 'conflict')
+    expect(conflictInfo).not.toBeNull()
   })
 })

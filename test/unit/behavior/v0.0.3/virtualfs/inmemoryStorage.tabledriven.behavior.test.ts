@@ -96,7 +96,9 @@ describe('InMemoryStorage - table-driven cases', () => {
       // write to multiple segments
       await s.writeBlob(tc.key, 'wdata', 'workspace')
       await s.writeBlob(tc.key, 'bdata', 'base')
-      await s.writeBlob(tc.key, 'cdata', 'conflict')
+      // v0.0.4: conflict segment stores Info JSON metadata
+      const conflictInfo = JSON.stringify({ path: tc.key, state: 'conflict', updatedAt: Date.now() })
+      await s.writeBlob(tc.key, conflictInfo, 'conflict')
       await s.writeBlob(tc.key, JSON.stringify({ info: true }), 'info')
     }
 

@@ -461,7 +461,7 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     await this.tx(storeName, 'readwrite', (store) => { store.put(content, key) })
 
     // Do not recursively create info entry when writing into info store itself
-    if (seg === 'info') return
+    if (seg === 'info' || seg === 'conflictBlob') return
 
     // Create/merge info metadata
     const sha = await this.shaOf(content)
@@ -474,6 +474,7 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
    * @returns {Promise<void>}
    */
   private async _updateInfoForWrite(filepath: string, seg: Segment, sha: string, now: number): Promise<void> {
+    if (seg === 'conflictBlob') return
     const branch = this.currentBranch || 'main'
     const infoKey = filepath
 
@@ -602,6 +603,11 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     if (segment === 'workspace') { await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_BASE, filepath); await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath); return }
     if (segment === 'base') { await this._deleteFromStore(IndexedDatabaseStorage.VAR_BASE, filepath); return }
     if (segment === 'conflict') { await this._deleteFromStore(IndexedDatabaseStorage.VAR_CONFLICT, filepath); return }
+    if (segment === 'conflictBlob') {
+      const { storeName, key } = this._storeAndKeyForSegment(segment, filepath, branch)
+      await this._deleteFromStore(storeName, key)
+      return
+    }
     if (segment === 'info') {
       // remove both workspace-local info and git-scoped info for current branch
       await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath)
@@ -649,7 +655,7 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
           ? IndexedDatabaseStorage.VAR_INFO
           : IndexedDatabaseStorage.VAR_CONFLICT
     // For git-scoped segments, keys are prefixed with branch
-    const key = (seg === 'workspace') ? filepath : `${branch}::${filepath}`
+    const key = (seg === 'workspace') ? filepath : (seg === 'conflictBlob' ? `${branch}::conflictBlob::${filepath}` : `${branch}::${filepath}`)
     return { storeName, key }
   }
 
@@ -666,6 +672,7 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_BASE, filepath)
     await this._deleteFromStore(IndexedDatabaseStorage.VAR_BASE, filepath)
     await this._deleteFromStore(IndexedDatabaseStorage.VAR_CONFLICT, filepath)
+    await this._deleteFromStore(IndexedDatabaseStorage.VAR_CONFLICT, `${_branch}::conflictBlob::${filepath}`)
     await this._deleteFromStore(IndexedDatabaseStorage.VAR_INFO, filepath)
     await this._deleteFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, filepath)
   }
@@ -883,6 +890,11 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
       [IndexedDatabaseStorage.VAR_INFO]: 'info',
       [IndexedDatabaseStorage.VAR_CONFLICT]: 'conflict',
     }
+    const conflictBlobPrefix = 'conflictBlob::'
+    if (storeName === IndexedDatabaseStorage.VAR_CONFLICT && normalizedKey.startsWith(conflictBlobPrefix)) {
+      const key = normalizedKey.slice(conflictBlobPrefix.length)
+      return `${this.dbName}/.git/${branch}/conflictBlob/${key}`
+    }
     const segName = tableMap[storeName] || 'base'
     return `${this.dbName}/.git/${branch}/${segName}/${normalizedKey}`
   }
@@ -896,7 +908,11 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     const branch = this.currentBranch || 'main'
     // Accept both branch-prefixed keys and legacy/unprefixed keys in the same
     // physical store (some test shims share workspace-info and git-info).
-    return keys.map((k) => k.startsWith(branch + '::') ? k.slice((branch + '::').length) : k)
+    const normalized = keys.map((k) => k.startsWith(branch + '::') ? k.slice((branch + '::').length) : k)
+    if (seg === 'conflictBlob') {
+      return normalized.map((k) => k.startsWith('conflictBlob::') ? k.slice('conflictBlob::'.length) : k)
+    }
+    return normalized
   }
 
   /**

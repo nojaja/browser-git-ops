@@ -34,7 +34,7 @@ export class ConflictManager {
    */
   async resolveConflict(filepath: string): Promise<boolean> {
     try {
-      const remoteContent = await this.backend.readBlob(filepath, 'conflict')
+      const remoteContent = await this.backend.readBlob(filepath, 'conflictBlob')
       const ie: any = await this._loadIndexEntry(filepath)
 
       if (ie && ie.remoteSha) {
@@ -50,6 +50,7 @@ export class ConflictManager {
 
       try {
         await this.backend.deleteBlob(filepath, 'conflict')
+        await this.backend.deleteBlob(filepath, 'conflictBlob')
       } catch {
         // ignore
       }
@@ -96,7 +97,7 @@ export class ConflictManager {
   async persistRemoteContentAsConflict(p: string, content: string | undefined): Promise<void> {
     if (typeof content === 'undefined') return
     try {
-      await this.backend.writeBlob(p, content, 'conflict')
+      await this.backend.writeBlob(p, content, 'conflictBlob')
     } catch {
       return
     }
@@ -130,6 +131,9 @@ export class ConflictManager {
     if (!ie) return
     let content = typeof baseSnapshot[p] !== 'undefined' ? baseSnapshot[p] : null
     if (content === null) {
+      content = await this.backend.readBlob(p, 'conflictBlob')
+    }
+    if (content === null) {
       content = await this.backend.readBlob(p, 'base')
     }
     if (content !== null) {
@@ -141,6 +145,7 @@ export class ConflictManager {
     ie.updatedAt = Date.now()
     await this.backend.writeBlob(p, JSON.stringify(ie), 'info')
     await this.backend.deleteBlob(p, 'conflict')
+    await this.backend.deleteBlob(p, 'conflictBlob')
   }
 
   /**

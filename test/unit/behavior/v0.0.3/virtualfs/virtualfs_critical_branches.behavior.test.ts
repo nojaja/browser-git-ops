@@ -153,9 +153,12 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
     }
 
     const res = await vfs.pull(normalized)
-    // file2 should be marked as conflict due to missing content
+    // v0.0.4: file2 should be marked as conflict due to missing content
     const file2Conflict = res.conflicts?.find((c: any) => c.path === 'file2.txt')
     expect(file2Conflict).toBeDefined()
+    // v0.0.4: conflict metadata should be recorded even without content
+    const file2ConflictInfo = await backend.readBlob('file2.txt', 'conflict')
+    expect(file2ConflictInfo).not.toBeNull()
   })
 
   it('pull with workspace conflict - remote deletion vs local modification', async () => {

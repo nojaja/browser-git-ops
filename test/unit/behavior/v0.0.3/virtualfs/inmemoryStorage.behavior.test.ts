@@ -109,8 +109,12 @@ describe('InMemoryStorage', () => {
     expect(await s.readBlob('f1', 'workspace')).toBe('w')
     await s.writeBlob('f1', 'b', 'base')
     expect(await s.readBlob('f1', 'base')).toBe('b')
-    await s.writeBlob('f1', 'c', 'conflict')
-    expect(await s.readBlob('f1', 'conflict')).toBe('c')
+    // v0.0.4: conflict segment stores Info JSON metadata
+    const conflictInfo = JSON.stringify({ path: 'f1', state: 'conflict', updatedAt: Date.now() })
+    await s.writeBlob('f1', conflictInfo, 'conflict')
+    const c = await s.readBlob('f1', 'conflict')
+    expect(c).not.toBeNull()
+    expect(JSON.parse(c!).state).toBe('conflict')
     // info should be set when writing to workspace/base/conflict
     expect(await s.readBlob('f1', 'info')).not.toBeNull()
   })

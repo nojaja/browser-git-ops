@@ -3,7 +3,7 @@ import { IndexFile } from './types.ts'
 /**
  * Storage セグメント
  */
-export type Segment = 'workspace' | 'base' | 'conflict' | 'info' | 'info-workspace' | 'info-git'
+export type Segment = 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info' | 'info-workspace' | 'info-git'
 
 /**
  * 永続化レイヤーの抽象インターフェース

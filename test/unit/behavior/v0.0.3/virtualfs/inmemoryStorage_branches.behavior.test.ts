@@ -29,11 +29,15 @@ describe('InMemoryStorage additional branches', () => {
 
     await storage.writeBlob('file.txt', 'workspace-data', 'workspace')
     await storage.writeBlob('file.txt', 'base-data', 'base')
-    await storage.writeBlob('file.txt', 'conflict-data', 'conflict')
+    // v0.0.4: conflict segment stores Info JSON metadata
+    const conflictInfo = JSON.stringify({ path: 'file.txt', state: 'conflict', updatedAt: Date.now() })
+    await storage.writeBlob('file.txt', conflictInfo, 'conflict')
 
     expect(await storage.readBlob('file.txt', 'workspace')).toBe('workspace-data')
     expect(await storage.readBlob('file.txt', 'base')).toBe('base-data')
-    expect(await storage.readBlob('file.txt', 'conflict')).toBe('conflict-data')
+    const c = await storage.readBlob('file.txt', 'conflict')
+    expect(c).not.toBeNull()
+    expect(JSON.parse(c!).state).toBe('conflict')
 
     // overwrite
     await storage.writeBlob('file.txt', 'updated', 'workspace')

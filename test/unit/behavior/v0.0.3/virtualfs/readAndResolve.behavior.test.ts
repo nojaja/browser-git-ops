@@ -44,8 +44,10 @@ describe.skip('readFile and resolveConflict branches', () => {
     const entry = { path: filePath, remoteSha: 'r1' }
     await storage.writeBlob(filePath, JSON.stringify(entry), 'info')
 
-    // write conflict blob
-    await storage.writeBlob(filePath, 'RC', 'conflict')
+    // v0.0.4: conflict segment stores Info JSON, actual content in conflictBlob
+    const conflictInfo = JSON.stringify({ path: filePath, state: 'conflict', updatedAt: Date.now() })
+    await storage.writeBlob(filePath, conflictInfo, 'conflict')
+    await storage.writeBlob(filePath, 'RC', 'conflictBlob')
 
     // init VirtualFS to load the entries from backend
     await vfs.init()

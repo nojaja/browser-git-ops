@@ -49,15 +49,23 @@ describe('VirtualFS conflict and edge cases', () => {
       conflicts: ['conflict.txt']
     })
 
+    const remoteSha = await vfs.shaOfGitBlob('remote')
     await backend.writeBlob('conflict.txt', 'base', 'base')
     await backend.writeBlob('conflict.txt', 'workspace', 'workspace')
-    await backend.writeBlob('conflict.txt', 'remote', 'conflict')
+    // v0.0.4: conflict segment stores Info JSON metadata, not Blob content
+    const conflictInfo = { path: 'conflict.txt', baseSha: remoteSha, state: 'conflict', updatedAt: Date.now() }
+    await backend.writeBlob('conflict.txt', JSON.stringify(conflictInfo), 'conflict')
+    // For on-demand fetch: actual blob would be in conflictBlob segment
+    await backend.writeBlob('conflict.txt', 'remote', 'conflictBlob')
 
     const conflictData = await vfs.readConflict('conflict.txt')
     
-    // readConflict returns conflict data
+    // readConflict returns conflict metadata
     expect(conflictData).toBeDefined()
     expect(typeof conflictData).toBe('string')
+    // Verify it's parseable as JSON
+    const parsed = JSON.parse(conflictData!)
+    expect(parsed.state).toBe('conflict')
   })
 
   // Test pull with deletion creates conflict if workspace modified

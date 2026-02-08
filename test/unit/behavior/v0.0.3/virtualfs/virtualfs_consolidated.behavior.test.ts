@@ -53,7 +53,10 @@ for (const backend of backends) {
 
       const filePath = 'conf.txt'
       await store.writeBlob(filePath, JSON.stringify({ path: filePath, remoteSha: 'r1' }), 'info')
-      await store.writeBlob(filePath, 'RC', 'conflict')
+      // v0.0.4: conflict segment stores Info JSON, actual content in conflictBlob
+      const conflictInfo = JSON.stringify({ path: filePath, state: 'conflict', updatedAt: Date.now() })
+      await store.writeBlob(filePath, conflictInfo, 'conflict')
+      await store.writeBlob(filePath, 'RC', 'conflictBlob')
       await vfs.init()
       expect(await vfs.resolveConflict(filePath)).toBe(true)
       const ie = (await vfs.getIndex()).entries[filePath]
@@ -88,7 +91,10 @@ describe('readFile and resolveConflict branches (merged)', () => {
     const filePath = 'conf.txt'
     const entry = { path: filePath, remoteSha: 'r1' }
     await storage.writeBlob(filePath, JSON.stringify(entry), 'info')
-    await storage.writeBlob(filePath, 'RC', 'conflict')
+    // v0.0.4: conflict segment stores Info JSON, actual content in conflictBlob
+    const conflictInfo = JSON.stringify({ path: filePath, state: 'conflict', updatedAt: Date.now() })
+    await storage.writeBlob(filePath, conflictInfo, 'conflict')
+    await storage.writeBlob(filePath, 'RC', 'conflictBlob')
     await vfs.init()
 
     const res = await vfs.resolveConflict(filePath)

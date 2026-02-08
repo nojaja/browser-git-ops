@@ -26,9 +26,13 @@ describe('InMemoryStorage branches', () => {
     const s = new InMemoryStorage('segroot')
     await s.writeBlob('f1', 'w', 'workspace')
     await s.writeBlob('f2', 'b', 'base')
-    await s.writeBlob('f3', 'c', 'conflict')
+    // v0.0.4: conflict segment stores Info JSON metadata
+    const conflictInfo = JSON.stringify({ path: 'f3', state: 'conflict', updatedAt: Date.now() })
+    await s.writeBlob('f3', conflictInfo, 'conflict')
 
     expect(await s.readBlob('f2', 'base')).toBe('b')
-    expect(await s.readBlob('f3', 'conflict')).toBe('c')
+    const f3Conflict = await s.readBlob('f3', 'conflict')
+    expect(f3Conflict).not.toBeNull()
+    expect(JSON.parse(f3Conflict!).state).toBe('conflict')
   })
 })
