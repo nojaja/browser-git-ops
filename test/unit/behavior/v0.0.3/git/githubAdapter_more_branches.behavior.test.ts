@@ -48,7 +48,9 @@ describe('GitHubAdapter remaining branches', () => {
     a._fetchWithRetry = jest.fn().mockResolvedValue({ json: async () => ({ content: Buffer.from('hello').toString('base64'), encoding: 'base64' }) })
     const r = await a.getBlob('S')
     expect(r.encoding).toBe('base64')
-    expect(r.content).toBe('hello')
+    // Adapter now returns raw API content; decode in test to assert final text
+    const decoded = Buffer.from((r.content || '').replace(/\n/g, ''), 'base64').toString('utf8')
+    expect(decoded).toBe('hello')
   })
 
   it('updateRef throws on non-ok response and includes text', async () => {

@@ -446,11 +446,24 @@ export class RemoteSynchronizer {
       try {
         const b = await adapterInstance.getBlob(baseSha)
         if (b && typeof b.content !== 'undefined') {
-          // decode base64 if needed
+          // decode base64 if needed; strip newlines which GitHub may include
           const enc = b.encoding || 'utf-8'
           let content: string
           if (enc === 'base64') {
-            content = Buffer.from(b.content, 'base64').toString('utf8')
+            const safe = (b.content || '').replace(/\n/g, '')
+            // universal base64 -> UTF-8 decoding: prefer Buffer (Node), fallback to atob+TextDecoder (browser)
+            if (typeof Buffer !== 'undefined' && typeof (Buffer as any).from === 'function') {
+              content = Buffer.from(safe, 'base64').toString('utf8')
+            } else if (typeof atob === 'function') {
+              const bin = atob(safe)
+              const len = bin.length
+              const bytes = new Uint8Array(len)
+              for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i)
+              content = (typeof TextDecoder !== 'undefined') ? new TextDecoder().decode(bytes) : String.fromCharCode.apply(null, Array.from(bytes))
+            } else {
+              // last resort: attempt to return raw content
+              content = b.content
+            }
           } else {
             content = b.content
           }
