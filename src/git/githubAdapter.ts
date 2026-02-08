@@ -576,14 +576,33 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
       // fetchSnapshot/fetchContent callers so they receive decoded text.
       if (b && b.encoding === 'base64' && typeof b.content === 'string') {
         const safe = (b.content || '').replace(/\n/g, '')
-        const decoded = Buffer.from(safe, 'base64').toString('utf8')
-        return { path: f.path, content: decoded }
+        return { path: f.path, content: this._decodeBase64ToString(safe) }
       }
       return { path: f.path, content: b.content }
     } catch (error) {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('fetchSnapshot blob failed', f.path, error)
       return { path: f.path, content: null }
     }
+  }
+
+  /**
+   * Decode a base64 string into UTF-8 text. Uses global Buffer when available,
+   * falls back to atob/TextDecoder for browsers.
+   * @returns {string} decoded UTF-8 string
+   */
+  private _decodeBase64ToString(safe: string): string {
+    const bufGlobal = (globalThis as any).Buffer
+    if (typeof bufGlobal !== 'undefined' && typeof bufGlobal.from === 'function') {
+      return bufGlobal.from(safe, 'base64').toString('utf8')
+    }
+    if (typeof atob === 'function') {
+      const bin = atob(safe)
+      const length_ = bin.length
+      const bytes = new Uint8Array(length_)
+      for (let index = 0; index < length_; index++) bytes[index] = bin.charCodeAt(index)
+      return (typeof TextDecoder !== 'undefined') ? new TextDecoder().decode(bytes) : String.fromCharCode.apply(null, Array.from(bytes))
+    }
+    return safe
   }
 
   /**
