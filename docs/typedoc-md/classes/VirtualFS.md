@@ -1,4 +1,4 @@
-[browser-git-ops - v0.0.4](../README.md) / VirtualFS
+[browser-git-ops - v0.0.5](../README.md) / VirtualFS
 
 # Class: VirtualFS
 
@@ -64,7 +64,7 @@ VirtualFS のインスタンスを初期化します。
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:46](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L46)
+[virtualfs/virtualfs.ts:46](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L46)
 
 ## Accessors
 
@@ -80,7 +80,7 @@ public-facing property accessors for backwards compatibility with tests
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:63](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L63)
+[virtualfs/virtualfs.ts:63](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L63)
 
 • `set` **head**(`h`): `void`
 
@@ -98,7 +98,7 @@ Setter for head
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:71](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L71)
+[virtualfs/virtualfs.ts:71](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L71)
 
 ___
 
@@ -114,7 +114,7 @@ Get lastCommitKey
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:79](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L79)
+[virtualfs/virtualfs.ts:79](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L79)
 
 • `set` **lastCommitKey**(`k`): `void`
 
@@ -132,7 +132,7 @@ Set lastCommitKey
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:87](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L87)
+[virtualfs/virtualfs.ts:87](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L87)
 
 ## Methods
 
@@ -155,7 +155,7 @@ Set lastCommitKey
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:342](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L342)
+[virtualfs/virtualfs.ts:342](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L342)
 
 ___
 
@@ -177,7 +177,7 @@ Create a remote-only branch via the configured adapter.
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:779](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L779)
+[virtualfs/virtualfs.ts:779](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L779)
 
 ___
 
@@ -199,7 +199,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:269](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L269)
+[virtualfs/virtualfs.ts:269](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L269)
 
 ___
 
@@ -217,7 +217,7 @@ This does not necessarily instantiate the adapter instance; use
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:181](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L181)
+[virtualfs/virtualfs.ts:181](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L181)
 
 ___
 
@@ -233,7 +233,7 @@ Return or lazily create the adapter instance based on persisted metadata.
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:197](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L197)
+[virtualfs/virtualfs.ts:197](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L197)
 
 ___
 
@@ -249,7 +249,7 @@ Return persisted adapter metadata (if any).
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:248](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L248)
+[virtualfs/virtualfs.ts:248](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L248)
 
 ___
 
@@ -267,7 +267,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:390](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L390)
+[virtualfs/virtualfs.ts:390](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L390)
 
 ___
 
@@ -285,7 +285,7 @@ Returns null when adapter not available.
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:847](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L847)
+[virtualfs/virtualfs.ts:847](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L847)
 
 ___
 
@@ -301,7 +301,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:360](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L360)
+[virtualfs/virtualfs.ts:360](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L360)
 
 ___
 
@@ -326,7 +326,7 @@ Returns an object containing the resolved `remote` descriptor (or null),
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:716](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L716)
+[virtualfs/virtualfs.ts:716](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L716)
 
 ___
 
@@ -342,7 +342,7 @@ VirtualFS の初期化を行います（バックエンド初期化と index 読
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:113](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L113)
+[virtualfs/virtualfs.ts:113](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L113)
 
 ___
 
@@ -364,7 +364,7 @@ Delegate branch listing to the underlying adapter when available.
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:761](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L761)
+[virtualfs/virtualfs.ts:761](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L761)
 
 ___
 
@@ -387,7 +387,7 @@ Thin passthrough used by UI/CLI to retrieve commit summaries and paging info.
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:748](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L748)
+[virtualfs/virtualfs.ts:748](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L748)
 
 ___
 
@@ -403,7 +403,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:368](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L368)
+[virtualfs/virtualfs.ts:368](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L368)
 
 ___
 
@@ -426,7 +426,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:515](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L515)
+[virtualfs/virtualfs.ts:515](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L515)
 
 ___
 
@@ -448,7 +448,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:988](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L988)
+[virtualfs/virtualfs.ts:988](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L988)
 
 ___
 
@@ -472,7 +472,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:322](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L322)
+[virtualfs/virtualfs.ts:322](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L322)
 
 ___
 
@@ -496,7 +496,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:297](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L297)
+[virtualfs/virtualfs.ts:297](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L297)
 
 ___
 
@@ -519,7 +519,7 @@ rename を delete + create の合成で行うヘルパ
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:280](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L280)
+[virtualfs/virtualfs.ts:280](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L280)
 
 ___
 
@@ -544,7 +544,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:332](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L332)
+[virtualfs/virtualfs.ts:332](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L332)
 
 ___
 
@@ -567,7 +567,7 @@ Set adapter instance and persist adapter metadata into index file.
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:139](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L139)
+[virtualfs/virtualfs.ts:139](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L139)
 
 ___
 
@@ -591,7 +591,7 @@ SHA-1 ハッシュの16進表現
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:96](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L96)
+[virtualfs/virtualfs.ts:96](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L96)
 
 ___
 
@@ -615,7 +615,7 @@ SHA-1 ハッシュの16進表現（git blob 用）
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:105](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L105)
+[virtualfs/virtualfs.ts:105](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L105)
 
 ___
 
@@ -638,4 +638,4 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:258](https://github.com/nojaja/browser-git-ops/blob/20910139d391f249953453afbe0772410276f7ea/src/virtualfs/virtualfs.ts#L258)
+[virtualfs/virtualfs.ts:258](https://github.com/nojaja/browser-git-ops/blob/28f31867a4cf6f9f8fa821d855f4c82c07719ff7/src/virtualfs/virtualfs.ts#L258)
