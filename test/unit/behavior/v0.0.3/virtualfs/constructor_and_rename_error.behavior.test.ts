@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -10,7 +10,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('VirtualFS constructor default and rename error', () => {
   it('constructs with InMemoryStorage backend when none provided', async () => {
-    const vfs = new VirtualFS({ backend: new InMemoryStorage() })
+    const vfs = new VirtualFS({ backend: new InMemoryStorage('__test_ns') })
     // init should not throw
     await expect(vfs.init()).resolves.toBeUndefined()
     // getIndex should be available
@@ -19,7 +19,7 @@ describe('VirtualFS constructor default and rename error', () => {
   })
 
   it('renameFile throws when source not found', async () => {
-    const vfs = new VirtualFS({ backend: new InMemoryStorage() })
+    const vfs = new VirtualFS({ backend: new InMemoryStorage('__test_ns') })
     await vfs.init()
     await expect(vfs.renameFile('no-such.txt', 'x.txt')).rejects.toThrow('source not found')
   })

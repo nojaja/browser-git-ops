@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -83,7 +83,7 @@ describe('OpfsStorage extra coverage', () => {
     ;(globalThis as any).navigator = (globalThis as any).navigator || {}
     // both present -> true
     ;(navigator as any).storage = { persist: async () => true, getDirectory: async () => ({}) }
-    const bs = new OpfsStorage()
+    const bs = new OpfsStorage('__test_ns')
     await bs.init()
     expect(OpfsStorage.canUse()).toBe(true)
 
@@ -127,7 +127,7 @@ describe('OpfsStorage extra coverage', () => {
     ;(globalThis as any).navigator = (globalThis as any).navigator || {}
     ;(navigator as any).storage = { persist: async () => true, getDirectory: async () => root }
 
-    const bs = new OpfsStorage()
+    const bs = new OpfsStorage('__test_ns')
     await bs.init()
 
     await bs.writeBlob('d1/a.txt', 'x')

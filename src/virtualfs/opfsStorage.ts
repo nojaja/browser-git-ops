@@ -34,11 +34,18 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * If no information is available synchronously an empty array is returned.
    * @returns {Promise<string[]>} available root directories
    */
-  static async availableRoots(): Promise<string[]> {
+  static async availableRoots(namespace: string): Promise<string[]> {
     try {
       const root = await OpfsStorage._getNavigatorStorageRoot()
       if (!root) return []
-      return await OpfsStorage._collectDirectoryNames(root)
+      // Find the namespace folder under OPFS root and list its children
+      for await (const handle of (root as any).values()) {
+        const name = OpfsStorage._extractHandleName(handle)
+        if (name === namespace && OpfsStorage._isDirectoryHandle(handle)) {
+          return await OpfsStorage._collectDirectoryNames(handle)
+        }
+      }
+      return []
     } catch (error) {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('availableRoots probe failed', error)
       return []
@@ -100,6 +107,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   private rootDir = 'apigit_storage'
   private currentBranch: string | null = null
+  private namespace: string = ''
 
   /**
    * Calculate SHA-1 hex digest of given content.
@@ -114,9 +122,25 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
   }
 
-  /** コンストラクタ（OPFS は初期化不要）。`root` は OPFS ルート直下に作成するサブディレクトリ名です。 */
-  constructor(root?: string) {
-    if (root) this.rootDir = root
+  /**
+   * コンストラクタ（OPFS は初期化不要）。
+   * `namespace` は必須。挙動:
+   * - `new(namespace)` のみの場合は OPFS ルートとして `namespace` を使う（テストの期待値に合わせる）。
+   * - `new(namespace, root)` の場合は `namespace/root` を使う。
+   */
+  constructor(namespace: string, root?: string) {
+    this.namespace = namespace || ''
+    if (root) {
+      this.rootDir = this.namespace ? `${this.namespace}/${root}` : root
+    } else if (this.namespace) {
+      // When only namespace provided, treat it as the root directory to match
+      // existing test expectations where availableRoots returns a top-level
+      // folder name (e.g. 'GitLab_test01').
+      this.rootDir = this.namespace
+    } else {
+      // Fallback to default
+      this.rootDir = this.rootDir
+    }
   }
 
   /**
@@ -821,11 +845,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    */
   private async _findStorageDirectory(navRoot: any): Promise<any | null> {
     try {
-      for await (const handle of (navRoot as any).values()) {
-        const name = OpfsStorage._extractHandleName(handle)
-        if (name === this.rootDir && OpfsStorage._isDirectoryHandle(handle)) return handle
-      }
-      return null
+      const parts = this.rootDir.split('/').filter(Boolean)
+      const directoryHandle = await this.traverseDir(navRoot, parts)
+      return directoryHandle
     } catch {
       return null
     }

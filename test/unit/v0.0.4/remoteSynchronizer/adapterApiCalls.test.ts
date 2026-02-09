@@ -1,4 +1,4 @@
-/**
+﻿/**
  * アダプタインテグレーションテスト（on-demand fetching に対応した API 呼び出し）
  * 要件: GitHub/GitLab アダプタが tree のみと on-demand blob/raw を別々に呼び出すこと
  *

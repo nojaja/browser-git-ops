@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -11,7 +11,7 @@ import { VirtualFS } from '../../../../../src/virtualfs/virtualfs'
 
 // Consolidated VirtualFS tests (InMemory backend)
 const backends = [
-  { name: 'InMemory', factory: () => new InMemoryStorage(), available: true }
+  { name: 'InMemory', factory: () => new InMemoryStorage('__test_ns'), available: true }
 ]
 
 beforeEach(() => jest.clearAllMocks())
@@ -69,7 +69,7 @@ export {}
 // ---- Merged: readAndResolve tests ----
 describe('readFile and resolveConflict branches (merged)', () => {
   it('readFile returns workspace, workspace blob, base blob and base map', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend: storage })
 
     await vfs.writeFile('a.txt', 'A')
@@ -86,7 +86,7 @@ describe('readFile and resolveConflict branches (merged)', () => {
   })
 
   it('resolveConflict promotes remote content when present and updates index', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend: storage })
     const filePath = 'conf.txt'
     const entry = { path: filePath, remoteSha: 'r1' }
@@ -105,7 +105,7 @@ describe('readFile and resolveConflict branches (merged)', () => {
   })
 
   it('resolveConflict promotes remoteSha even if blob not present', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend: storage })
     const filePath2 = 'noblob.txt'
     const entry = { path: filePath2, remoteSha: 'r2' }
@@ -123,7 +123,7 @@ describe('readFile and resolveConflict branches (merged)', () => {
 // ---- Merged: persistence tests ----
 describe('InMemoryStorage basic flows (merged)', () => {
   it('init and write/read index', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     await storage.init()
     const index = { head: 'h', entries: {} }
     await storage.writeIndex(index as any)
@@ -133,7 +133,7 @@ describe('InMemoryStorage basic flows (merged)', () => {
   })
 
   it('writeBlob/readBlob/deleteBlob', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     await storage.init()
     await storage.writeBlob('dir/a.txt', 'hello')
     const got = await storage.readBlob('dir/a.txt')
@@ -144,7 +144,7 @@ describe('InMemoryStorage basic flows (merged)', () => {
   })
 
   it('readIndex returns default index when absent', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     await storage.init()
     const r = await storage.readIndex()
     expect(r).not.toBeNull()

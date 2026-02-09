@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -10,7 +10,7 @@ import { InMemoryStorage } from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('VirtualFS#getRemoteDiffs', () => {
   it('returns added when index has no entry', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
 
     // provide descriptor directly to avoid touching internals
@@ -23,7 +23,7 @@ describe('VirtualFS#getRemoteDiffs', () => {
   })
 
   it('returns updated when baseSha differs', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     const descriptor = { headSha: 'h', shas: { 'a.txt': 'shaNew' }, fetchContent: async () => ({}) }
     vfs.getIndex = async () => ({ head: '', entries: { 'a.txt': { baseSha: 'shaOld' } } }) as any
@@ -33,7 +33,7 @@ describe('VirtualFS#getRemoteDiffs', () => {
   })
 
   it('handles missing index (getIndex throws) and returns empty diffs', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     const descriptor = { headSha: 'h', shas: { 'a.txt': 'shaA' }, fetchContent: async () => ({}) }
     vfs.getIndex = async () => { throw new Error('no index') }

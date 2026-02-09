@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -10,7 +10,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('VirtualFS 基本動作', () => {
   it('ファイルの追加・更新・削除と index.json の更新', async () => {
-      const vfs = new VirtualFS({ backend: new InMemoryStorage() })
+      const vfs = new VirtualFS({ backend: new InMemoryStorage('__test_ns') })
     await vfs.init()
 
     await vfs.writeFile('foo.txt', 'hello')
@@ -35,7 +35,7 @@ describe('VirtualFS 基本動作', () => {
   })
 
   it('tombstone が作られるケース（base あり）', async () => {
-    const vfs = new VirtualFS({ backend: new InMemoryStorage() })
+    const vfs = new VirtualFS({ backend: new InMemoryStorage('__test_ns') })
     await vfs.init()
     // apply base snapshot
     await vfs.applyBaseSnapshot({ 'a.txt': 'basecontent' }, 'head1')

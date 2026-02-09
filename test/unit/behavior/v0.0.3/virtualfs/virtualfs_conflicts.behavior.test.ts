@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -12,7 +12,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 describe('VirtualFS conflict and edge cases', () => {
   // Test conflict resolution workflow
   it('resolveConflict clears conflict marker', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -35,7 +35,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test readConflict for conflicted file
   it('readConflict retrieves conflict data', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -68,7 +68,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test pull with deletion creates conflict if workspace modified
   it('pull handles remote deletion with local changes', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -96,7 +96,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test applyBaseSnapshot clears all segments
   it('applyBaseSnapshot resets storage state', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -123,7 +123,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test deleteFile marks as deleted
   it('deleteFile removes from workspace', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -137,7 +137,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test renameFile updates info segment
   it('renameFile updates file metadata', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -163,7 +163,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test push generates valid tree structure
   it('push creates hierarchical tree for nested files', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -196,7 +196,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test getIndex returns head
   it('getIndex returns current head', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -210,7 +210,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test writeFile creates info entry
   it('writeFile creates metadata in info segment', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -225,7 +225,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test pull with empty remote
   it('pull with no remote files handles gracefully', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -245,7 +245,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test listPaths after rename
   it('listPaths reflects renamed files', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -265,7 +265,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test readFile from base when workspace empty
   it('readFile falls back to base segment', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -280,7 +280,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
   // Test push with adapter verifies all API calls
   it('push with adapter calls all required methods', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 

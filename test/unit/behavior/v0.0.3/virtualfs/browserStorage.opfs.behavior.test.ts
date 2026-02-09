@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -146,7 +146,7 @@ describe('OpfsStorage OPFS branches', () => {
       getDirectory: async () => root
     }
 
-    const bs = new OpfsStorage()
+    const bs = new OpfsStorage('__test_ns')
     await bs.init()
 
     await bs.writeBlob('dir1/x.txt', 'opfs-content')

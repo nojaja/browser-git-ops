@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -12,18 +12,18 @@ describe('InMemoryStorage branches', () => {
   afterEach(() => jest.resetAllMocks())
 
   it('availableRoots includes named stores created via constructor', () => {
-    const s = new InMemoryStorage('my_shared_root')
-    const roots = InMemoryStorage.availableRoots()
+    const s = new InMemoryStorage('__test_ns', 'my_shared_root')
+    const roots = InMemoryStorage.availableRoots('__test_ns')
     expect(roots).toContain('my_shared_root')
   })
 
   it('writeBlob throws on unknown segment', async () => {
-    const s = new InMemoryStorage()
+    const s = new InMemoryStorage('__test_ns')
     await expect(s.writeBlob('p', 'c', 'UNKNOWN')).rejects.toThrow('unknown segment')
   })
 
   it('readBlob respects explicit segment lookup', async () => {
-    const s = new InMemoryStorage('segroot')
+    const s = new InMemoryStorage('__test_ns')
     await s.writeBlob('f1', 'w', 'workspace')
     await s.writeBlob('f2', 'b', 'base')
     // v0.0.4: conflict segment stores Info JSON metadata

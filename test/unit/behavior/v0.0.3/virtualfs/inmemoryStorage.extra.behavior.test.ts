@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -15,7 +15,7 @@ describe('InMemoryStorage extra branches', () => {
 
   it('listFiles respects non-recursive flag', async () => {
     const root = `testroot_${Math.random().toString(36).slice(2)}`
-    const s = new InMemoryStorage(root)
+    const s = new InMemoryStorage('__test_ns', root)
     await s.writeBlob('dir/file1.txt', 'c1', 'workspace')
     await s.writeBlob('dir/sub/file2.txt', 'c2', 'workspace')
     const listRec = await s.listFiles('dir', 'workspace', true)
@@ -25,7 +25,7 @@ describe('InMemoryStorage extra branches', () => {
   })
 
   it('readBlob returns null for unknown segment', async () => {
-    const s = new InMemoryStorage()
+    const s = new InMemoryStorage('__test_ns')
     await s.writeBlob('a.txt', 'hello', 'workspace')
     const res = await s.readBlob('a.txt', 'noneseg')
     expect(res).toBeNull()
@@ -36,7 +36,7 @@ describe('InMemoryStorage extra branches', () => {
   })
 
   it('writeBlob rejects for unknown segment', async () => {
-    const s = new InMemoryStorage()
+    const s = new InMemoryStorage('__test_ns')
     await expect(s.writeBlob('x.txt', 'v', 'unknown-seg')).rejects.toThrow('unknown segment')
   })
 

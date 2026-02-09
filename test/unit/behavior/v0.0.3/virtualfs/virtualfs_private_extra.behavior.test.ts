@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -13,7 +13,7 @@ describe('VirtualFS private remote handlers', () => {
   let backend: InMemoryStorage
 
   beforeEach(async () => {
-    backend = new InMemoryStorage()
+    backend = new InMemoryStorage('__test_ns')
     vfs = new VirtualFS({ backend })
     await vfs.init()
   })

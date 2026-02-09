@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -11,7 +11,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('VirtualFS additional branch coverage', () => {
   it('pull handles deleted remote files (shas empty)', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -31,7 +31,7 @@ describe('VirtualFS additional branch coverage', () => {
   })
 
   it('applyBaseSnapshot clears old entries and applies new ones', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -55,7 +55,7 @@ describe('VirtualFS additional branch coverage', () => {
   })
 
   it('push with no changes generates empty tree', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -82,7 +82,7 @@ describe('VirtualFS additional branch coverage', () => {
   })
 
   it('pull with workspace deletion (state=deleted) keeps deleted state', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -101,7 +101,7 @@ describe('VirtualFS additional branch coverage', () => {
   })
 
   it('pull remote update to locally modified file creates conflict', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -123,7 +123,7 @@ describe('VirtualFS additional branch coverage', () => {
   })
 
   it('_handleRemotePath processes delete action', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -143,7 +143,7 @@ describe('VirtualFS additional branch coverage', () => {
   })
 
   it('push updates head on success', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 

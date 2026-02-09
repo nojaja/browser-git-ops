@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type coverage
  * @purpose Coverage expansion only
  * @policy MODIFICATION ALLOWED
@@ -12,7 +12,7 @@ describe('VirtualFS coverage boost 2 - miscellaneous private helpers', () => {
   let vfs: any;
 
   beforeEach(() => {
-    vfs = new VirtualFS({ storage: new InMemoryStorage() });
+    vfs = new VirtualFS({ storage: new InMemoryStorage('__test_ns') });
   });
 
   it('_isNonFastForwardError recognizes 422 and related phrases', () => {

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -91,7 +91,7 @@ describe('InMemoryStorage - table-driven cases', () => {
       prepare: true
     }
   ])('$name', async (tc) => {
-    const s = new InMemoryStorage('td-root')
+    const s = new InMemoryStorage('__test_ns')
     if (tc.prepare) {
       // write to multiple segments
       await s.writeBlob(tc.key, 'wdata', 'workspace')

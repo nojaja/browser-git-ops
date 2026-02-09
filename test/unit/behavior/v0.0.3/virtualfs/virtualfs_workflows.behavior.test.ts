@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -10,7 +10,7 @@ import VirtualFS from '../../../../../src/virtualfs/virtualfs'
 import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
 async function createVFS() {
-  const backend = new InMemoryStorage()
+  const backend = new InMemoryStorage('__test_ns')
   const vfs = new VirtualFS({ backend })
   await vfs.init()
   return { backend, vfs }
@@ -185,7 +185,7 @@ describe('VirtualFS advanced workflows', () => {
 
   // Test pull updates index correctly
   it('pull updates backend index with new head', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 

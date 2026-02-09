@@ -86,7 +86,7 @@ export interface StorageBackendConstructor {
    * コンストラクタ。ルートパスやDB名などのオプション引数を受け取れるようにする。
    * 実装側はこの引数を利用して初期化を行うことができます。
    */
-  new(_root?: string): StorageBackend
+  new(_namespace: string, _root?: string): StorageBackend
 
   /**
    * このストレージ実装が利用可能かどうかを返す（例: 環境依存のチェック）。
@@ -97,7 +97,7 @@ export interface StorageBackendConstructor {
    * このストレージ実装で利用可能なルートパスあるいはDB名の一覧を返す。
    * 例えばローカルFS実装ならベースディレクトリ名、IndexedDB実装ならDB名候補を返す等。
    */
-  availableRoots(): string[] | Promise<string[]>
+  availableRoots(_namespace: string): string[] | Promise<string[]>
 }
 
 export default StorageBackend

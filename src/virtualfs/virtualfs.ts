@@ -45,7 +45,7 @@ export class VirtualFS {
    */
   constructor(options?: { backend?: StorageBackend; logger?: Logger }) {
     if (options?.backend) this.backend = options.backend
-    else this.backend = new OpfsStorage()
+    else this.backend = new OpfsStorage('default')
     // capture optional logger for adapter propagation
     if (options && options.logger) this.logger = options.logger
     this.applier = new LocalChangeApplier(this.backend)

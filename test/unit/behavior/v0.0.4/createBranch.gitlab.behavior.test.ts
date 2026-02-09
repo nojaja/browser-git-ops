@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals'
+﻿import { jest } from '@jest/globals'
 import * as lib from '../../../../src/index'
 import { configureFetchMock, clearFetchMock } from '../../../utils/fetchMock'
 import { resetMockOPFS } from 'opfs-mock'

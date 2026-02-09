@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -9,7 +9,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('VirtualFS.pull with undefined remote', () => {
   it('falls back to baseSnapshot normalization when adapter absent', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
     const baseSnapshot = { 'foo.txt': 'hello', 'dir/bar.txt': 'x' }

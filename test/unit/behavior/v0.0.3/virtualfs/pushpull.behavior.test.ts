@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -11,7 +11,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('VirtualFS pull/push', () => {
   it('pull updates base when workspace unchanged', async () => {
-    const vfs = new VirtualFS({ backend: new InMemoryStorage() })
+    const vfs = new VirtualFS({ backend: new InMemoryStorage('__test_ns') })
     await vfs.init()
     // initial base
     await vfs.applyBaseSnapshot({ 'a.txt': 'v1' }, 'head1')
@@ -27,7 +27,7 @@ describe('VirtualFS pull/push', () => {
   })
 
   it('pull reports conflict when workspace modified', async () => {
-    const vfs = new VirtualFS({ backend: new InMemoryStorage() })
+    const vfs = new VirtualFS({ backend: new InMemoryStorage('__test_ns') })
     await vfs.init()
     await vfs.applyBaseSnapshot({ 'a.txt': 'v1' }, 'head1')
     // modify locally
@@ -39,7 +39,7 @@ describe('VirtualFS pull/push', () => {
   })
 
   it('push fails when head mismatched and succeeds otherwise', async () => {
-    const vfs = new VirtualFS({ backend: new InMemoryStorage() })
+    const vfs = new VirtualFS({ backend: new InMemoryStorage('__test_ns') })
     await vfs.init()
     await vfs.applyBaseSnapshot({ 'a.txt': 'v1' }, 'head1')
     // make workspace change

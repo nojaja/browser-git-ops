@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type coverage
  * @purpose Coverage expansion only
  * @policy MODIFICATION ALLOWED
@@ -10,7 +10,7 @@ import { InMemoryStorage } from '../../../../src/virtualfs/inmemoryStorage'
 
 describe('coverage fix: VirtualFS push cleanup', () => {
   it('applies create/update/delete and removes workspace blobs', async () => {
-    const vfs = new VirtualFS({ backend: new InMemoryStorage() })
+    const vfs = new VirtualFS({ backend: new InMemoryStorage('__test_ns') })
     await vfs.init()
 
     // set head so push pre-checks pass

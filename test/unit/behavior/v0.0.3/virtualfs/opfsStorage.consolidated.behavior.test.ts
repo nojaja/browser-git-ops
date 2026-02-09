@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -15,7 +15,7 @@ describe('OpfsStorage consolidated segment and listFiles tests', () => {
   const segments = ['workspace','base','conflict','info'] as const
 
   test.each(segments)('write/read/delete cycle on segment %s', async (seg) => {
-    const s = new OpfsStorage()
+    const s = new OpfsStorage('__test_ns')
     await s.init()
     const fname = `consolidated-${seg}.txt`
     try {
@@ -39,7 +39,7 @@ describe('OpfsStorage consolidated segment and listFiles tests', () => {
   ]
 
   test.each(listCases)('$description', async (c) => {
-    const s = new OpfsStorage()
+    const s = new OpfsStorage('__test_ns')
     await s.init()
     await Promise.all([
       s.writeBlob('consolidated/a.txt', 'a', 'workspace').catch(() => undefined),
@@ -64,7 +64,7 @@ describe('OpfsStorage consolidated segment and listFiles tests', () => {
   })
 
   test('listFiles many files and deep nesting', async () => {
-    const s = new OpfsStorage()
+    const s = new OpfsStorage('__test_ns')
     await s.init()
     const ops: Promise<any>[] = []
     for (let i = 0; i < 20; i++) {
@@ -80,7 +80,7 @@ describe('OpfsStorage consolidated segment and listFiles tests', () => {
   })
 
   test('listFiles with prefix filtering and segment variants', async () => {
-    const s = new OpfsStorage()
+    const s = new OpfsStorage('__test_ns')
     await s.init()
     await Promise.all([
       s.writeBlob('prefix1/file.txt', 'c1', 'workspace').catch(() => undefined),
@@ -95,7 +95,7 @@ describe('OpfsStorage consolidated segment and listFiles tests', () => {
   })
 
   test.each(['workspace','base','conflict'])('listFiles respects segment %s', async (seg) => {
-    const s = new OpfsStorage()
+    const s = new OpfsStorage('__test_ns')
     await s.init()
     await s.writeBlob(`segtest/${seg}.txt`, `v-${seg}`, seg).catch(() => undefined)
     const files = await s.listFiles('segtest', seg, true).catch(() => [])

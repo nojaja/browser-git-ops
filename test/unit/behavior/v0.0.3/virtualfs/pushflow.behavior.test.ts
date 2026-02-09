@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -17,7 +17,7 @@ afterEach(async () => {
 
 describe('VirtualFS push flows', () => {
   it('uses GitHub flow and updates index even if updateRef throws', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend: storage })
     await vfs.init()
 
@@ -59,7 +59,7 @@ describe('VirtualFS push flows', () => {
   })
 
   it('uses actions flow when adapter has createCommitWithActions', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend: storage })
     await vfs.init()
 

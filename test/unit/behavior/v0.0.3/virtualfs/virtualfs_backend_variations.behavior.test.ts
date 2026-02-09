@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -23,7 +23,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
 
     it('OpfsStorage conditional fallback in VirtualFS', async () => {
       // Test that VirtualFS works regardless of OpfsStorage.canUse() result
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -55,14 +55,14 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
       }
 
       // If IDB is available, test basic operations
-      const storage = new IndexedDatabaseStorage('test_store')
+      const storage = new IndexedDatabaseStorage('__test_ns')
       expect(storage).toBeDefined()
     })
   })
 
   describe('Backend abstraction compatibility', () => {
     it('InMemoryStorage implements all required methods', () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
 
       expect(typeof storage.init).toBe('function')
       expect(typeof storage.readIndex).toBe('function')
@@ -75,7 +75,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     it('OpfsStorage implements StorageBackend interface', () => {
       expect(typeof OpfsStorage.canUse).toBe('function')
       // getOrInitForUid may not be directly accessible on class
-      const storage = new OpfsStorage()
+      const storage = new OpfsStorage('__test_ns')
       expect(storage).toBeDefined()
     })
 
@@ -86,7 +86,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
 
   describe('Storage operations under various conditions', () => {
     it('VirtualFS handles empty initial state', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -97,7 +97,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     })
 
     it('VirtualFS handles rapid sequential operations', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -116,7 +116,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     })
 
     it('VirtualFS handles snapshot with many files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -136,7 +136,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     })
 
     it('VirtualFS handles pull with large remote state', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -156,7 +156,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
 
   describe('Error path coverage', () => {
     it('VirtualFS handles corrupt index gracefully', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       // Write corrupted index manually
@@ -168,7 +168,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     })
 
     it('VirtualFS handles missing blobs gracefully', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -188,7 +188,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     })
 
     it('VirtualFS recovers from partial state', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -208,7 +208,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
 
   describe('Branch coverage: conditional paths', () => {
     it('VirtualFS.readFile branch: file not in index', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -219,7 +219,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     })
 
     it('VirtualFS.readFile branch: blob returns null', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -239,7 +239,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     })
 
     it('VirtualFS.pull branch: remote has deleted files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -258,7 +258,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     })
 
     it('VirtualFS.pull branch: local has changes remote doesnt have', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -279,7 +279,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
 
   describe('Coverage: unusual input combinations', () => {
     it('writeFile with same content multiple times', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -294,7 +294,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     })
 
     it('applyBaseSnapshot followed by pull with same data', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -308,7 +308,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     })
 
     it('renameFile creates shadow entries', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -325,7 +325,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
     })
 
     it('deleteFile then rename to deleted name', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()

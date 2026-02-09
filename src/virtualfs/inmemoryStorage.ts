@@ -37,18 +37,32 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
    * 利用可能なルート名を返します。
    * @returns {string[]} ルート名の配列
    */
-  static availableRoots(): string[] {
+  static availableRoots(namespace?: string): string[] {
     const keys = Array.from(InMemoryStorage.stores.keys())
-    return keys.length ? keys : ['apigit_storage']
+    // keys are stored as namespace-prefixed keys like 'namespace/root'
+    if (namespace) {
+      const filtered = keys
+        .filter((k) => k.startsWith(namespace + '/'))
+        .map((k) => k.slice((namespace + '/').length))
+      return filtered.length ? filtered : ['apigit_storage']
+    }
+    // Legacy behavior: return all registered root names across namespaces
+    const roots = keys.map((k) => {
+      const parts = k.split('/')
+      return parts.length > 1 ? parts.slice(1).join('/') : parts[0]
+    })
+    const uniq = Array.from(new Set(roots))
+    return uniq.length ? uniq : ['apigit_storage']
   }
   
   /**
    * コンストラクタ。互換性のためにディレクトリ名を受け取るが無視する。
    * @param directory 任意のディレクトリ文字列（使用しない）
    */
-  constructor(directory?: string) {
-    // If caller provides a directory name, share storage by that name. If omitted, create isolated store per instance.
-    this.rootKey = directory ?? `__inmem_${Math.random().toString(36).slice(2)}`
+  constructor(namespace: string, directory?: string) {
+    // Compose a namespace-prefixed store key
+    const directoryName = directory ?? `__inmem_${Math.random().toString(36).slice(2)}`
+    this.rootKey = namespace ? `${namespace}/${directoryName}` : directoryName
     if (!InMemoryStorage.stores.has(this.rootKey)) {
       InMemoryStorage.stores.set(this.rootKey, {
         index: { head: '', entries: {} },
@@ -615,11 +629,19 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
    * @returns {void}
    */
   static delete(rootName: string): void {
+    // Accept either a full namespaced key or a bare directory name.
     if (InMemoryStorage.stores.has(rootName)) {
       InMemoryStorage.stores.delete(rootName)
-    } else {
-      throw new Error(`InMemory root "${rootName}" not found`)
+      return
     }
+    // If a bare rootName was provided, try to find a namespaced key that ends with it
+    for (const key of Array.from(InMemoryStorage.stores.keys())) {
+      if (key === rootName || key.endsWith('/' + rootName)) {
+        InMemoryStorage.stores.delete(key)
+        return
+      }
+    }
+    throw new Error(`InMemory root "${rootName}" not found`)
   }
 
 }

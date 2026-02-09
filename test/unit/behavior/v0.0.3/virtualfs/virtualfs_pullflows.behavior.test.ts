@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -12,7 +12,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 describe('VirtualFS pull and conflict flows', () => {
   // Test pull updates head on success
   it('pull updates head sha after successful fetch', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -33,7 +33,7 @@ describe('VirtualFS pull and conflict flows', () => {
 
   // Test pull with no changes keeps existing head
   it('pull with identical content keeps head', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -55,7 +55,7 @@ describe('VirtualFS pull and conflict flows', () => {
 
   // Test pull adds new remote files
   it('pull adds files from remote', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -77,7 +77,7 @@ describe('VirtualFS pull and conflict flows', () => {
 
   // Test pull with file deleted locally but present remotely
   it('pull restores file when deleted locally but present remotely', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -102,7 +102,7 @@ describe('VirtualFS pull and conflict flows', () => {
 
   // Test pull with workspace modification and remote modification
   it('pull creates conflict when both sides modified', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -126,7 +126,7 @@ describe('VirtualFS pull and conflict flows', () => {
 
   // Test pull with workspace delete but base still has it
   it('pull with remote deletion marks as conflict if workspace exists', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -152,7 +152,7 @@ describe('VirtualFS pull and conflict flows', () => {
 
   // Test pull clears old conflicts when none exist remotely
   it('pull processes empty remote state', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -175,7 +175,7 @@ describe('VirtualFS pull and conflict flows', () => {
 
   // Test pull with multiple files changed
   it('pull handles multiple file changes', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 

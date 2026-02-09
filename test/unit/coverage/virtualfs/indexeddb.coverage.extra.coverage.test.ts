@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type coverage
  * @purpose Coverage expansion only
  * @policy MODIFICATION ALLOWED

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -10,7 +10,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('renameFile helper', () => {
   it('renames a base file to new path producing create+delete change set', async () => {
-    const vfs = new VirtualFS({ backend: new InMemoryStorage() })
+    const vfs = new VirtualFS({ backend: new InMemoryStorage('__test_ns') })
     await vfs.init()
     // apply base snapshot
     await vfs.applyBaseSnapshot({ 'c.txt': 'content-c' }, 'h1')

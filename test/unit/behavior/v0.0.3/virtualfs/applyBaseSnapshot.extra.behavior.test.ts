@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -9,7 +9,7 @@ import { InMemoryStorage } from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('applyBaseSnapshot branches', () => {
   it('applies snapshot: adds, updates and removes as needed', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend: storage })
 
     // initial base: x.txt -> old

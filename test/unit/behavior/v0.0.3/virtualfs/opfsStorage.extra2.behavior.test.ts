@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -13,7 +13,7 @@ describe('OpfsStorage additional failure branches', () => {
   afterEach(() => { if (getOpfsRootSpy) { getOpfsRootSpy.mockRestore(); getOpfsRootSpy = null } ; jest.resetAllMocks() })
 
   it('deleteBlob uses fileHandle.remove when removeEntry not present', async () => {
-    const storage = new OpfsStorage()
+    const storage = new OpfsStorage('__test_ns')
     // simulate a directory where removeEntry is not present but file handle has remove
     const dir = {
       getDirectory: jest.fn(async (p: string) => dir),
@@ -31,7 +31,7 @@ describe('OpfsStorage additional failure branches', () => {
   })
 
   it('writeBlob/readBlob handles nested path creation', async () => {
-    const storage = new OpfsStorage()
+    const storage = new OpfsStorage('__test_ns')
     const allFiles = new Map<string, string>()
     
     function makeDir(pathPrefix: string): any {
@@ -61,7 +61,7 @@ describe('OpfsStorage additional failure branches', () => {
   })
 
   it('writeBlob falls back to IndexedDB when OPFS write throws', async () => {
-    const storage = new OpfsStorage()
+    const storage = new OpfsStorage('__test_ns')
     // mock getOpfsRoot to throw to force fallback
     getOpfsRootSpy = jest.spyOn(OpfsStorage.prototype as any, 'getOpfsRoot').mockImplementation(async () => { throw new Error('opfs unavailable') })
     // provide a fake indexedDB backend used by OpfsStorage internals
@@ -75,7 +75,7 @@ describe('OpfsStorage additional failure branches', () => {
   })
 
   it('deleteBlob swallows getFileHandle throwing errors', async () => {
-    const storage = new OpfsStorage()
+    const storage = new OpfsStorage('__test_ns')
     // create a recursive dir whose getFileHandle throws
     const recursiveDir: any = {}
     recursiveDir.getDirectory = jest.fn(async () => recursiveDir)
@@ -89,7 +89,7 @@ describe('OpfsStorage additional failure branches', () => {
   })
 
   it('writeBlob rejects when directory API is absent on intermediate nodes', async () => {
-    const storage = new OpfsStorage()
+    const storage = new OpfsStorage('__test_ns')
     // root without any directory/file APIs
     const badRoot: any = {}
     getOpfsRootSpy = jest.spyOn(OpfsStorage.prototype as any, 'getOpfsRoot').mockImplementation(async () => badRoot)
@@ -98,7 +98,7 @@ describe('OpfsStorage additional failure branches', () => {
   })
 
   it('readIndex returns null when getFile throws in fallback path', async () => {
-    const storage = new OpfsStorage()
+    const storage = new OpfsStorage('__test_ns')
     const root = {
       getFileHandle: jest.fn(async () => ({ getFile: async () => { throw new Error('nope') } }))
     } as any
@@ -110,7 +110,7 @@ describe('OpfsStorage additional failure branches', () => {
   })
 
   it('writeBlob/readBlob works with getDirectoryHandle API', async () => {
-    const storage = new OpfsStorage()
+    const storage = new OpfsStorage('__test_ns')
     const allFiles = new Map<string, string>()
     
     function makeDir(pathPrefix: string): any {

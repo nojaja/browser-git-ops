@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose FS 互換 API の振る舞い定義 (v0.0.5)
  * @policy TDD: tests describe expected behavior before implementation

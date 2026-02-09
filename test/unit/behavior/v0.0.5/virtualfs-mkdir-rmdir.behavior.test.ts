@@ -1,4 +1,4 @@
-import '../../../setupOpfs.js'
+﻿import '../../../setupOpfs.js'
 import { jest } from '@jest/globals'
 import * as lib from '../../../../src/index'
 import { resetMockOPFS } from 'opfs-mock'

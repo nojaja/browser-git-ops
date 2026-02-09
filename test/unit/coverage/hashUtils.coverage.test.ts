@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals'
+﻿import { jest } from '@jest/globals'
 import * as hashUtils from '../../../src/virtualfs/hashUtils'
 
 function hexStringToArrayBuffer(hex: string) {

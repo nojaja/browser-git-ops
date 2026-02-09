@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
+﻿import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 import GitHubAdapter from '../../src/git/githubAdapter'
 import { configureFetchMock, clearFetchMock } from '../utils/fetchMock'
 

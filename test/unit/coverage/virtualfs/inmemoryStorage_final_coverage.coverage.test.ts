@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type coverage
  * @purpose Coverage expansion only
  * @policy MODIFICATION ALLOWED
@@ -23,10 +23,10 @@ describe('InMemoryStorage critical line coverage', () => {
 
     it('availableRoots returns existing store keys', () => {
       // Create multiple stores
-      const s1 = new InMemoryStorage('store1')
-      const s2 = new InMemoryStorage('store2')
+      const s1 = new InMemoryStorage('__test_ns', 'store1')
+      const s2 = new InMemoryStorage('__test_ns', 'store2')
       
-      const roots = InMemoryStorage.availableRoots()
+      const roots = InMemoryStorage.availableRoots('__test_ns')
       expect(roots).toContain('store1')
       expect(roots).toContain('store2')
     })
@@ -35,9 +35,9 @@ describe('InMemoryStorage critical line coverage', () => {
       const before = InMemoryStorage.availableRoots()
       
       const uniqueName = `test-${Date.now()}`
-      new InMemoryStorage(uniqueName)
+      new InMemoryStorage('__test_ns', uniqueName)
       
-      const after = InMemoryStorage.availableRoots()
+      const after = InMemoryStorage.availableRoots('__test_ns')
       expect(after).toContain(uniqueName)
       expect(after.length).toBeGreaterThanOrEqual(before.length)
     })
@@ -45,7 +45,7 @@ describe('InMemoryStorage critical line coverage', () => {
 
   describe('Line 133 - _buildInfoEntryForSeg default case', () => {
     it('writeBlob to info segment uses default entry builder', async () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
       await storage.init()
       
       // Write directly to info segment (unusual but valid)
@@ -61,7 +61,7 @@ describe('InMemoryStorage critical line coverage', () => {
     })
 
     it('_buildInfoEntryForSeg handles unknown segment', async () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
       await storage.init()
       
       // The default case in _buildInfoEntryForSeg is when segment is 'info'
@@ -77,7 +77,7 @@ describe('InMemoryStorage critical line coverage', () => {
 
   describe('Lines 264-266 - _filterKeys with edge cases', () => {
     it('listFiles with prefix and non-recursive filtering', async () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
       await storage.init()
       
       // Create test structure
@@ -109,7 +109,7 @@ describe('InMemoryStorage critical line coverage', () => {
     })
 
     it('listFiles filters keys correctly with empty prefix', async () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
       await storage.init()
       
       await storage.writeBlob('top.txt', 'c1', 'workspace')
@@ -125,7 +125,7 @@ describe('InMemoryStorage critical line coverage', () => {
     })
 
     it('listFiles with exact prefix match', async () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
       await storage.init()
       
       await storage.writeBlob('exact', 'content', 'workspace')
@@ -142,7 +142,7 @@ describe('InMemoryStorage critical line coverage', () => {
     })
 
     it('_filterKeys handles rest calculation edge case', async () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
       await storage.init()
       
       // Files with similar prefixes
@@ -167,7 +167,7 @@ describe('InMemoryStorage critical line coverage', () => {
 
   describe('Complex integration scenarios', () => {
     it('Full workflow with info entry building', async () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
       await storage.init()
       
       const filename = 'lifecycle.txt'
@@ -203,8 +203,8 @@ describe('InMemoryStorage critical line coverage', () => {
     })
 
     it('Multiple stores interaction', async () => {
-      const store1 = new InMemoryStorage('multi-test-1')
-      const store2 = new InMemoryStorage('multi-test-2')
+      const store1 = new InMemoryStorage('__test_ns', 'store1')
+      const store2 = new InMemoryStorage('__test_ns', 'store2')
       
       await store1.init()
       await store2.init()
@@ -223,7 +223,7 @@ describe('InMemoryStorage critical line coverage', () => {
     })
 
     it('VirtualFS with InMemoryStorage shows all branches', async () => {
-      const backend = new InMemoryStorage('vfs-test')
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       
       await vfs.init()
@@ -248,7 +248,7 @@ describe('InMemoryStorage critical line coverage', () => {
     })
 
     it('listFiles with various prefix patterns', async () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
       await storage.init()
       
       // Create diverse structure
@@ -289,7 +289,7 @@ describe('InMemoryStorage critical line coverage', () => {
     it('availableRoots after multiple store operations', () => {
       // Create and verify stores multiple times
       for (let i = 0; i < 5; i++) {
-        new InMemoryStorage(`iteration-${i}`)
+        new InMemoryStorage('__test_ns', `iteration-${i}`)
       }
       
       const roots = InMemoryStorage.availableRoots()
@@ -297,7 +297,7 @@ describe('InMemoryStorage critical line coverage', () => {
     })
 
     it('listFiles with special characters in prefix', async () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
       await storage.init()
       
       await storage.writeBlob('日本語/ファイル.txt', 'content', 'workspace')
@@ -308,7 +308,7 @@ describe('InMemoryStorage critical line coverage', () => {
     })
 
     it('writeBlob to all segments triggers all info builders', async () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
       await storage.init()
       
       // Write to each segment type

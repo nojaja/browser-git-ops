@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -11,7 +11,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('VirtualFS targeted branch coverage', () => {
   it('push throws on non-fast-forward errors from adapter.updateRef', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -32,7 +32,7 @@ describe('VirtualFS targeted branch coverage', () => {
   })
 
   it('pull treats missing fetched content for existing index entry as conflict', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -57,7 +57,7 @@ describe('VirtualFS targeted branch coverage', () => {
   })
 
   it('pull records conflict and persists remote content when workspace modified', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 

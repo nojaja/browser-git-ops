@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type coverage
  * @purpose Coverage expansion only
  * @policy MODIFICATION ALLOWED
@@ -13,11 +13,11 @@ describe('InMemoryStorage coverage boost tests', () => {
 
   beforeEach(() => {
     rootName = `cb_${Date.now()}_${Math.random().toString(36).slice(2)}`
-    s = new (InMemoryStorage as any)(rootName)
+    s = new (InMemoryStorage as any)('__test_ns', rootName)
   })
 
   afterEach(() => {
-    try { (InMemoryStorage as any).delete(rootName) } catch (_e) {}
+    try { (InMemoryStorage as any).delete(`__test_ns/${rootName}`) } catch (_e) {}
   })
 
   it('writing info segment with invalid JSON stores raw text', async () => {
@@ -27,7 +27,7 @@ describe('InMemoryStorage coverage boost tests', () => {
   })
 
   it('workspace write preserves existing baseSha and remoteSha and marks modified', async () => {
-    const store = (InMemoryStorage as any).stores.get(rootName)
+    const store = (InMemoryStorage as any).stores.get(`__test_ns/${rootName}`)
     store.infoBlobs.set('f1', JSON.stringify({ baseSha: 'BASE123', remoteSha: 'REMOTE1' }))
     await s.writeBlob('f1', 'newcontent', 'workspace')
     const raw = await s.readBlob('f1', 'info')
@@ -39,7 +39,7 @@ describe('InMemoryStorage coverage boost tests', () => {
   })
 
   it('base write preserves existing workspaceSha and sets state base', async () => {
-    const store = (InMemoryStorage as any).stores.get(rootName)
+    const store = (InMemoryStorage as any).stores.get(`__test_ns/${rootName}`)
     store.infoBlobs.set('f2', JSON.stringify({ workspaceSha: 'WS123', remoteSha: 'R2' }))
     await s.writeBlob('f2', 'basecontent', 'base')
     const parsed = JSON.parse(await s.readBlob('f2', 'info')!)
@@ -50,7 +50,7 @@ describe('InMemoryStorage coverage boost tests', () => {
   })
 
   it('conflict write preserves existing sha fields and state conflict', async () => {
-    const store = (InMemoryStorage as any).stores.get(rootName)
+    const store = (InMemoryStorage as any).stores.get(`__test_ns/${rootName}`)
     store.infoBlobs.set('f3', JSON.stringify({ baseSha: 'B3', workspaceSha: 'W3', remoteSha: 'R3' }))
     await s.writeBlob('f3', 'whatever', 'conflict')
     const parsed = JSON.parse(await s.readBlob('f3', 'info')!)

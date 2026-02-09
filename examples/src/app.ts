@@ -676,7 +676,7 @@ async function main() {
         return
       }
       if (OpfsCtor && typeof OpfsCtor.availableRoots === 'function') {
-        let roots: any = OpfsCtor.availableRoots()
+        let roots: any = OpfsCtor.availableRoots('__examples__')
         appendTrace('trace.opfsRootsCall')
         if (roots && typeof roots.then === 'function') {
           try {
@@ -710,7 +710,7 @@ async function main() {
       await new Promise(resolve => setTimeout(resolve, 50))
 
       if (IdxCtor && typeof IdxCtor.availableRoots === 'function') {
-        let roots: any = IdxCtor.availableRoots()
+        let roots: any = IdxCtor.availableRoots('__examples__')
         appendTrace('trace.indexedDbRootsCall')
         if (roots && typeof roots.then === 'function') {
           try {
@@ -740,7 +740,7 @@ async function main() {
       let MemCtor: any = lib.InMemoryStorage
       let roots: any[] = []
       if (MemCtor && typeof MemCtor.availableRoots === 'function') {
-        roots = MemCtor.availableRoots() || []
+        roots = MemCtor.availableRoots('__examples__') || []
         appendTrace('trace.inMemoryRootsCall')
       }
       appendTrace('trace.inMemoryRootsJson', { json: JSON.stringify(roots) })
@@ -808,7 +808,7 @@ async function main() {
   async function connectVfsBackend(prefix: string, BackendCtor: any, val: string, displayName: string, suffixLabel: 'root' | 'db' = 'root') {
     try {
       if (!BackendCtor || !lib.VirtualFS) { appendOutput('error.vfs.missing', { prefix, displayName }); return }
-      const backend = new BackendCtor(val)
+      const backend = new BackendCtor('__examples__', val)
       appendTrace('trace.backendInstanceCreate', { displayName })
       appendTrace('trace.constBackend', { displayName, val: JSON.stringify(val) })
       const vfs = new (lib.VirtualFS as any)({
@@ -858,7 +858,7 @@ async function main() {
         await populateAdapterMetadata(vfs)
       } catch (e) { appendOutput('error.vfs.initException', { prefix, err: String(e) }) }
     } catch (e) { appendOutput('error.vfs.connectFailed', { prefix, err: String(e) }) }
-    appendTrace('trace.empty')
+    appendTrace('')
   }
 
   if (typeof document !== 'undefined') {

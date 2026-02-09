@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -12,7 +12,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 describe('VirtualFS file operations and error paths', () => {
   // Test writeFile creates file with unmodified state
   it('writeFile creates file entry', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -23,7 +23,7 @@ describe('VirtualFS file operations and error paths', () => {
 
   // Test writeFile overwrites existing
   it('writeFile overwrites existing content', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -36,7 +36,7 @@ describe('VirtualFS file operations and error paths', () => {
 
   // Test readFile throws for non-existent file
   it('readFile returns null for missing file', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -47,7 +47,7 @@ describe('VirtualFS file operations and error paths', () => {
 
   // Test listPaths empty
   it('listPaths returns empty array initially', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -57,7 +57,7 @@ describe('VirtualFS file operations and error paths', () => {
 
   // Test listPaths with multiple files
   it('listPaths returns all files after applyBaseSnapshot', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -74,7 +74,7 @@ describe('VirtualFS file operations and error paths', () => {
 
   // Test deleteFile removes from listing
   it('deleteFile removes file from workspace', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -88,7 +88,7 @@ describe('VirtualFS file operations and error paths', () => {
 
   // Test renameFile updates paths
   it('renameFile updates path mapping', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -104,7 +104,7 @@ describe('VirtualFS file operations and error paths', () => {
 
   // Test getChangeSet after single write
   it('getChangeSet reports new files as create', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -117,7 +117,7 @@ describe('VirtualFS file operations and error paths', () => {
 
   // Test getIndex returns current index
   it('getIndex returns current index state', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -131,7 +131,7 @@ describe('VirtualFS file operations and error paths', () => {
 
   // Test readConflict returns conflict info
   it('readConflict returns conflict entry', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -150,7 +150,7 @@ describe('VirtualFS file operations and error paths', () => {
 
   // Test resolveConflict removes from conflicts
   it('resolveConflict removes file from conflicts list', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 

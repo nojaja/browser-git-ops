@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -16,7 +16,7 @@ describe('InMemoryStorage additional branches', () => {
   ]
 
   it.each(segmentCases)('writeBlob stores data in %s segment', async (c) => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
 
     await storage.writeBlob(c.key, c.value, c.name as any)
     const read = await storage.readBlob(c.key, c.name as any)
@@ -25,7 +25,7 @@ describe('InMemoryStorage additional branches', () => {
   })
 
   it('segments are isolated and overwrite works', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
 
     await storage.writeBlob('file.txt', 'workspace-data', 'workspace')
     await storage.writeBlob('file.txt', 'base-data', 'base')
@@ -50,7 +50,7 @@ describe('InMemoryStorage additional branches', () => {
   ]
 
   it.each(listCases)('listFiles reflects additions and deletions %#', async (c) => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
 
     for (const p of c.initial) await storage.writeBlob(p, p, 'workspace')
     if (c.delete) await storage.deleteBlob(c.delete, 'workspace')
@@ -66,18 +66,18 @@ describe('InMemoryStorage additional branches', () => {
   })
 
   it('deleteBlob handles non-existent key gracefully', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     await expect(storage.deleteBlob('nonexistent.txt', 'workspace')).resolves.not.toThrow()
   })
 
   it('readBlob returns null for non-existent blob', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const result = await storage.readBlob('missing.txt', 'workspace')
     expect(result).toBeNull()
   })
 
   it('writeIndex and readIndex work together / default structure', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
 
     const index = { head: 'abc123', conflicts: ['conflict1.txt'], deleted: ['deleted1.txt'] }
     await storage.writeIndex(index)
@@ -86,14 +86,14 @@ describe('InMemoryStorage additional branches', () => {
     expect(retrieved).toBeDefined()
     expect(retrieved.head).toBe('abc123')
 
-    const storage2 = new InMemoryStorage()
+    const storage2 = new InMemoryStorage('__test_ns')
     const defaultIdx = await storage2.readIndex()
     expect(defaultIdx).toBeDefined()
     expect(defaultIdx.head).toBeDefined()
   })
 
   it('info segment stores file metadata', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
 
     const metadata = JSON.stringify({ path: 'file.txt', baseSha: 'sha123', state: 'modified' })
     await storage.writeBlob('file.txt', metadata, 'info')

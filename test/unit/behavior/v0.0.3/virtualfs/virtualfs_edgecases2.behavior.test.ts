@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -12,7 +12,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 describe('VirtualFS advanced edge cases', () => {
   // Test push with empty changes array throws
   it('push rejects when changes array is empty', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -33,7 +33,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test writeFile with nested path creates hierarchy
   it('writeFile handles deeply nested paths', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -47,7 +47,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test deleteFile on non-existent file
   it('deleteFile handles missing file', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -62,7 +62,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test renameFile to new location
   it('renameFile updates file location', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -77,7 +77,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test getChangeSet after multiple operations
   it('getChangeSet aggregates all pending changes', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -97,7 +97,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test push with mixed file types
   it('push handles various file extensions', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -136,7 +136,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test pull creates workspace for new files
   it('pull initializes workspace for new remote files', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -158,7 +158,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test applyBaseSnapshot with empty snapshot
   it('applyBaseSnapshot handles empty snapshot', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -172,7 +172,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test readFile after deletion falls back to base
   it('readFile falls back to base after workspace deletion', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -186,7 +186,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test listPaths after complex operations
   it('listPaths reflects all file operations', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -206,7 +206,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test push with very long file path
   it('push handles long file paths', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -235,7 +235,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test pull with conflict resolution data
   it('pull stores conflict data for manual resolution', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -263,7 +263,7 @@ describe('VirtualFS advanced edge cases', () => {
 
   // Test getIndex after various operations
   it('getIndex returns updated state', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 

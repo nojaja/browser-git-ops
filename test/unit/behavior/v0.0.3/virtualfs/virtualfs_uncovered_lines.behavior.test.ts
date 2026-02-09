@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -13,7 +13,7 @@ import { InMemoryStorage } from '../../../../../src/virtualfs/inmemoryStorage'
 import { VirtualFS } from '../../../../../src/virtualfs/virtualfs'
 
 async function createVFS() {
-  const backend = new InMemoryStorage()
+  const backend = new InMemoryStorage('__test_ns')
   const vfs = new VirtualFS({ backend })
   await vfs.init()
   return { backend, vfs }
@@ -21,7 +21,7 @@ async function createVFS() {
 describe('VirtualFS - Uncovered line targeting', () => {
   describe('Init and initialization branches (lines 83-85)', () => {
     it('init with no pre-existing index', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       
       // First init - creates default index
@@ -30,7 +30,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('init recovers from error state', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       
       // Manually corrupt index
@@ -48,7 +48,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('init with existing valid index', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs1 = new VirtualFS({ backend })
       await vfs1.init()
       await vfs1.applyBaseSnapshot({ 'file.txt': 'content' }, 'h1')
@@ -101,7 +101,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('WriteFile branches (lines 341, 363-364)', () => {
     it('writeFile creates new blob in workspace', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -112,7 +112,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('writeFile updates existing workspace blob', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -124,7 +124,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('writeFile overwrites base blob with workspace', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -136,7 +136,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('writeFile with very long content', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -150,7 +150,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('DeleteFile branches (lines 402-403)', () => {
     it('deleteFile on workspace-only file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -162,7 +162,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('deleteFile on base file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -175,7 +175,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('deleteFile on already-deleted file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -189,7 +189,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('deleteFile on nonexistent file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -200,7 +200,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('RenameFile branches (lines 506-507)', () => {
     it('renameFile workspace-only file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -212,7 +212,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('renameFile base file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -225,7 +225,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('renameFile overwrites existing target', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -241,7 +241,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('GetChangeSet branches (lines 555-556, 567-574)', () => {
     it('getChangeSet with creates', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -254,7 +254,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('getChangeSet with updates', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -267,7 +267,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('getChangeSet with deletes', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -285,7 +285,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('getChangeSet with mixed changes', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -306,7 +306,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('Pull operation branches (lines 663, 694, 806-810, 943-947)', () => {
     it('pull with no local changes', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -317,7 +317,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('pull with local-only files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -329,7 +329,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('pull with remote-only files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -340,7 +340,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('pull with conflicting changes', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -352,7 +352,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('pull with large remote state', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -366,7 +366,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('pull reconciliation with delete + recreate', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -381,7 +381,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('ListPaths branches', () => {
     it('listPaths with only base files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -398,7 +398,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('listPaths with workspace additions', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -411,7 +411,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('listPaths excludes deleted files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -423,7 +423,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('listPaths with mixed operations', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -447,7 +447,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('ApplyBaseSnapshot branches', () => {
     it('applyBaseSnapshot updates head reference', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -461,7 +461,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('applyBaseSnapshot replaces base segment', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -476,7 +476,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('applyBaseSnapshot with empty snapshot', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
