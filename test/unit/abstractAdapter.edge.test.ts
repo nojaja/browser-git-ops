@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals'
+﻿import { jest, describe, it, expect, beforeEach } from '@jest/globals'
 import { classifyStatus, getDelayForResponse, processResponseWithDelay, mapWithConcurrency, RetryableError, NonRetryableError } from '../../src/git/abstractAdapter'
 
 describe('abstractAdapter helpers', () => {

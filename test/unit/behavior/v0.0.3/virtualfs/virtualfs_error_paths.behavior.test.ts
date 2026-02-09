@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -15,20 +15,20 @@ import { VirtualFS } from '../../../../../src/virtualfs/virtualfs'
 describe('VirtualFS - Error Handling and Edge Cases', () => {
   describe('init error recovery', () => {
     it('handles missing info segment gracefully', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       
       // init with no existing info segment
       await vfs.init()
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toEqual([])
     })
   })
 
   describe('File operations error handling', () => {
     it('readFile handles missing files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -39,7 +39,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
 
   describe('applyBaseSnapshot fallback logic', () => {
     it('applies remote content correctly', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -51,7 +51,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
     })
 
     it('updates content when snapshot changes', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -68,22 +68,22 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
 
   describe('File operation edge cases', () => {
     it('handles deleteFile on already deleted file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'file.txt': 'content' }, 'h1')
-      await vfs.deleteFile('file.txt')
+        await vfs.unlink('file.txt')
       
       // Delete again
-      await vfs.deleteFile('file.txt')
+        await vfs.unlink('file.txt')
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).not.toContain('file.txt')
     })
 
     it('handles renameFile when source does not exist in workspace', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -92,13 +92,13 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
       // Rename without modifying in workspace first
       await vfs.renameFile('old.txt', 'new.txt')
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toContain('new.txt')
       expect(paths).not.toContain('old.txt')
     })
 
     it('handles readFile with no workspace, base, or conflict content', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -108,7 +108,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
     })
 
     it('getChangeSet returns empty when no changes', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -125,7 +125,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
     })
 
     it('getChangeSet detects type=create', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -138,7 +138,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
     })
 
     it('getChangeSet detects type=update', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -152,16 +152,16 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
     })
 
     it('getChangeSet detects type=delete', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'file.txt': 'content' }, 'h1')
-      await vfs.deleteFile('file.txt')
+        await vfs.unlink('file.txt')
       
       const changes = await vfs.getChangeSet()
       if (changes.length === 0) {
-        const paths = await vfs.listPaths()
+        const paths = await vfs.readdir('.')
         expect(paths).not.toContain('file.txt')
       } else {
         expect(changes.length).toBeGreaterThanOrEqual(1)
@@ -173,7 +173,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
 
   describe('Conflict resolution edge cases', () => {
     it('readConflict returns null for non-existent conflict', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -182,7 +182,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
     })
 
     it('resolveConflict on non-conflicted file does nothing', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -198,7 +198,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
 
   describe('Push/Pull edge cases', () => {
     it('push with no changes rejects with error', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -213,7 +213,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
     })
 
     it('pull with identical remote head does nothing', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -228,7 +228,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
     })
 
     it('pull updates when remote differs', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 

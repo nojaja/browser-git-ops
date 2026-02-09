@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -97,7 +97,7 @@ describe('ChangeTracker - table-driven getChangeSet', () => {
   ]
 
   it.each(cases)('$name', async (tc) => {
-    const storage = new InMemoryStorage('ct-root')
+    const storage = new InMemoryStorage('__test_ns')
     // write index entries via storage.writeIndex so infoBlobs are populated
     await storage.writeIndex(tc.index)
     // write workspace blobs as specified

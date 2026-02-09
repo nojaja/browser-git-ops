@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -10,7 +10,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('renameFile helper', () => {
   it('renames a base file to new path producing create+delete change set', async () => {
-    const vfs = new VirtualFS({ backend: new InMemoryStorage() })
+    const vfs = new VirtualFS({ backend: new InMemoryStorage('__test_ns') })
     await vfs.init()
     // apply base snapshot
     await vfs.applyBaseSnapshot({ 'c.txt': 'content-c' }, 'h1')
@@ -21,8 +21,8 @@ describe('renameFile helper', () => {
     const hasCreate = changes.find((c: any) => c.type === 'create' && c.path === 'd.txt')
     const hasDelete = changes.find((c: any) => c.type === 'delete' && c.path === 'c.txt')
     expect(hasCreate).toBeDefined()
-    if (!hasDelete) {
-      const paths = await vfs.listPaths()
+      if (!hasDelete) {
+      const paths = await vfs.readdir('.')
       expect(paths).not.toContain('c.txt')
     } else {
       expect(hasDelete).toBeDefined()

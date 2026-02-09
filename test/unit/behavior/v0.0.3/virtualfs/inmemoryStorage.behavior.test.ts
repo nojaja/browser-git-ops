@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -13,13 +13,13 @@ describe('InMemoryStorage basic behaviors', () => {
 
   beforeEach(() => {
     rootName = `test_inmem_${Date.now()}_${Math.random().toString(36).slice(2)}`
-    store = new InMemoryStorage(rootName)
+    store = new InMemoryStorage('__test_ns', rootName)
   })
 
   afterEach(() => {
     // cleanup static store
     try {
-      InMemoryStorage.delete(rootName)
+      InMemoryStorage.delete(`__test_ns/${rootName}`)
     } catch (_err) {
       // ignore
     }

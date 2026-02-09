@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -15,7 +15,7 @@ import { VirtualFS } from '../../../../../src/virtualfs/virtualfs'
 describe('VirtualFS - Additional edge cases and error paths', () => {
   describe('Init edge cases', () => {
     it('init when backend has existing data', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       // First init
@@ -28,7 +28,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('init creates default index structure', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
 
       await vfs.init()
@@ -43,7 +43,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
 
   describe('File operations edge cases', () => {
     it('readFile from empty filesystem returns null', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -52,7 +52,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('writeFile overwrites existing file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -66,7 +66,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('writeFile creates intermediate files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -77,12 +77,12 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('deleteFile marks file as removed', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.writeFile('file.txt', 'content')
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
 
       // After delete, readFile returns null
       const result = await vfs.readFile('file.txt')
@@ -90,18 +90,18 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('deleteFile on nonexistent file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       // Should not throw
-      await expect(vfs.deleteFile('nonexistent.txt')).resolves.toBeUndefined()
+      await expect(vfs.unlink('nonexistent.txt')).resolves.toBeUndefined()
     })
   })
 
   describe('Rename and move operations', () => {
     it('renameFile renames existing file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -113,7 +113,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('renameFile old file marked as removed', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -126,7 +126,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('renameFile to existing file overwrites', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -144,7 +144,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
 
   describe('Snapshot operations with existing data', () => {
     it('applyBaseSnapshot overwrites existing files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -158,7 +158,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('applyBaseSnapshot with empty snapshot', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -166,7 +166,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('applyBaseSnapshot with complex paths', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -186,7 +186,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
 
   describe('Pull operations with modifications', () => {
     it('pull with local and remote both modified', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -204,19 +204,19 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('pull with local deletion, remote modification', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'file.txt': 'base' }, 'h1')
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
 
       const result = await vfs.pull('h2', { 'file.txt': 'remote' })
       expect(result).toHaveProperty('fetchedPaths')
     })
 
     it('pull with local creation, remote has it', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -228,7 +228,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('pull reconciles state correctly', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -240,7 +240,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
 
       // Local: modify a, delete b, create d
       await vfs.writeFile('a.txt', 'a_local')
-      await vfs.deleteFile('b.txt')
+      await vfs.unlink('b.txt')
       await vfs.writeFile('d.txt', 'd_local')
 
       // Remote: modify b, delete c, create e
@@ -258,7 +258,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
 
   describe('Special characters and encoding', () => {
     it('readFile with UTF-8 content', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -270,7 +270,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('readFile with newlines and tabs', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -282,7 +282,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('readFile with binary-like content', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -296,7 +296,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
 
   describe('Edge case combinations', () => {
     it('multiple consecutive snapshots', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -316,7 +316,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('large number of file operations', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -334,7 +334,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('modify same file multiple times', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -350,7 +350,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
 
   describe('State transitions', () => {
     it('file lifecycle: create -> modify -> delete -> recreate', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -365,7 +365,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
       expect(r2).toBe('v2')
 
       // Delete
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
       let r3 = await vfs.readFile('file.txt')
       expect(r3).toBeNull()
 
@@ -376,7 +376,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
     })
 
     it('file lifecycle: base -> modify -> reset via pull', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 

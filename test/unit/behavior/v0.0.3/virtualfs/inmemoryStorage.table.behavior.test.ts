@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -21,7 +21,7 @@ describe('InMemoryStorage - table-driven branch tests', () => {
     { name: 'info segment (raw JSON)', seg: 'info', path: 'i.json', content: JSON.stringify({ meta: 1 }), expectState: null, expectSegment: 'info' }
   ])('$name', async ({ seg, path, content, expectState, expectSegment }) => {
     const root = `testroot_${Math.random().toString(36).slice(2)}`
-    const s1 = new InMemoryStorage(root)
+    const s1 = new InMemoryStorage('__test_ns', root)
 
     // call writeBlob with/without segment
     if (seg === undefined) await s1.writeBlob(path, content)
@@ -50,8 +50,8 @@ describe('InMemoryStorage - table-driven branch tests', () => {
 
   it('constructor shares store when same directory provided', async () => {
     const root = `shared_${Math.random().toString(36).slice(2)}`
-    const a = new InMemoryStorage(root)
-    const b = new InMemoryStorage(root)
+    const a = new InMemoryStorage('__test_ns', root)
+    const b = new InMemoryStorage('__test_ns', root)
     await a.writeBlob('shared.txt', 'x')
     const got = await b.readBlob('shared.txt')
     expect(got).toBe('x')
@@ -62,7 +62,7 @@ describe('InMemoryStorage - table-driven branch tests', () => {
     { name: 'delete all segments', setup: ['ws','base','conflict','info'], delSeg: undefined }
   ])('$name', async ({ setup, delSeg }) => {
     const root = `del_${Math.random().toString(36).slice(2)}`
-    const s = new InMemoryStorage(root)
+    const s = new InMemoryStorage('__test_ns', root)
     // populate segments
     await s.writeBlob('f1.txt', 'w', 'workspace')
     await s.writeBlob('f1.txt', 'B', 'base')
@@ -98,7 +98,7 @@ describe('InMemoryStorage - table-driven branch tests', () => {
   })
 
   it('readBlob with invalid segment returns null', async () => {
-    const s = new InMemoryStorage()
+    const s = new InMemoryStorage('__test_ns', '__test_ns')
     await s.writeBlob('x','v','workspace')
     const got = await s.readBlob('x','nonesuch')
     expect(got).toBeNull()
@@ -106,7 +106,7 @@ describe('InMemoryStorage - table-driven branch tests', () => {
 
   it('listFiles respects prefix normalization and non-recursive flag', async () => {
     const root = `list_${Math.random().toString(36).slice(2)}`
-    const s = new InMemoryStorage(root)
+    const s = new InMemoryStorage('__test_ns', root)
     await s.writeBlob('a','1','workspace')
     await s.writeBlob('a/b','2','workspace')
     await s.writeBlob('a/b/c','3','workspace')
@@ -120,7 +120,7 @@ describe('InMemoryStorage - table-driven branch tests', () => {
   })
 
   it('writeBlob with unknown segment throws', async () => {
-    const s = new InMemoryStorage()
+    const s = new InMemoryStorage('__test_ns', '__test_ns')
     await expect(s.writeBlob('z','v','unknown')).rejects.toThrow('unknown segment')
   })
 

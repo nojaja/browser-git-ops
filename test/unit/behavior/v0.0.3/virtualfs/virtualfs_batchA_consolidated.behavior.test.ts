@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -11,7 +11,7 @@ import { VirtualFS } from '../../../../../src/virtualfs/virtualfs'
 
 // Consolidated Batch A tests (persistence + basic vfs + read/resolve + coverage targets)
 const backends = [
-  { name: 'InMemory', factory: () => new InMemoryStorage(), available: true }
+  { name: 'InMemory', factory: () => new InMemoryStorage('__test_ns'), available: true }
 ]
 
 beforeEach(() => jest.clearAllMocks())

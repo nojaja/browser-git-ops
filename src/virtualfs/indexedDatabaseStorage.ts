@@ -1,15 +1,13 @@
 ﻿import { IndexFile } from './types.ts'
 import { StorageBackend, StorageBackendConstructor, Segment } from './storageBackend.ts'
 
-// BRANCH_SEP removed: branch-prefix handling is explicit in methods
-
 /**
  * IndexedDB を用いた永続化実装
  */
 export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDatabaseStorage implements StorageBackend {
   /**
    * 環境に IndexedDB が存在するかを同期検査します。
-    * @returns {boolean} 利用可能なら true
+   * @returns {boolean} 利用可能なら true
    */
   static canUse(): boolean {
     try {
@@ -21,6 +19,8 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   private dbName: string
   private dbPromise: Promise<IDBDatabase>
   private currentBranch: string | null = null
+  private root: string | undefined
+  private rootPrefix: string = ''
   private static VAR_WORKSPACE_BASE = 'workspace'
   // Historically this was a separate workspace-info store, but some test
   // fakes expect info entries to be available in 'git-info'. Alias the
@@ -31,12 +31,12 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   private static VAR_CONFLICT = 'git-conflict'
   private static VAR_INFO = 'git-info'
   private static DEFAULT_DB_NAME = 'apigit_storage'
-  
+
 
   /** 利用可能な DB 名の一覧を返す
    * @returns {string[]} available root names
    */
-  static async availableRoots(): Promise<string[]> {
+  static async availableRoots(namespace?: string): Promise<string[]> {
     const g: any = globalThis as any
     const idb = g.indexedDB
     if (!idb) return []
@@ -44,9 +44,13 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     // If indexedDB.databases is not supported, return empty list
     if (typeof idb.databases !== 'function') return []
 
-    // Delegate the actual retrieval to a helper to keep cognitive complexity low
     try {
-      return await IndexedDatabaseStorage._namesFromDatabases(idb)
+      const names = await IndexedDatabaseStorage._namesFromDatabases(idb)
+      // If no namespace specified, return the list of DB names (legacy behavior)
+      if (!namespace) return names
+      // If namespace matches an existing DB name, return a default root candidate
+      if (names.includes(namespace)) return ['apigit_storage']
+      return []
     } catch {
       return []
     }
@@ -65,11 +69,12 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     }
     return Array.from(new Set(names))
   }
- 
 
   /** コンストラクタ */
-  constructor(root?: string) {
-    this.dbName = root ?? IndexedDatabaseStorage.DEFAULT_DB_NAME
+  constructor(namespace: string, _root?: string) {
+    this.dbName = namespace || IndexedDatabaseStorage.DEFAULT_DB_NAME
+    this.root = _root || undefined
+    this.rootPrefix = this.root ? `${this.root}_` : ''
     // Kick off DB open immediately so dbPromise is always defined
     this.dbPromise = this.openDb()
   }
@@ -120,22 +125,21 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
    */
   /**
    * Handle DB upgrade event and create required object stores.
-   * @param ev Upgrade event
+   * Creates the object stores used by this backend, names are resolved
+   * through `_storeName` to include any configured `_root` prefix.
+   * @param {Event} event - Upgrade event from `indexedDB.open`
    * @returns {void}
    */
-  private _handleUpgrade(event: any) {
+  private _handleUpgrade(event: any): void {
     const database = (event.target as IDBOpenDBRequest).result
-    if (!database.objectStoreNames.contains(IndexedDatabaseStorage.VAR_WORKSPACE_BASE)) database.createObjectStore(IndexedDatabaseStorage.VAR_WORKSPACE_BASE)
-    if (!database.objectStoreNames.contains(IndexedDatabaseStorage.VAR_WORKSPACE_INFO)) database.createObjectStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO)
-    if (!database.objectStoreNames.contains(IndexedDatabaseStorage.VAR_BASE)) database.createObjectStore(IndexedDatabaseStorage.VAR_BASE)
-    if (!database.objectStoreNames.contains(IndexedDatabaseStorage.VAR_CONFLICT)) database.createObjectStore(IndexedDatabaseStorage.VAR_CONFLICT)
-    if (!database.objectStoreNames.contains(IndexedDatabaseStorage.VAR_INFO)) database.createObjectStore(IndexedDatabaseStorage.VAR_INFO)
-    if (!database.objectStoreNames.contains('index')) database.createObjectStore('index')
+    if (!database.objectStoreNames.contains(this._storeName(IndexedDatabaseStorage.VAR_WORKSPACE_BASE))) database.createObjectStore(this._storeName(IndexedDatabaseStorage.VAR_WORKSPACE_BASE))
+    if (!database.objectStoreNames.contains(this._storeName(IndexedDatabaseStorage.VAR_WORKSPACE_INFO))) database.createObjectStore(this._storeName(IndexedDatabaseStorage.VAR_WORKSPACE_INFO))
+    if (!database.objectStoreNames.contains(this._storeName(IndexedDatabaseStorage.VAR_BASE))) database.createObjectStore(this._storeName(IndexedDatabaseStorage.VAR_BASE))
+    if (!database.objectStoreNames.contains(this._storeName(IndexedDatabaseStorage.VAR_CONFLICT))) database.createObjectStore(this._storeName(IndexedDatabaseStorage.VAR_CONFLICT))
+    if (!database.objectStoreNames.contains(this._storeName(IndexedDatabaseStorage.VAR_INFO))) database.createObjectStore(this._storeName(IndexedDatabaseStorage.VAR_INFO))
+    if (!database.objectStoreNames.contains(this._storeName('index'))) database.createObjectStore(this._storeName('index'))
   }
 
-  /**
-   * 指定 DB に対する onversionchange ハンドラを生成します。
-   */
   /**
    * Create a handler to close DB on version change.
    * @param dbParam Target DB
@@ -145,9 +149,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     return () => { databaseParameter.close() }
   }
 
-  /**
-   * DB open の成功ハンドラ
-   */
   /**
    * Called when DB open succeeds.
    * @param req IDB open request
@@ -161,9 +162,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
-   * DB open のエラーハンドラ
-   */
-  /**
    * Called when DB open errors.
    * @param req IDB open request
    * @param reject Reject function for the open promise
@@ -174,17 +172,14 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
-   * トランザクションラッパー。cb 内の処理をトランザクションで実行し、
-   * 必要なら再試行します。
-   */
-  /**
    * トランザクションラッパー。cb 内の処理をトランザクションで実行し、必要なら再試行します。
    * @returns {Promise<void>} トランザクション処理完了時に解決
    */
   private async tx(storeName: string, mode: IDBTransactionMode, callback: (_store: IDBObjectStore) => void | Promise<void>): Promise<void> {
-    try { return await this._performTxAttempt(storeName, mode, callback) } catch (error: any) {
+    const physical = this._storeName(storeName)
+    try { return await this._performTxAttempt(physical, mode, callback) } catch (error: any) {
       const isInvalidState = error && (error.name === 'InvalidStateError' || /closing/i.test(String(error.message || '')))
-      if (isInvalidState) { this.dbPromise = this.openDb(); return await this._performTxAttempt(storeName, mode, callback) }
+      if (isInvalidState) { this.dbPromise = this.openDb(); return await this._performTxAttempt(physical, mode, callback) }
       throw error
     }
   }
@@ -297,10 +292,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   /**
    * Schedule a microtask to invoke tx.oncomplete in case fake IndexedDB
    * implementations never fire it.
-   */
-  /**
-   * Schedule a microtask to invoke tx.oncomplete in case fake IndexedDB
-   * implementations never fire it.
    * @returns {void}
    */
   private _scheduleTxComplete(tx: IDBTransaction) {
@@ -312,8 +303,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
       }
     }, 0)
   }
-
-  // legacy canUseOpfs removed; use static canUse() instead
 
   /**
    * index を読み出す
@@ -351,11 +340,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
       this.currentBranch = null
     }
   }
-
-  /**
-   * Apply metadata to result. @returns void
-   * @returns {void}
-   */
 
   /**
    * Load workspace-local info entries into result.entries (workspace overrides branch-scoped)
@@ -412,8 +396,9 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   private async _readIndexMeta(database: IDBDatabase): Promise<IndexFile | null> {
     return await new Promise<IndexFile | null>((resolve) => {
       try {
-        const tx = database.transaction('index', 'readonly')
-        const store = tx.objectStore('index')
+        const indexName = this._storeName('index')
+        const tx = database.transaction(indexName, 'readonly')
+        const store = tx.objectStore(indexName)
         const request = store.get('index')
         /** Success handler for index get. @returns {void} */
         request.onsuccess = () => { resolve(request.result ?? null) }
@@ -497,8 +482,8 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     if (seg === 'workspace') {
       const gitBase = await this._getFromStore(IndexedDatabaseStorage.VAR_BASE, filepath).catch(() => null)
       if (gitBase !== null) {
-          return await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, filepath).catch(() => null)
-        }
+        return await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, filepath).catch(() => null)
+      }
       return await this._getFromStore(IndexedDatabaseStorage.VAR_WORKSPACE_INFO, infoKey).catch(() => null)
     }
     return await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, infoKey).catch(() => null)
@@ -587,15 +572,7 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
-   * Read blob when a segment is provided. Handles info-workspace/info-git/info and other segments.
-   * @param segment Segment name
-   * @param filepath Path to read
-   * @param branch Current branch
-   * @returns {Promise<string|null>} blob content or null
-   */
-
-  /**
-           * blob を削除する
+   * blob を削除する
    * @returns {Promise<void>} 削除完了時に解決
    */
   async deleteBlob(filepath: string, segment?: Segment): Promise<void> {
@@ -638,11 +615,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
-   * Gather entries that should be written to workspace-info: those that exist in workspace-base.
-   * @returns {Promise<Array<{k:string,v:any}>>}
-   */
-
-  /**
    * Compute store name and key for a given segment and filepath.
    * @returns {{storeName:string,key:string}}
    */
@@ -660,11 +632,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
-   * Compute store name and key for a given segment and filepath.
-   * @returns {{storeName:string,key:string}}
-   */
-
-  /**
    * Delete a filepath from all relevant stores for the given branch.
    * @returns {Promise<void>}
    */
@@ -678,11 +645,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
-   * Delete a filepath from all relevant stores for the given branch.
-   * @returns {Promise<void>}
-   */
-
-  /**
    * Read a value from a specific object store.
    * @param storeName Object store name
    * @param filepath Key to read
@@ -692,8 +654,9 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     const database = await this.dbPromise
     return new Promise<string | null>((resolve) => {
       try {
-        const tx = database.transaction(storeName, 'readonly')
-        const store = tx.objectStore(storeName)
+        const physical = this._storeName(storeName)
+        const tx = database.transaction(physical, 'readonly')
+        const store = tx.objectStore(physical)
         const request = store.get(filepath)
         /**
          * Index get success handler
@@ -726,8 +689,9 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     const database = await this.dbPromise
     return new Promise<string[]>((resolve) => {
       try {
-        const tx = database.transaction(storeName, 'readonly')
-        const store = tx.objectStore(storeName)
+        const physical = this._storeName(storeName)
+        const tx = database.transaction(physical, 'readonly')
+        const store = tx.objectStore(physical)
         const keys: string[] = []
         const request = store.openKeyCursor()
         /** Cursor success handler bound to resolver and accumulator */
@@ -758,8 +722,14 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
-   * Create a cursor success handler bound to resolve and keys array.
+   * Map a logical store name to its physical store name including root prefix.
+   * @param name logical store identifier
+   * @returns physical store name used in IndexedDB
    */
+  private _storeName(name: string): string {
+    return this.rootPrefix ? `${this.rootPrefix}${name}` : name
+  }
+
   /**
    * Create a cursor success handler bound to resolve and keys array.
    * @param resolve resolver
@@ -804,9 +774,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
 
   /**
    * Raw listing that returns implementation-specific URIs and a normalized path.
-   */
-  /**
-   * Raw listing that returns implementation-specific URIs and a normalized path.
    * @param prefix optional prefix to filter
    * @param recursive whether to include subdirectories
    * @returns {Promise<Array<{uri:string,path:string,info?:string|null}>>}
@@ -840,9 +807,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     return out
   }
 
-  /**
-   * Helper: build entries from store keys with filtering and path normalization
-   */
   /**
    * Helper: build entries from store keys with filtering and path normalization
    * @returns {Promise<Array<{uri:string,path:string,info?:string|null}>>}
@@ -932,10 +896,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
 
   /**
    * Collect file info objects for keys array.
-   * @returns {Promise<Array<{path:string, info:string|null}>>}
-   */
-  /**
-   * Collect file info objects for keys array.
    * @param keys list of keys
    * @param _seg segment (unused)
    * @returns {Promise<Array<{path:string, info:string|null}>>}
@@ -951,16 +911,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
   }
 
   /**
-   * Collect file info objects for keys array.
-   * @param keys key list
-   * @param _seg segment (unused)
-   * @returns {Promise<Array<{path:string, info:string|null}>>}
-   */
-
-  /**
-   * Resolve info value for a given key: prefer workspace-local, then branch-scoped.
-   */
-  /**
    * Resolve info value for a given key: prefer workspace-local, then branch-scoped.
    * @param k key
    * @param branch branch name
@@ -971,11 +921,6 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     if (info === null) info = await this._getFromStore(IndexedDatabaseStorage.VAR_INFO, k)
     return info
   }
-
-  /**
-   * Resolve info value for a given key: prefer workspace-local, then branch-scoped.
-   * @returns {Promise<string|null>}
-   */
 
   /**
    * Calculate SHA-1 hex digest of given content.
@@ -1009,11 +954,11 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     try {
       const idb = (globalThis as any).indexedDB
       if (!idb) throw new Error('IndexedDB is not available')
-      
+
       return new Promise((resolve, reject) => {
         const request = idb.deleteDatabase(databaseName)
         if (!request) return reject(new Error('indexedDB.deleteDatabase returned falsy request'))
-        
+
         /** Success handler for deleteDatabase. @returns {void} */
         request.onsuccess = function () { resolve() }
         /** Error handler for deleteDatabase. @returns {void} */

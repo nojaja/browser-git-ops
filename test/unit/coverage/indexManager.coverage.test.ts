@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals'
+﻿import { jest } from '@jest/globals'
 import { IndexManager } from '../../../src/virtualfs/indexManager'
 
 describe('IndexManager (coverage)', () => {

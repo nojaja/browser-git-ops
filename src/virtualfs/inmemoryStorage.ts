@@ -18,10 +18,10 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
   // shared storage across instances keyed by root name
   private static stores: Map<string, {
     index: IndexFile,
-    workspaceBlobs: Map<string,string>,
-    baseBlobs: Map<string,string>,
-    conflictBlobs: Map<string,string>,
-    infoBlobs: Map<string,string>
+    workspaceBlobs: Map<string, string>,
+    baseBlobs: Map<string, string>,
+    conflictBlobs: Map<string, string>,
+    infoBlobs: Map<string, string>
   }> = new Map()
 
   /**
@@ -32,29 +32,44 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
   static canUse(): boolean {
     return true
   }
+
   /**
    * 利用可能なルート名を返します。
    * @returns {string[]} ルート名の配列
    */
-  static availableRoots(): string[] {
+  static availableRoots(namespace?: string): string[] {
     const keys = Array.from(InMemoryStorage.stores.keys())
-    return keys.length ? keys : ['apigit_storage']
+    // keys are stored as namespace-prefixed keys like 'namespace/root'
+    if (namespace) {
+      const filtered = keys
+        .filter((k) => k.startsWith(namespace + '/'))
+        .map((k) => k.slice((namespace + '/').length))
+      return filtered.length ? filtered : ['apigit_storage']
+    }
+    // Legacy behavior: return all registered root names across namespaces
+    const roots = keys.map((k) => {
+      const parts = k.split('/')
+      return parts.length > 1 ? parts.slice(1).join('/') : parts[0]
+    })
+    const uniq = Array.from(new Set(roots))
+    return uniq.length ? uniq : ['apigit_storage']
   }
-  // legacy canUseOpfs removed; use static canUse() instead
+  
   /**
    * コンストラクタ。互換性のためにディレクトリ名を受け取るが無視する。
    * @param directory 任意のディレクトリ文字列（使用しない）
    */
-  constructor(directory?: string) {
-    // If caller provides a directory name, share storage by that name. If omitted, create isolated store per instance.
-    this.rootKey = directory ?? `__inmem_${Math.random().toString(36).slice(2)}`
+  constructor(namespace: string, directory?: string) {
+    // Compose a namespace-prefixed store key
+    const directoryName = directory ?? `__inmem_${Math.random().toString(36).slice(2)}`
+    this.rootKey = namespace ? `${namespace}/${directoryName}` : directoryName
     if (!InMemoryStorage.stores.has(this.rootKey)) {
       InMemoryStorage.stores.set(this.rootKey, {
         index: { head: '', entries: {} },
         workspaceBlobs: new Map(),
         baseBlobs: new Map(),
-          conflictBlobs: new Map(),
-          infoBlobs: new Map()
+        conflictBlobs: new Map(),
+        infoBlobs: new Map()
       })
     }
   }
@@ -82,7 +97,6 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     const store = InMemoryStorage.stores.get(this.rootKey)!
     // Reconstruct entries from infoBlobs map
     const result: IndexFile = { head: store.index.head || '', entries: {} }
-    
 
     // Determine branch scope and load info entries
     const branch = this.currentBranch || 'main'
@@ -92,13 +106,13 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     if ((store.index as any).lastCommitKey) result.lastCommitKey = (store.index as any).lastCommitKey
     // Preserve adapter metadata if present
     if ((store.index as any).adapter) result.adapter = (store.index as any).adapter
-    
+
     return result
   }
 
   /**
    * Load workspace-local info entries into result.entries (unprefixed keys)
-    * @returns {void}
+   * @returns {void}
    */
   private _loadInMemoryWorkspaceInfo(store: any, result: IndexFile, branch: string): void {
     for (const [k, v] of store.infoBlobs.entries()) {
@@ -110,7 +124,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Load branch-scoped info entries into result.entries without overwriting workspace-local entries
-    * @returns {void}
+   * @returns {void}
    */
   private _loadInMemoryBranchInfo(store: any, result: IndexFile, branch: string): void {
     for (const [k, v] of store.infoBlobs.entries()) {
@@ -145,7 +159,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     const store = InMemoryStorage.stores.get(this.rootKey)!
     // write entries individually to infoBlobs, then persist meta
     const entries = index.entries || {}
-    
+
     // Persist index entries into workspace-local info (unprefixed keys)
     // Only write info entries for files that exist in workspace or in base (branch-scoped)
     const branch = this.currentBranch || 'main'
@@ -189,16 +203,12 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     // For conflict segment, always use direct (unprefixed) info update to ensure
     // workspace-local entries are maintained and existing fields like remoteSha
     // are preserved in the conflict entry.
-    const wrapped = (seg === SEG_WORKSPACE || seg === 'conflict') 
-      ? this._wrapStoreForInfoNoPrefix(store) 
+    const wrapped = (seg === SEG_WORKSPACE || seg === 'conflict')
+      ? this._wrapStoreForInfoNoPrefix(store)
       : this._wrapStoreForInfoPrefix(store)
     await updateInfoForWrite(wrapped, filepath, seg, content)
   }
 
-  /**
-   * Handle workspace blob writes that should be based on existing git-scoped info.
-   * Returns true when the operation is handled and caller should return early.
-   */
   /**
    * Handle workspace blob writes that should be based on existing git-scoped info.
    * Returns true when the operation is handled and caller should return early.
@@ -460,7 +470,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
    * @param prefix プレフィックス（例: 'dir/sub'）
    * @param segment セグメント（'workspace' 等）。省略時は 'workspace'
    * @param recursive サブディレクトリも含めるか。省略時は true
-  * @returns {Promise<Array<{ path: string; info: string | null }>>}
+   * @returns {Promise<Array<{ path: string; info: string | null }>>}
    */
   async listFiles(prefix?: string, segment?: any, recursive = true): Promise<Array<{ path: string; info: string | null }>> {
     const seg = segment || SEG_WORKSPACE
@@ -482,9 +492,6 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     return this._collectFilesInMemory(keys, store)
   }
 
-  /**
-   * Resolve and filter keys for `listFiles` into final key list.
-   */
   /**
    * Resolve and filter keys for `listFiles` into final key list.
    * @returns {string[]} filtered keys
@@ -622,11 +629,19 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
    * @returns {void}
    */
   static delete(rootName: string): void {
+    // Accept either a full namespaced key or a bare directory name.
     if (InMemoryStorage.stores.has(rootName)) {
       InMemoryStorage.stores.delete(rootName)
-    } else {
-      throw new Error(`InMemory root "${rootName}" not found`)
+      return
     }
+    // If a bare rootName was provided, try to find a namespaced key that ends with it
+    for (const key of Array.from(InMemoryStorage.stores.keys())) {
+      if (key === rootName || key.endsWith('/' + rootName)) {
+        InMemoryStorage.stores.delete(key)
+        return
+      }
+    }
+    throw new Error(`InMemory root "${rootName}" not found`)
   }
 
 }

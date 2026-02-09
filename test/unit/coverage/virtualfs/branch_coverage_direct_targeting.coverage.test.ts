@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type coverage
  * @purpose Coverage expansion only
  * @policy MODIFICATION ALLOWED
@@ -22,13 +22,13 @@ describe('Storage error paths and fallbacks', () => {
       
       // If available, test that operations don't throw
       if (available) {
-        const storage = new OpfsStorage()
+        const storage = new OpfsStorage('__test_ns')
         expect(storage).toBeDefined()
       }
     })
 
     it('OpfsStorage methods handle unavailable OPFS gracefully', () => {
-      const storage = new OpfsStorage()
+      const storage = new OpfsStorage('__test_ns')
       // Test that methods exist and are callable
       expect(typeof storage.init).toBe('function')
       expect(typeof storage.readBlob).toBe('function')
@@ -59,7 +59,7 @@ describe('Storage error paths and fallbacks', () => {
 
   describe('VirtualFS with various backend combinations', () => {
     it('VirtualFS supports InMemoryStorage', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -76,19 +76,19 @@ describe('Storage error paths and fallbacks', () => {
 
     it('VirtualFS operations with both backends', async () => {
       // Test with InMemory (guaranteed to work)
-      const inMemory = new InMemoryStorage()
+      const inMemory = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend: inMemory })
       await vfs.init()
       
       await vfs.writeFile('file.txt', 'data')
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toContain('file.txt')
     })
   })
 
   describe('Error recovery branches', () => {
     it('VirtualFS handles read errors gracefully', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -98,16 +98,16 @@ describe('Storage error paths and fallbacks', () => {
     })
 
     it('VirtualFS handles delete on non-existent files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
       // Delete should not throw
-      await expect(vfs.deleteFile('nonexistent.txt')).resolves.toBeUndefined()
+      await expect(vfs.unlink('nonexistent.txt')).resolves.toBeUndefined()
     })
 
     it('VirtualFS handles rename on non-existent files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -118,7 +118,7 @@ describe('Storage error paths and fallbacks', () => {
 
   describe('Branch coverage for condition evaluation', () => {
     it('Pull with empty remote snapshot triggers all branches', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -131,7 +131,7 @@ describe('Storage error paths and fallbacks', () => {
     })
 
     it('Pull with missing base snapshot triggers initialization', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -143,7 +143,7 @@ describe('Storage error paths and fallbacks', () => {
     })
 
     it('GetChangeSet with no changes', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -156,7 +156,7 @@ describe('Storage error paths and fallbacks', () => {
 
   describe('Complex state branching', () => {
     it('WriteFile branch: new file creation', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -165,7 +165,7 @@ describe('Storage error paths and fallbacks', () => {
     })
 
     it('WriteFile branch: overwrite existing', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -175,17 +175,17 @@ describe('Storage error paths and fallbacks', () => {
     })
 
     it('DeleteFile branch: workspace file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
       await vfs.writeFile('file.txt', 'content')
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
       expect(await vfs.readFile('file.txt')).toBeNull()
     })
 
     it('RenameFile branch: new target name', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -195,7 +195,7 @@ describe('Storage error paths and fallbacks', () => {
     })
 
     it('RenameFile branch: overwrite existing target', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -211,14 +211,14 @@ describe('Storage error paths and fallbacks', () => {
 
   describe('Backend-specific branch coverage', () => {
     it('InMemoryStorage segment isolation', () => {
-      const storage = new InMemoryStorage()
+      const storage = new InMemoryStorage('__test_ns')
       expect(storage).toBeDefined()
       expect(typeof storage.writeBlob).toBe('function')
     })
 
     it('Storage method availability check', async () => {
-      const inMem = new InMemoryStorage()
-      const opfs = new OpfsStorage()
+      const inMem = new InMemoryStorage('__test_ns')
+      const opfs = new OpfsStorage('__test_ns')
       
       // All storage backends should have same interface
       const methods = ['init', 'readBlob', 'writeBlob', 'deleteBlob', 'listFiles', 'readIndex', 'writeIndex']
@@ -232,7 +232,7 @@ describe('Storage error paths and fallbacks', () => {
   describe('Branch coverage for line-specific targets', () => {
     // Line 363-364: condition in writeFile
     it('WriteFile handles base modification (line 363-364)', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -244,7 +244,7 @@ describe('Storage error paths and fallbacks', () => {
 
     // Line 341: condition in writeFile
     it('WriteFile new file condition (line 341)', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -254,7 +254,7 @@ describe('Storage error paths and fallbacks', () => {
 
     // Lines 555-556: getChangeSet branches
     it('GetChangeSet with creates (lines 555-556)', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -268,7 +268,7 @@ describe('Storage error paths and fallbacks', () => {
 
     // Lines 567-574: pull operation branches
     it('Pull operation branches (lines 567-574)', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       

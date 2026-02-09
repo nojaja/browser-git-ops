@@ -1,6 +1,5 @@
 import { GitAdapter } from './adapter.ts'
 import AbstractGitAdapter, { fetchWithRetry, classifyStatus, getDelayForResponse, processResponseWithDelay, mapWithConcurrency, shaOf, NonRetryableError } from './abstractAdapter.ts'
-// Use Web Crypto directly for SHA-1
 
 type GHOptions = {
   owner: string
@@ -9,12 +8,11 @@ type GHOptions = {
   host?: string // optional GitHub Enterprise host
 }
 
-/**
- * 指定ミリ秒だけ sleep するユーティリティ
- * @param ms ミリ秒
- */
-// helpers are provided by abstractAdapter
 
+/**
+ * GitHub 向けの `GitAdapter` 実装。
+ * GitHub API をラップしてリポジトリ操作（コミット作成、ブランチ一覧、ファイル取得等）を提供します。
+ */
 export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   private _fetchWithRetry: (_: RequestInfo, __: RequestInit, ___?: number, ____?: number) => Promise<Response>
   private repoMetadata: import('../virtualfs/types.ts').RepositoryMetadata | null = null
@@ -112,13 +110,6 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * コンテンツから sha1 を算出します。
-   * @param {string} content コンテンツ
-   * @returns {string} sha1 ハッシュ
-   */
-  // shaOf is inherited from AbstractGitAdapter
-
-  /**
    * ブロブを作成またはキャッシュから取得します。
    * @param {any[]} changes 変更一覧（create/update を含む）
    * @param {number} [concurrency=5] 同時実行数
@@ -133,21 +124,16 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * ブロブ作成用のヘルパー（createBlobs から抽出）
-   * @param {any} ch 変更エントリ
-    * @returns {Promise<{path:string,sha:string}>}
-   */
-  /**
    * Create a blob for a change or return cached blobSha.
    * @param {any} ch change entry
    * @returns {Promise<{path:string,sha:string}>}
    */
   private async _createBlobForChange(ch: any) {
-  /**
-   * Create or return cached blob SHA for a change entry.
-   * @param {any} ch change entry
-   * @returns {Promise<{path:string,sha:string}>}
-   */
+    /**
+     * Create or return cached blob SHA for a change entry.
+     * @param {any} ch change entry
+     * @returns {Promise<{path:string,sha:string}>}
+     */
     const contentHash = await this.shaOf(ch.content || '')
     const cached = this.blobCache.get(contentHash)
     if (cached) return { path: ch.path, sha: cached }
@@ -356,10 +342,6 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * Helper to fetch a ref URL and extract a SHA if present.
-   * Returns null when SHA not found.
-   */
-  /**
    * Fetch a ref URL and extract a SHA if present.
    * @param {string} url API URL to fetch
    * @returns {Promise<string|null>} sha string when found, otherwise null
@@ -461,18 +443,6 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
    * Resolve a commit-ish (branch, tag, or SHA) to a commit SHA.
    * Resolution order: branch -> tag -> commit endpoint -> treat as SHA
    * Throws if resolution fails.
-   */
-  /**
-   * Resolve a commit-ish (branch, tag, or SHA) to a commit SHA.
-   * Resolution order: branch -> tag -> commit endpoint -> treat as SHA
-   * Throws if resolution fails.
-   * @param {string} reference commit-ish to resolve
-   * @returns {Promise<string>} resolved commit SHA
-   */
-  /**
-   * Resolve a commit-ish (branch, tag, or SHA) to a commit SHA.
-   * Resolution order: branch -> tag -> commit endpoint -> treat as SHA
-   * Throws if resolution fails.
    * @param {string} reference commit-ish to resolve
    * @returns {Promise<string>} resolved commit SHA
    */
@@ -480,9 +450,9 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
     if (typeof reference === 'string' && /^[0-9a-f]{40}$/.test(reference)) return reference
 
     const resolvers: Array<(_reference: string) => Promise<string | null>> = [
-        this._tryResolveByBranch.bind(this),
-        this._tryResolveByTag.bind(this),
-        this._tryResolveByCommitEndpoint.bind(this),
+      this._tryResolveByBranch.bind(this),
+      this._tryResolveByTag.bind(this),
+      this._tryResolveByCommitEndpoint.bind(this),
     ]
 
     const resolved = await this._runResolvers(reference, resolvers)
@@ -510,11 +480,6 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * Try to resolve reference as a branch and return its sha.
-   * @param {string} reference branch name
-   * @returns {Promise<string|null>} resolved sha or null
-   */
-  /**
    * Try to resolve a branch name to a commit SHA.
    * @param {string} reference branch name
    * @returns {Promise<string|null>}
@@ -525,11 +490,6 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * Try to resolve reference as a tag and return its sha.
-   * @param {string} reference tag name
-   * @returns {Promise<string|null>} resolved sha or null
-   */
-  /**
    * Try to resolve a tag name to a commit SHA.
    * @param {string} reference tag name
    * @returns {Promise<string|null>}
@@ -539,11 +499,6 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
     return sha || null
   }
 
-  /**
-   * Try to resolve reference using commits endpoint (could be SHA or other form).
-   * @param {string} reference commit-ish
-   * @returns {Promise<string|null>} resolved sha or null
-   */
   /**
    * Try to resolve via commits endpoint (may accept SHA or other forms).
    * @param {string} reference commit-ish
@@ -559,11 +514,6 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
     return null
   }
 
-  /**
-   * Blob を取得して content を返す。取得失敗時は content=null を返す。
-   * @param {{sha:string,path:string}} f blob 情報
-   * @returns {Promise<{path:string,content:string|null}>}
-   */
   /**
    * Fetch a blob's content; return null content on failure.
    * @param {any} f blob metadata
@@ -606,22 +556,11 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * Fetch a blob's content; return null content on failure.
-   * @param {any} f blob metadata
-   * @returns {Promise<{path:string,content:string|null}>}
+   * Fetch repository snapshot: headSha, shas map and a fetchContent helper.
+   * @param {string} branch branch name
+   * @param {number} concurrency fetch concurrency
+   * @returns {Promise<{headSha:string,shas:Record<string,string>,fetchContent:Function,snapshot:Record<string,string>}>}
    */
-
-  /**
-   * リポジトリのスナップショットを取得します。
-   * @param {string} branch ブランチ名 (default: 'main')
-    * @returns {Promise<{headSha:string,shas:Record<string,string>,fetchContent:Function,snapshot:Record<string,string>}>}
-   */
-    /**
-     * Fetch repository snapshot: headSha, shas map and a fetchContent helper.
-     * @param {string} branch branch name
-     * @param {number} concurrency fetch concurrency
-     * @returns {Promise<{headSha:string,shas:Record<string,string>,fetchContent:Function,snapshot:Record<string,string>}>}
-     */
   async fetchSnapshot(branch = 'main', concurrency = 5): Promise<any> {
     const headSha = await this._determineHeadSha(branch)
     const { shas, fileMap } = await this._buildFileMapFromHead(headSha)
@@ -642,7 +581,7 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
    * @param {string[]} paths requested paths
    * @returns {Promise<Record<string,string>>}
    */
-  private async _fetchSnapshotForFileMap(fileMap: Map<string, any>, contentCache: Map<string, string>, snapshot: Record<string, string>, concurrency: number, paths: string[]): Promise<Record<string,string>> {
+  private async _fetchSnapshotForFileMap(fileMap: Map<string, any>, contentCache: Map<string, string>, snapshot: Record<string, string>, concurrency: number, paths: string[]): Promise<Record<string, string>> {
     return this._fetchContentFromMap(fileMap, contentCache, snapshot, paths, concurrency)
   }
 
@@ -654,7 +593,7 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   private async _buildFileMapFromHead(headSha: string): Promise<{ shas: Record<string, string>; fileMap: Map<string, any> }> {
     const treeResponse = await this._fetchWithRetry(`${this.baseUrl}/git/trees/${headSha}${'?recursive=1'}`, { method: 'GET', headers: this.headers }, 4, 300)
     const treeJ = await treeResponse.json()
-      const files = (treeJ && treeJ.tree) ? treeJ.tree.filter((t: any) => t.type === 'blob') : []
+    const files = (treeJ && treeJ.tree) ? treeJ.tree.filter((t: any) => t.type === 'blob') : []
     const shas: Record<string, string> = {}
     const fileMap = new Map<string, any>()
     for (const f of files) {
@@ -673,7 +612,7 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
    * @param {number} concurrency concurrency level
    * @returns {Promise<Record<string,string>>}
    */
-  private async _fetchContentFromMap(fileMap: Map<string, any>, contentCache: Map<string, string>, snapshot: Record<string, string>, paths: string[], concurrency: number): Promise<Record<string,string>> {
+  private async _fetchContentFromMap(fileMap: Map<string, any>, contentCache: Map<string, string>, snapshot: Record<string, string>, paths: string[], concurrency: number): Promise<Record<string, string>> {
     /**
      * Collect contents for the requested paths using concurrency helper.
      * @param {string[]} paths requested paths
@@ -701,22 +640,6 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
     return null
   }
 
-  /**
-   * 指定パスのコンテンツを取得し、キャッシュと snapshot を更新します。
-   * @param {Map<string, any>} fileMap ファイルメタ情報マップ
-   * @param {Map<string, string>} contentCache キャッシュマップ
-   * @param {Record<string,string>} snapshot スナップショット出力マップ
-   * @param {string} p 取得対象パス
-   * @returns {Promise<string|null>} ファイル内容または null
-   */
-  /**
-   * Fetch single path content, update cache and snapshot.
-   * @param {Map<string, any>} fileMap file map
-   * @param {Map<string,string>} contentCache cache map
-   * @param {Record<string,string>} snapshot snapshot map
-   * @param {string} p path to fetch
-   * @returns {Promise<string|null>} content or null
-   */
   /**
    * Fetch single path content, update cache and snapshot.
    * @param {Map<string, any>} fileMap file map
@@ -747,4 +670,3 @@ export { fetchWithRetry, classifyStatus, getDelayForResponse, processResponseWit
 export { RetryableError, NonRetryableError } from './abstractAdapter.ts'
 export default GitHubAdapter
 
-// helper moved into class as a private method

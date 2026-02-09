@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -145,7 +145,7 @@ import { IndexedDatabaseStorage } from '../../../../../src/virtualfs/indexedData
 
 describe('BrowserStorage (IndexedDB) flows', () => {
   it('writeIndex/readIndex via IndexedDB', async () => {
-    const bs = new IndexedDatabaseStorage()
+    const bs = new IndexedDatabaseStorage('__test_ns')
     try {
       await bs.init()
     } catch (err) {
@@ -161,7 +161,7 @@ describe('BrowserStorage (IndexedDB) flows', () => {
   }, 30000)
 
   it('writeBlob/readBlob/deleteBlob via IndexedDB', async () => {
-    const bs = new IndexedDatabaseStorage()
+    const bs = new IndexedDatabaseStorage('__test_ns')
     try {
       await bs.init()
     } catch (err) {

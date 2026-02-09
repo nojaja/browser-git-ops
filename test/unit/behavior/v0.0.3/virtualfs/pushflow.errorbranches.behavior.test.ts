@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -17,7 +17,7 @@ afterEach(async () => {
 
 describe('VirtualFS push error branches', () => {
   it('throws when updateRef indicates non-fast-forward (contains 422)', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend: storage })
     await vfs.init()
     // set head so parentSha check passes
@@ -44,7 +44,7 @@ describe('VirtualFS push error branches', () => {
   })
 
   it('continues locally when updateRef throws non-422 error', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend: storage })
     await vfs.init()
     const idx2 = await vfs.getIndex()

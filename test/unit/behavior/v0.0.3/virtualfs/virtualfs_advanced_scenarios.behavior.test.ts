@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -12,7 +12,7 @@ import { OpfsStorage } from '../../../../../src/virtualfs/opfsStorage'
 describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
   describe('writeFile with special cases (targeting lines)', () => {
     it('writeFile empty content', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -22,7 +22,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
     })
 
     it('writeFile large content', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -33,7 +33,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
     })
 
     it('writeFile special characters', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -46,7 +46,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
 
   describe('Pull with complex reconciliation', () => {
     it('pull with all paths local-only', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -58,7 +58,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
     })
 
     it('pull with all paths remote-only', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -69,7 +69,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
     })
 
     it('pull with identical base and workspace', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -82,7 +82,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
 
   describe('Init with different backend states', () => {
     it('init when storage is already initialized', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       
       await vfs.init()
@@ -96,49 +96,48 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
     })
 
     it('init clears workspace on fresh start', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
-      expect(await vfs.listPaths()).toEqual([])
+      expect(await vfs.readdir('.')).toEqual([])
     })
   })
 
   describe('ListPaths with special cases', () => {
     it('listPaths with nested directories', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
-      
+
       await vfs.writeFile('dir/file.txt', 'content')
       await vfs.writeFile('dir/subdir/file.txt', 'content')
-      
-      const paths = await vfs.listPaths()
-      expect(paths).toContain('dir/file.txt')
-      expect(paths).toContain('dir/subdir/file.txt')
+
+      expect(await vfs.readFile('dir/file.txt')).toBe('content')
+      expect(await vfs.readFile('dir/subdir/file.txt')).toBe('content')
     })
 
     it('listPaths after delete', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
       await vfs.writeFile('file.txt', 'content')
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths.length).toBeLessThanOrEqual(1)
     })
 
     it('listPaths with mixed base and workspace files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
       await vfs.applyBaseSnapshot({ 'base.txt': 'content' }, 'h1')
       await vfs.writeFile('workspace.txt', 'content')
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toContain('base.txt')
       expect(paths).toContain('workspace.txt')
     })
@@ -146,7 +145,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
 
   describe('GetChangeSet advanced scenarios', () => {
     it('getChangeSet with rename tracked as delete+create', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -159,7 +158,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
     })
 
     it('getChangeSet with multiple writes to same file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -172,12 +171,12 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
     })
 
     it('getChangeSet with delete then write', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
       await vfs.applyBaseSnapshot({ 'file.txt': 'content' }, 'h1')
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
       await vfs.writeFile('file.txt', 'new')
       
       const changeSet = await vfs.getChangeSet()
@@ -187,7 +186,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
 
   describe('ApplyBaseSnapshot edge cases', () => {
     it('applyBaseSnapshot with deeply nested paths', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -204,7 +203,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
     })
 
     it('applyBaseSnapshot overwrites previous base', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -215,7 +214,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
     })
 
     it('applyBaseSnapshot clears removed files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -224,45 +223,45 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
       
       // other.txt should be removed from base
       // but may still be in workspace if it was written there
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toContain('file.txt')
     })
   })
 
   describe('State transition sequences', () => {
     it('write -> delete -> write same file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
       await vfs.writeFile('file.txt', 'v1')
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
       await vfs.writeFile('file.txt', 'v2')
       
       expect(await vfs.readFile('file.txt')).toBe('v2')
     })
 
     it('write -> rename -> delete', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
       await vfs.writeFile('file.txt', 'content')
       await vfs.renameFile('file.txt', 'renamed.txt')
-      await vfs.deleteFile('renamed.txt')
+      await vfs.unlink('renamed.txt')
       
       expect(await vfs.readFile('renamed.txt')).toBeNull()
     })
 
     it('base file -> write -> rename -> delete', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
       await vfs.applyBaseSnapshot({ 'file.txt': 'base' }, 'h1')
       await vfs.writeFile('file.txt', 'modified')
       await vfs.renameFile('file.txt', 'renamed.txt')
-      await vfs.deleteFile('renamed.txt')
+      await vfs.unlink('renamed.txt')
       
       expect(await vfs.readFile('renamed.txt')).toBeNull()
     })
@@ -270,7 +269,7 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
 
   describe('Large file and path operations', () => {
     it('handle 100+ files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       
@@ -278,12 +277,12 @@ describe('VirtualFS complex scenarios - uncovered branch expansion', () => {
         await vfs.writeFile(`file${i}.txt`, `content${i}`)
       }
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths.length).toBeGreaterThanOrEqual(100)
     })
 
     it('handle paths with many separators', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
       

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type coverage
  * @purpose Coverage expansion only
  * @policy MODIFICATION ALLOWED
@@ -10,7 +10,7 @@ import { InMemoryStorage } from '../../../../src/virtualfs/inmemoryStorage'
 
 describe('coverage: _resolveDescriptor branches', () => {
   it('handles adapter-like input and undefined fallback', async () => {
-    const vfs = new VirtualFS({ backend: new InMemoryStorage() })
+    const vfs = new VirtualFS({ backend: new InMemoryStorage('__test_ns') })
     await vfs.init()
 
     // adapter-like object passed directly (has fetchSnapshot fn, no headSha)

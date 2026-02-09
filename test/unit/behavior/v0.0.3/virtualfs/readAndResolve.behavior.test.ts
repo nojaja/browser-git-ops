@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -16,7 +16,7 @@ import { InMemoryStorage } from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe.skip('readFile and resolveConflict branches', () => {
   it('readFile returns workspace, workspace blob, base blob and base map', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend: storage })
 
     // workspace via writeFile
@@ -37,7 +37,7 @@ describe.skip('readFile and resolveConflict branches', () => {
   })
 
   it('resolveConflict promotes remote content when present and updates index', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend: storage })
     const filePath = 'conf.txt'
     // set index entry with remoteSha via backend
@@ -61,7 +61,7 @@ describe.skip('readFile and resolveConflict branches', () => {
   })
 
   it('resolveConflict promotes remoteSha even if blob not present', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend: storage })
     const filePath2 = 'noblob.txt'
     // set index entry with remoteSha via backend

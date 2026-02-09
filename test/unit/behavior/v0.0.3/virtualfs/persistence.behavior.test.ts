@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -19,7 +19,7 @@ afterEach(() => jest.resetAllMocks())
 
 describe.skip('InMemoryStorage basic flows', () => {
   it('init and write/read index', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     await storage.init()
 
     const index = { head: 'h', entries: {} }
@@ -31,7 +31,7 @@ describe.skip('InMemoryStorage basic flows', () => {
   })
 
   it('writeBlob/readBlob/deleteBlob', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     await storage.init()
 
     await storage.writeBlob('dir/a.txt', 'hello')
@@ -44,7 +44,7 @@ describe.skip('InMemoryStorage basic flows', () => {
   })
 
   it('readIndex returns default index when absent', async () => {
-    const storage = new InMemoryStorage()
+    const storage = new InMemoryStorage('__test_ns')
     await storage.init()
     const r = await storage.readIndex()
     expect(r).not.toBeNull()

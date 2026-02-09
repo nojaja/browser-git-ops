@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals'
+﻿import { jest } from '@jest/globals'
 import { AbstractGitAdapter, getDelayForResponse, mapWithConcurrency } from '../../../src/git/abstractAdapter'
 
 describe('AbstractAdapter additional coverage', () => {

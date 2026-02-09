@@ -1,4 +1,4 @@
-/*
+﻿/*
  coverage: purpose=increase-branch-and-function-coverage
  file: src/git/githubAdapter.ts
  generated-by: assistant

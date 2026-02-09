@@ -1,4 +1,4 @@
-import { GitHubAdapter } from '../../../../../src/git/githubAdapter'
+﻿import { GitHubAdapter } from '../../../../../src/git/githubAdapter'
 import { jest } from '@jest/globals'
 
 describe('GitHubAdapter: Authorization header behavior', () => {

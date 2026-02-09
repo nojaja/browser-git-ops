@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -12,7 +12,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 describe('VirtualFS push flow branches', () => {
   // Test push creates tree from workspace files
   it('push creates blobs and tree for new files', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -63,7 +63,7 @@ describe('VirtualFS push flow branches', () => {
 
   // Test push with single delete change
   it('push handles delete operations', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -90,7 +90,7 @@ describe('VirtualFS push flow branches', () => {
 
   // Test push with modify change
   it('push handles modify operations', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -117,7 +117,7 @@ describe('VirtualFS push flow branches', () => {
 
   // Test push with GitHub adapter - blobs created
   it('push with adapter creates GitHub blobs', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -153,7 +153,7 @@ describe('VirtualFS push flow branches', () => {
 
   // Test push updates head reference
   it('push with adapter updates ref after commit', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -191,7 +191,7 @@ describe('VirtualFS push flow branches', () => {
 
   // Test push fails with no changes
   it('push throws when no changes provided', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -209,7 +209,7 @@ describe('VirtualFS push flow branches', () => {
 
   // Test push with complex nested paths
   it('push handles nested directory structures', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 

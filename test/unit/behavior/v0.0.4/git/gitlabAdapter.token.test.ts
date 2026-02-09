@@ -1,4 +1,4 @@
-import { GitLabAdapter } from '../../../../../src/git/gitlabAdapter'
+﻿import { GitLabAdapter } from '../../../../../src/git/gitlabAdapter'
 import { jest } from '@jest/globals'
 
 describe('GitLabAdapter: PRIVATE-TOKEN header behavior', () => {

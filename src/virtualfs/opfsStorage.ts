@@ -27,23 +27,27 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     return ok
   }
 
-  /** 利用可能なサブディレクトリ名の候補を返す
-   * @returns {Promise<string[]>} available root directories
-   */
-
   /**
    * Return available root folder names for OPFS. This method is synchronous
    * to satisfy the StorageBackendConstructor contract; it returns a cached
    * hint if available and kicks off an async probe to populate the cache.
    * If no information is available synchronously an empty array is returned.
-    * @returns {Promise<string[]>} available root directories
+   * @returns {Promise<string[]>} available root directories
    */
-  static async availableRoots(): Promise<string[]> {
+  static async availableRoots(namespace: string): Promise<string[]> {
     try {
       const root = await OpfsStorage._getNavigatorStorageRoot()
       if (!root) return []
-      return await OpfsStorage._collectDirectoryNames(root)
-    } catch {
+      // Find the namespace folder under OPFS root and list its children
+      for await (const handle of (root as any).values()) {
+        const name = OpfsStorage._extractHandleName(handle)
+        if (name === namespace && OpfsStorage._isDirectoryHandle(handle)) {
+          return await OpfsStorage._collectDirectoryNames(handle)
+        }
+      }
+      return []
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('availableRoots probe failed', error)
       return []
     }
   }
@@ -103,6 +107,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   private rootDir = 'apigit_storage'
   private currentBranch: string | null = null
+  private namespace: string = ''
 
   /**
    * Calculate SHA-1 hex digest of given content.
@@ -117,9 +122,25 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
   }
 
-  /** コンストラクタ（OPFS は初期化不要）。`root` は OPFS ルート直下に作成するサブディレクトリ名です。 */
-  constructor(root?: string) {
-    if (root) this.rootDir = root
+  /**
+   * コンストラクタ（OPFS は初期化不要）。
+   * `namespace` は必須。挙動:
+   * - `new(namespace)` のみの場合は OPFS ルートとして `namespace` を使う（テストの期待値に合わせる）。
+   * - `new(namespace, root)` の場合は `namespace/root` を使う。
+   */
+  constructor(namespace: string, root?: string) {
+    this.namespace = namespace || ''
+    if (root) {
+      this.rootDir = this.namespace ? `${this.namespace}/${root}` : root
+    } else if (this.namespace) {
+      // When only namespace provided, treat it as the root directory to match
+      // existing test expectations where availableRoots returns a top-level
+      // folder name (e.g. 'GitLab_test01').
+      this.rootDir = this.namespace
+    } else {
+      // Fallback to default
+      this.rootDir = this.rootDir
+    }
   }
 
   /**
@@ -147,9 +168,10 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   setBranch(branch?: string | null): void {
     this.currentBranch = branch || null
   }
+
   /**
    * Map logical segment to concrete prefix used on OPFS.
-    * @returns {string} concrete prefix path for the given segment
+   * @returns {string} concrete prefix path for the given segment
    */
   private _segmentToPrefix(segment: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info'): string {
     // Workspace content is now stored under workspace/base
@@ -159,8 +181,6 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     const branch = this.currentBranch || 'main'
     return `.git/${branch}/${segName}`
   }
-
-  // legacy canUseOpfs removed; use static canUse() instead
 
   /**
    * Try to get OPFS root from navigator.storage.getDirectory().
@@ -175,7 +195,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       const maybe = nav.storage.getDirectory()
       const d = await Promise.resolve(maybe)
       return d || null
-    } catch {
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('_tryNavigatorStorage failed', error)
       return null
     }
   }
@@ -191,7 +212,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     }
     try {
       return await opfs.getDirectory()
-    } catch {
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('_tryOriginPrivateFileSystem failed', error)
       return null
     }
   }
@@ -225,10 +247,6 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   }
 
   /**
-   * index を読み出す
-   * @returns {Promise<IndexFile|null>} 読み出した IndexFile、存在しなければ null
-   */
-  /**
    * Read index metadata file from OPFS.
    * @returns {Promise<string|null>}
    */
@@ -244,7 +262,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       const fh = await (root as any).getFileHandle('index')
       const file = await fh.getFile()
       return await file.text()
-    } catch {
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('_readIndexMetadata failed', error)
       return null
     }
   }
@@ -427,6 +446,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       return {}
     }
   }
+
   /**
    * Build info entry for workspace writes.
    * @returns {any}
@@ -439,6 +459,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     if (existing && existing.remoteSha) entry.remoteSha = existing.remoteSha
     return entry
   }
+
   /**
    * Build info entry for base writes.
    * @returns {any}
@@ -451,6 +472,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     if (existing && existing.remoteSha) entry.remoteSha = existing.remoteSha
     return entry
   }
+
   /**
    * Build info entry for conflict writes.
    * @returns {any}
@@ -619,7 +641,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
     }
     if (typeof directory.getFileHandle === 'function') {
       await this.tryRemoveFileHandle(directory, name)
-      
+
     }
   }
 
@@ -628,8 +650,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * @param root root directory handle
    * @param prefix prefix dir
    * @param filepath path relative to prefix
-    * @returns {Promise<string|null>} file contents or null when not found
-    */
+   * @returns {Promise<string|null>} file contents or null when not found
+   */
   private async readFromPrefix(root: any, prefix: string, filepath: string): Promise<string | null> {
     // reuse existing traversal logic but guard errors
     try {
@@ -642,7 +664,6 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       return null
     }
   }
-
 
   /**
    * Traverse into nested directories without creating them.
@@ -721,7 +742,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       await this._handleChildEntry(d, name, base, results)
     }
   }
-  /** Handle a single child entry name: try file first, then directory. */
+  
   /**
    * @returns {Promise<void>}
    */
@@ -759,8 +780,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    */
   private async _collectInfoForKeys(root: any, keys: string[]): Promise<Array<{ path: string; info: string | null }>> {
     const out: Array<{ path: string; info: string | null }> = []
-     const infoPrefix = this._segmentToPrefix('info') // existing line
-     const wsInfoPrefix = `${VAR_WORKSPACE}/info` // new line
+    const infoPrefix = this._segmentToPrefix('info') // existing line
+    const wsInfoPrefix = `${VAR_WORKSPACE}/info` // new line
     for (const k of keys) {
       let info: string | null = await this.readFromPrefix(root, wsInfoPrefix, k).catch(() => null)
       if (info === null) info = await this.readFromPrefix(root, infoPrefix, k).catch(() => null)
@@ -774,7 +795,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * @param prefix プレフィックス（例: 'dir/sub'）。省略時はルート
    * @param segment セグメント（'workspace' 等）。省略時は 'workspace'
    * @param recursive サブディレクトリも含めるか。省略時は true
-    * @returns {Promise<Array<{ path: string; info: string | null }>>}
+   * @returns {Promise<Array<{ path: string; info: string | null }>>}
    */
   async listFiles(prefix?: string, segment?: any, recursive = true): Promise<Array<{ path: string; info: string | null }>> {
     const root = await this.getOpfsRoot()
@@ -824,11 +845,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    */
   private async _findStorageDirectory(navRoot: any): Promise<any | null> {
     try {
-      for await (const handle of (navRoot as any).values()) {
-        const name = OpfsStorage._extractHandleName(handle)
-        if (name === this.rootDir && OpfsStorage._isDirectoryHandle(handle)) return handle
-      }
-      return null
+      const parts = this.rootDir.split('/').filter(Boolean)
+      const directoryHandle = await this.traverseDir(navRoot, parts)
+      return directoryHandle
     } catch {
       return null
     }

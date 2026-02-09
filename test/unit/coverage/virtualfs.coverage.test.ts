@@ -1,4 +1,4 @@
-/*
+﻿/*
  coverage: purpose=increase-branch-and-function-coverage
  file: src/virtualfs/virtualfs.ts
  generated-by: assistant

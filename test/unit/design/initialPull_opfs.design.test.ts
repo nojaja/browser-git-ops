@@ -1,4 +1,4 @@
-import '../../setupOpfs.js'
+﻿import '../../setupOpfs.js'
 import { jest } from '@jest/globals'
 import * as lib from '../../../src/index'
 import { configureFetchMock, clearFetchMock } from '../../utils/fetchMock'
@@ -46,7 +46,7 @@ describe('design/initialPull (Opfs)', () => {
     resetMockOPFS()
   })
 
-  it('初回pull後に listPaths と backend.listFilesRaw の path が期待通りであること (Opfs)', async () => {
+  it('初回pull後に readdir と backend.listFilesRaw の path が期待通りであること (Opfs)', async () => {
     // availableRoots を固定値で返す
     jest.spyOn(lib.OpfsStorage, 'availableRoots').mockReturnValue(['GitLab_test01'])
 
@@ -90,8 +90,8 @@ describe('design/initialPull (Opfs)', () => {
     expect(pullRes).toBeDefined()
     expect(pullRes.remotePaths.slice().sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
 
-    // ④listPaths 結果確認
-    const paths = await currentVfs.listPaths()
+    // ④readdir 結果確認
+    const paths = await currentVfs.readdir('.')
     expect(paths.slice().sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
 
     // ⑤ listFilesRaw 確認

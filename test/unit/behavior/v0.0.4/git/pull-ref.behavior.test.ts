@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals'
+﻿import { jest, describe, it, expect, beforeEach } from '@jest/globals'
 import VirtualFS from '../../../../../src/virtualfs/virtualfs'
 import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
@@ -9,7 +9,7 @@ describe('VirtualFS.pull() with ref (TDD behavior tests for v0.0.4)', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks()
-    backend = new InMemoryStorage('test-root')
+    backend = new InMemoryStorage('__test_ns')
     vfs = new VirtualFS({ backend })
     await vfs.init()
 

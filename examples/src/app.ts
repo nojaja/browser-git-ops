@@ -326,7 +326,7 @@ function setListContents(id: string, items: any[] | null) {
       container.appendChild(li)
     }
   } catch (_e) {
-    appendTrace('trace.raw', { msg: '[setListContents]DOM error: ' + String(_e) })
+    appendTrace('trace.setListContents.domError', { err: String(_e) })
   }
 }
 
@@ -368,7 +368,7 @@ async function main() {
   const clearOutputBtn = el('clearOutputBtn') as HTMLButtonElement | null
     if (clearOutputBtn) {
     clearOutputBtn.addEventListener('click', () => {
-      try { (el('output') as HTMLPreElement).textContent = '' } catch (e) { appendTrace('trace.raw', { msg: '[clearOutputBtn]clear output error: ' + String(e) }) }
+      try { (el('output') as HTMLPreElement).textContent = '' } catch (e) { appendTrace('trace.clearOutput.error', { err: String(e) }) }
     })
   }
   const clearTraceBtn = el('clearTraceBtn') as HTMLButtonElement | null
@@ -404,7 +404,7 @@ async function main() {
     try {
       if (typeof currentVfs.getAdapterInstance === 'function') return await currentVfs.getAdapterInstance()
     } catch (_e) {
-      appendTrace('trace.raw', { msg: '[getCurrentAdapter] error: ' + String(_e) })
+      appendTrace('trace.getCurrentAdapter.error', { err: String(_e) })
       return null
     }
     return null
@@ -420,10 +420,10 @@ async function main() {
     try {
         if (typeof (currentVfs as any).close === 'function') {
         await (currentVfs as any).close()
-        appendTrace('trace.raw', { msg: 'await currentVfs.close()' })
+        appendTrace('trace.vfs.closeCall')
       } else if (typeof (currentVfs as any).dispose === 'function') {
         await (currentVfs as any).dispose()
-        appendTrace('trace.raw', { msg: 'await currentVfs.dispose()' })
+        appendTrace('trace.vfs.disposeCall')
       }
       appendOutput('log.vfs.closed', { prefix })
     } catch (e) {
@@ -510,7 +510,7 @@ async function main() {
               try {
                 await connectVfsBackend('inMemory', lib.InMemoryStorage, 'apigit_storage', 'InMemoryStorage', 'root')
                 } catch (e) {
-                  appendTrace('trace.raw', { msg: '[connectBtn] failed to create default InMemory VirtualFS: ' + String(e) })
+                  appendTrace('trace.connectBtn.createDefaultInMemoryFailed', { err: String(e) })
                 }
             }
 
@@ -519,7 +519,7 @@ async function main() {
               try {
                 await connectVfsBackend('inMemory', lib.InMemoryStorage, 'apigit_storage', 'InMemoryStorage', 'root')
               } catch (e) {
-                appendTrace('trace.raw', { msg: '[connectBtn] failed to create default InMemory VirtualFS: ' + String(e) })
+                appendTrace('trace.connectBtn.createDefaultInMemoryFailed', { err: String(e) })
               }
             }
 
@@ -538,7 +538,7 @@ async function main() {
                 await currentVfs.setAdapter(adapterInstance, { type: 'github', opts: ghOpts })
                   appendOutput('log.github.registered', { branch: ghBranch })
 
-                appendTrace('trace.raw', { msg: "await currentVfs.setAdapter(adapterInstance, { type: 'github', opts: " + JSON.stringify({ owner: ghOpts.owner, repo: ghOpts.repo, token: '******', branch: ghBranch }) + " })" })
+                appendTrace('trace.adapter.setGitHubAdapter', { opts: JSON.stringify({ owner: ghOpts.owner, repo: ghOpts.repo, branch: ghBranch }) })
               } catch (e) {
                 appendOutput('error.vfs.setAdapter', { err: String(e) })
               }
@@ -580,7 +580,7 @@ async function main() {
                 }
                 await currentVfs.setAdapter(adapterInstance, { type: 'gitlab', opts: glOpts })
                 appendOutput('log.gitlab.registered', { branch: glBranch })
-                appendTrace('trace.raw', { msg: "await currentVfs.setAdapter(adapterInstance, { type: 'gitlab', opts: " + JSON.stringify({ projectId: glOpts.projectId, host: glOpts.host, token: '******', branch: glBranch }) + " })" })
+                appendTrace('trace.adapter.setGitLabAdapter', { opts: JSON.stringify({ projectId: glOpts.projectId, host: glOpts.host, branch: glBranch }) })
               } catch (e) {
                 appendOutput('error.vfs.setAdapter', { err: String(e) })
               }
@@ -597,7 +597,7 @@ async function main() {
       }
     } catch (e) {
       appendOutput('error.connect.exception', { err: String(e) })
-        appendTrace('trace.raw', { msg: JSON.stringify(e) })
+        appendTrace('trace.connect.exceptionJson', { json: JSON.stringify(e) })
     }
   })
 
@@ -611,11 +611,11 @@ async function main() {
         if (!currentVfs) { appendOutput('error.switchBranch.vfsNotConnected'); return }
         // Use new pull({ ref }) API to switch branch and pull remote snapshot.
         try {
-          appendTrace('trace.raw', { msg: `const res = await currentVfs.pull({ ref: '${target}' })` })
+          appendTrace('trace.switchBranch.pullCall', { target })
           const res = await currentVfs.pull({ ref: target })
-          appendTrace('trace.raw', { msg: 'pull => ' + JSON.stringify(res) })
+          appendTrace('trace.switchBranch.pullResult', { res: JSON.stringify(res) })
           appendOutput('log.switchBranch.pulled', { branch: target })
-          try { branchInput.value = target } catch (e) { appendTrace('trace.raw', { msg: '[switchBranch] set branchInput failed: ' + String(e) }) }
+          try { branchInput.value = target } catch (e) { appendTrace('trace.switchBranch.setBranchInputFailed', { err: String(e) }) }
         } catch (e) {
           appendOutput('error.switchBranch.pullFailed', { err: String(e) })
         }
@@ -676,13 +676,13 @@ async function main() {
         return
       }
       if (OpfsCtor && typeof OpfsCtor.availableRoots === 'function') {
-        let roots: any = OpfsCtor.availableRoots()
+        let roots: any = OpfsCtor.availableRoots('examples')
         appendTrace('trace.opfsRootsCall')
         if (roots && typeof roots.then === 'function') {
           try {
             roots = await roots
-          } catch (e) {
-            appendTrace('trace.raw', { msg: '[opfsRoots]availableRoots await error: ' + String(e) })
+            } catch (e) {
+            appendTrace('trace.opfsRoots.availableRootsError', { err: String(e) })
             roots = []
           }
         }
@@ -710,13 +710,13 @@ async function main() {
       await new Promise(resolve => setTimeout(resolve, 50))
 
       if (IdxCtor && typeof IdxCtor.availableRoots === 'function') {
-        let roots: any = IdxCtor.availableRoots()
+        let roots: any = IdxCtor.availableRoots('examples')
         appendTrace('trace.indexedDbRootsCall')
         if (roots && typeof roots.then === 'function') {
           try {
             roots = await roots
           } catch (e) {
-            appendTrace('trace.raw', { msg: '[indexedDbRoots]availableRoots await error: ' + String(e) })
+            appendTrace('trace.indexedDbRoots.availableRootsError', { err: String(e) })
             roots = []
           }
         }
@@ -740,7 +740,7 @@ async function main() {
       let MemCtor: any = lib.InMemoryStorage
       let roots: any[] = []
       if (MemCtor && typeof MemCtor.availableRoots === 'function') {
-        roots = MemCtor.availableRoots() || []
+        roots = MemCtor.availableRoots('examples') || []
         appendTrace('trace.inMemoryRootsCall')
       }
       appendTrace('trace.inMemoryRootsJson', { json: JSON.stringify(roots) })
@@ -760,11 +760,11 @@ async function main() {
       if (meta && meta.type === 'github') {
         const o = meta.opts || {}
         try {
-          const base = o.host ? (() => { try { return new URL(o.host).origin } catch (e) { appendTrace('trace.raw', { msg: '[populateAdapterMetadata] URL parse error: ' + String(e) }); return String(o.host).replace(/\/api\/v3\/?$/, '') } })() : 'https://github.com'
+          const base = o.host ? (() => { try { return new URL(o.host).origin } catch (e) { appendTrace('trace.populateAdapterMetadata.urlParseError', { err: String(e) }); return String(o.host).replace(/\/api\/v3\/?$/, '') } })() : 'https://github.com'
           repoInput.value = o.owner && o.repo ? `${base}/${o.owner}/${o.repo}` : ''
-        } catch (e) { appendTrace('trace.raw', { msg: '[populateAdapterMetadata] set repoInput failed: ' + String(e) }); repoInput.value = '' }
+        } catch (e) { appendTrace('trace.populateAdapterMetadata.setRepoInputFailed', { err: String(e) }); repoInput.value = '' }
         tokenInput.value = (o && o.token) || ''
-        try { branchInput.value = (o && o.branch) || 'main' } catch (e) { appendTrace('trace.raw', { msg: '[populateAdapterMetadata] set branchInput failed: ' + String(e) }); branchInput.value = (o && o.branch) || 'main' }
+        try { branchInput.value = (o && o.branch) || 'main' } catch (e) { appendTrace('trace.populateAdapterMetadata.setBranchInputFailed', { err: String(e) }); branchInput.value = (o && o.branch) || 'main' }
         platformSelect.value = 'github'
         currentPlatform = 'github'
         currentOwner = o.owner || null
@@ -772,32 +772,32 @@ async function main() {
       } else if (meta && meta.type === 'gitlab') {
         const o = meta.opts || {}
         try {
-          const base = o.host ? (() => { try { return new URL(o.host).origin } catch (e) { appendTrace('trace.raw', { msg: '[populateAdapterMetadata] URL parse error: ' + String(e) }); return String(o.host).replace(/\/api\/v4\/?$/, '') } })() : 'https://gitlab.com'
+          const base = o.host ? (() => { try { return new URL(o.host).origin } catch (e) { appendTrace('trace.populateAdapterMetadata.urlParseErrorGitlab', { err: String(e) }); return String(o.host).replace(/\/api\/v4\/?$/, '') } })() : 'https://gitlab.com'
           repoInput.value = o.projectId ? `${base}/${o.projectId}` : ''
-        } catch (e) { appendTrace('trace.raw', { msg: '[populateAdapterMetadata] set repoInput failed: ' + String(e) }); repoInput.value = '' }
+        } catch (e) { appendTrace('trace.populateAdapterMetadata.setRepoInputFailedGitlab', { err: String(e) }); repoInput.value = '' }
         tokenInput.value = (o && o.token) || ''
-        try { branchInput.value = (o && o.branch) || 'main' } catch (e) { appendTrace('trace.raw', { msg: '[populateAdapterMetadata] set branchInput failed: ' + String(e) }); branchInput.value = (o && o.branch) || 'main' }
+        try { branchInput.value = (o && o.branch) || 'main' } catch (e) { appendTrace('trace.populateAdapterMetadata.setBranchInputFailedGitlab', { err: String(e) }); branchInput.value = (o && o.branch) || 'main' }
         platformSelect.value = 'gitlab'
         currentPlatform = 'gitlab'
         try {
           const parts = (o.projectId || '').split('/').filter(Boolean)
           currentOwner = parts.slice(0, -1).join('/') || null
           currentRepoName = parts[parts.length - 1] || null
-        } catch (e) { appendTrace('trace.raw', { msg: '[populateAdapterMetadata] parse projectId error: ' + String(e) }); currentOwner = null; currentRepoName = null }
+        } catch (e) { appendTrace('trace.populateAdapterMetadata.parseProjectIdError', { err: String(e) }); currentOwner = null; currentRepoName = null }
       } else {
         repoInput.value = ''
         tokenInput.value = ''
-        try { branchInput.value = 'main' } catch (e) { appendTrace('trace.raw', { msg: '[populateAdapterMetadata] set default branchInput failed: ' + String(e) }); branchInput.value = 'main' }
+        try { branchInput.value = 'main' } catch (e) { appendTrace('trace.populateAdapterMetadata.setDefaultBranchInputFailed', { err: String(e) }); branchInput.value = 'main' }
         platformSelect.value = 'auto'
         currentPlatform = null
         currentOwner = null
         currentRepoName = null
       }
     } catch (e) {
-      appendTrace('trace.raw', { msg: '[populateAdapterMetadata] unexpected error: ' + String(e) })
+      appendTrace('trace.populateAdapterMetadata.unexpectedError', { err: String(e) })
       repoInput.value = ''
       tokenInput.value = ''
-      try { branchInput.value = 'main' } catch (err) { appendTrace('trace.raw', { msg: '[populateAdapterMetadata] set default branchInput failed: ' + String(err) }); branchInput.value = 'main' }
+      try { branchInput.value = 'main' } catch (err) { appendTrace('trace.populateAdapterMetadata.setDefaultBranchInputFailed', { err: String(err) }); branchInput.value = 'main' }
       platformSelect.value = 'auto'
       currentPlatform = null
       currentOwner = null
@@ -808,9 +808,10 @@ async function main() {
   async function connectVfsBackend(prefix: string, BackendCtor: any, val: string, displayName: string, suffixLabel: 'root' | 'db' = 'root') {
     try {
       if (!BackendCtor || !lib.VirtualFS) { appendOutput('error.vfs.missing', { prefix, displayName }); return }
-      const backend = new BackendCtor(val)
-      appendTrace('trace.backendInstanceCreate', { displayName })
-      appendTrace('trace.constBackend', { displayName, val: JSON.stringify(val) })
+      const namespace = 'examples'
+      const backend = new BackendCtor(namespace, val)
+      appendTrace('trace.backendInstanceCreate', {  namespace, displayName  })
+      appendTrace('trace.constBackend', {  namespace, displayName , val: JSON.stringify(val) })
       const vfs = new (lib.VirtualFS as any)({
         backend,
         logger: (() => {
@@ -858,7 +859,7 @@ async function main() {
         await populateAdapterMetadata(vfs)
       } catch (e) { appendOutput('error.vfs.initException', { prefix, err: String(e) }) }
     } catch (e) { appendOutput('error.vfs.connectFailed', { prefix, err: String(e) }) }
-    appendTrace('trace.empty')
+    appendTrace('')
   }
 
   if (typeof document !== 'undefined') {
@@ -1036,11 +1037,11 @@ async function main() {
     appendOutput('log.fetchRemote.start')
     if (!currentVfs) { appendOutput('error.fetchRemote.vfsNotInit'); return }
     try {
-      appendTrace('trace.raw', { msg: '// リポジトリアクセス' })
-      const branch = (branchInput && branchInput.value) ? branchInput.value.trim() : ''
-      appendTrace('trace.raw', { msg: `const res = await currentVfs.pull(${branch ? "{ ref: '" + branch + "' }" : ''})` })
-      const res = branch ? await currentVfs.pull({ ref: branch }) : await currentVfs.pull()
-      appendTrace('trace.raw', { msg: 'res => ' + JSON.stringify(res) })
+    appendTrace('trace.fetchRemote.comment')
+    const branch = (branchInput && branchInput.value) ? branchInput.value.trim() : ''
+    appendTrace('trace.fetchRemote.pullCall', { branch })
+    const res = branch ? await currentVfs.pull({ ref: branch }) : await currentVfs.pull()
+    appendTrace('trace.fetchRemote.pullResult', { res: JSON.stringify(res) })
       const remote = (res as any).remote
       const remotePaths = (res as any).remotePaths || Object.keys(remote?.shas || {})
       appendOutput('log.fetchRemote.remoteCount', { count: remotePaths.length })
@@ -1126,10 +1127,10 @@ async function main() {
     if (!currentVfs) { appendOutput('error.fetchRemote.vfsNotInit'); return }
     try {
       if (typeof currentVfs.resolveConflict === 'function') {
-        appendTrace('trace.raw', { msg: '//' })
-        appendTrace('trace.raw', { msg: `const ok = await currentVfs.resolveConflict(${path})` })
+        appendTrace('trace.resolveConflict.comment')
+        appendTrace('trace.resolveConflict.call', { path })
         const ok = await currentVfs.resolveConflict(path)
-        appendTrace('trace.raw', { msg: 'ok => ' + JSON.stringify(ok) })
+        appendTrace('trace.resolveConflict.result', { ok: JSON.stringify(ok) })
         if (ok) appendOutput('log.resolveConflict.succeeded', { path })
         else appendOutput('log.resolveConflict.notFoundOrFailed', { path })
       } else {
@@ -1156,17 +1157,17 @@ async function main() {
         appendOutput('log.revertChange.deleting', { path })
         try {
           await backend.deleteBlob(path, 'workspace')
-          appendTrace('trace.raw', { msg: '//' })
-          appendTrace('trace.raw', { msg: `await backend.deleteBlob(${path}, 'workspace')` })
+          appendTrace('trace.revertChange.comment')
+          appendTrace('trace.revertChange.deleteBlobCall', { path })
         } catch (e) {
           appendOutput('error.revertChange.backendException', { err: String(e) })
         }
 
         // Reload VFS index/state so UI reflects the reverted state
         try {
-          if (typeof currentVfs.init === 'function') {
+            if (typeof currentVfs.init === 'function') {
             await currentVfs.init()
-            appendTrace('trace.raw', { msg: 'await currentVfs.init()' })
+            appendTrace('trace.revertChange.vfsInitCall')
           }
         } catch (e) {
           appendOutput('error.revertChange.vfsReinitFailed', { err: String(e) })
@@ -1196,10 +1197,10 @@ async function main() {
         appendOutput('error.remoteChanges.notImplemented');
         return
       }
-      appendTrace('trace.raw', { msg: '//' })
-      appendTrace('trace.raw', { msg: `const res = await currentVfs.getRemoteDiffs()` })
+      appendTrace('trace.remoteChanges.comment')
+      appendTrace('trace.remoteChanges.call')
     const res = await currentVfs.getRemoteDiffs()
-    appendTrace('trace.raw', { msg: 'res => ' + JSON.stringify(res) })
+    appendTrace('trace.remoteChanges.result', { res: JSON.stringify(res) })
       const diffs: string[] = res?.diffs || []
       appendOutput('log.remoteChanges.count', { count: diffs.length })
       if (diffs.length > 0) appendOutput(diffs.join('\n'))
@@ -1216,8 +1217,8 @@ async function main() {
     if (!path) return
     const content = prompt(t('prompt.addLocalFile.content'), 'hello') || ''
     try {
-      appendTrace('trace.raw', { msg: '// ファイルの書き込み' })
-      appendTrace('trace.raw', { msg: `await currentVfs.writeFile(${path}, ${content})` })
+      appendTrace('trace.addLocalFile.comment')
+      appendTrace('trace.addLocalFile.writeCall', { path, content })
       await currentVfs.writeFile(path, content)
       appendOutput('log.addLocalFile.added', { path, content })
     } catch (e) { appendOutput('error.addLocalFile.failed', { err: String(e) }) }
@@ -1228,10 +1229,10 @@ async function main() {
   localChangesBtn.addEventListener('click', async () => {
     if (!currentVfs) { appendOutput('error.localChanges.vfsNotInit'); return }
     try {
-      appendTrace('trace.raw', { msg: '// ローカルのチェンジセット取得' })
-      appendTrace('trace.raw', { msg: 'const changes = await currentVfs.getChangeSet()' })
+      appendTrace('trace.localChanges.comment')
+      appendTrace('trace.localChanges.getChangeSetCall')
       const changes = await currentVfs.getChangeSet()
-      appendTrace('trace.raw', { msg: 'changes => ' + JSON.stringify(changes) })
+      appendTrace('trace.localChanges.result', { res: JSON.stringify(changes) })
       appendOutput('log.localChanges.list', { json: JSON.stringify(changes, null, 2) })
     } catch (e) { appendOutput('error.localChanges.failed', { err: String(e) }) }
     appendTrace('trace.empty')
@@ -1243,18 +1244,18 @@ async function main() {
     if (!currentVfs) { appendOutput('error.pushLocal.vfsNotInit'); return }
     if (!(await getCurrentAdapter())) { appendOutput('error.pushLocal.noAdapter'); return }
     try {
-      appendTrace('trace.raw', { msg: '// ローカルのチェンジセットをリモートに push' })
-      appendTrace('trace.raw', { msg: 'const changes = await currentVfs.getChangeSet()' })
+      appendTrace('trace.pushLocal.comment')
+      appendTrace('trace.pushLocal.getChangeSetCall')
       const changes = await currentVfs.getChangeSet()
-      appendTrace('trace.raw', { msg: 'changes => ' + JSON.stringify(changes) })
+      appendTrace('trace.pushLocal.changesResult', { res: JSON.stringify(changes) })
       if (!changes || changes.length === 0) { appendOutput('log.pushLocal.noChanges'); return }
-      appendTrace('trace.raw', { msg: 'const idx = await currentVfs.getIndex()' })
+      appendTrace('trace.pushLocal.getIndexCall')
       const idx = await currentVfs.getIndex()
-      appendTrace('trace.raw', { msg: 'idx => ' + JSON.stringify(idx) })
+      appendTrace('trace.pushLocal.indexResult', { res: JSON.stringify(idx) })
       const input = { message: 'Example push from UI' }
-      appendTrace('trace.raw', { msg: `const res = await currentVfs.push(${JSON.stringify(input)})` })
+      appendTrace('trace.pushLocal.pushCall', { input: JSON.stringify(input) })
       const res = await currentVfs.push(input)
-      appendTrace('trace.raw', { msg: 'res => ' + JSON.stringify(res) })
+      appendTrace('trace.pushLocal.pushResult', { res: JSON.stringify(res) })
       appendOutput('log.pushLocal.success', { json: JSON.stringify(res) })
     } catch (e) { appendOutput('error.pushLocal.failed', { err: String(e) }) }
     appendTrace('trace.empty')
@@ -1269,13 +1270,13 @@ async function main() {
     try {
       const path = (prompt(t('prompt.editAndPush.path')) || '').trim()
       if (!path) return
-      appendTrace('trace.raw', { msg: '// 既存ファイルの読み取り' })
-      appendTrace('trace.raw', { msg: `const existing = await currentVfs.readFile(${path})` })
+      appendTrace('trace.editAndPush.comment')
+      appendTrace('trace.editAndPush.readCall', { path })
       const existing = await currentVfs.readFile(path)
-      appendTrace('trace.raw', { msg: 'existing => ' + existing })
+      appendTrace('trace.editAndPush.existingResult', { res: String(existing) })
       const newContent = prompt(t('prompt.editAndPush.newContent'), existing === null ? '' : String(existing))
       if (newContent === null) return
-      appendTrace('trace.raw', { msg: `await currentVfs.writeFile(${path}, ${newContent})` })
+      appendTrace('trace.editAndPush.writeCall', { path, content: newContent })
       await currentVfs.writeFile(path, newContent)
       appendOutput('log.editAndPush.edited', { path })
 
@@ -1295,9 +1296,9 @@ async function main() {
       if (!path) return
       const ok = confirm(t('confirm.delete', { path }))
       if (!ok) return
-      appendTrace('trace.raw', { msg: '// 既存ファイルの削除' })
-      appendTrace('trace.raw', { msg: `await currentVfs.deleteFile(${path})` })
-      await currentVfs.deleteFile(path)
+      appendTrace('trace.deleteAndPush.comment')
+      appendTrace('trace.deleteAndPush.unlinkCall', { path })
+      await currentVfs.unlink(path)
       appendOutput('log.deleteAndPush.deleted', { path })
 
     } catch (e) {
@@ -1316,8 +1317,8 @@ async function main() {
       if (!from) return
       const to = (prompt(t('prompt.rename.to')) || '').trim()
       if (!to) return
-      appendTrace('trace.raw', { msg: '// 既存ファイルの名前変更  ' })
-      appendTrace('trace.raw', { msg: `await currentVfs.renameFile(${from}, ${to})` })
+      appendTrace('trace.rename.comment')
+      appendTrace('trace.rename.renameCall', { from, to })
       await currentVfs.renameFile(from, to)
       appendOutput('log.rename.renamed', { from, to })
 
@@ -1337,11 +1338,11 @@ async function main() {
         }
         appendOutput('log.showSnapshot.start')
         try {
-          const paths: string[] = currentVfs.listPaths ? await currentVfs.listPaths() : []
+          const paths: string[] = await currentVfs.readdir('.')
 
-          appendTrace('trace.raw', { msg: '// スナップショット内のパス一覧を取得' })
-          appendTrace('trace.raw', { msg: 'const paths = await currentVfs.listPaths()' })
-          appendTrace('trace.raw', { msg: 'paths => ' + JSON.stringify(paths) })
+          appendTrace('trace.showSnapshot.comment')
+          appendTrace('trace.showSnapshot.readdirCall')
+          appendTrace('trace.showSnapshot.pathsResult', { res: JSON.stringify(paths) })
             if (!paths || paths.length === 0) {
             appendOutput('log.showSnapshot.noFiles')
             return
@@ -1372,7 +1373,7 @@ async function main() {
         if (!path) return
         appendOutput('log.showFileContent.start', { path })
         try {
-          appendTrace('trace.raw', { msg: `const content = await currentVfs.readFile(${path})` })
+          appendTrace('trace.showFileContent.readCall', { path })
           const content = await currentVfs.readFile(path)
           const text = content === null ? t('ui.empty') : (typeof content === 'string' ? content : String(content))
           appendOutput('log.showFileContent.content', { path, content: text })
@@ -1402,7 +1403,7 @@ async function main() {
         if (!path) return
         appendOutput('log.showConflictContent.start', { path })
         try {
-          appendTrace('trace.raw', { msg: `const content = await currentVfs.readConflict(${path})` })
+          appendTrace('trace.showConflictContent.readCall', { path })
           const content = await currentVfs.readConflict(path)
           const text = content === null ? t('ui.empty') : (typeof content === 'string' ? content : String(content))
           appendOutput('log.showConflictContent.content', { path, content: text })
@@ -1425,14 +1426,14 @@ async function main() {
       try {
         const branch = (branchInput && branchInput.value) ? branchInput.value.trim() : 'main'
         const query: any = { ref: branch, perPage: 20, page: 1 }
-        appendTrace('trace.raw', { msg: '// VirtualFS.listCommits を呼び出します' })
-        appendTrace('trace.raw', { msg: 'const page = await currentVfs.listCommits(' + JSON.stringify(query) + ')' })
+        appendTrace('trace.listCommits.comment')
+        appendTrace('trace.listCommits.call', { query: JSON.stringify(query) })
         if (typeof currentVfs.listCommits !== 'function') {
           appendOutput('error.listCommits.notImplemented')
           return
         }
         const page = await currentVfs.listCommits(query)
-        appendTrace('trace.raw', { msg: 'listCommits => ' + JSON.stringify(page) })
+        appendTrace('trace.listCommits.result', { res: JSON.stringify(page) })
         const p: any = page || {}
         // support both 'items' (examples returning items) and 'commits' shape
         const commits = Array.isArray(p.items) ? p.items : Array.isArray(p.commits) ? p.commits : []
@@ -1472,9 +1473,9 @@ async function main() {
         const nextPage = (commitLastPage !== null && typeof commitLastPage === 'number') ? (commitCurrentPage < commitLastPage ? commitCurrentPage + 1 : null) : commitCurrentPage + 1
         if (!nextPage) { appendOutput('error.nextCommitsPage.noNext'); return }
         const query: any = { ref: branch, perPage: 20, page: nextPage }
-        appendTrace('trace.raw', { msg: '// VirtualFS.listCommits (next page) を呼び出します' })
+        appendTrace('trace.nextCommitsPage.comment')
         const page = await currentVfs.listCommits(query)
-        appendTrace('trace.raw', { msg: 'listCommits(next) => ' + JSON.stringify(page) })
+        appendTrace('trace.nextCommitsPage.result', { res: JSON.stringify(page) })
         const p: any = page || {}
         const commits = Array.isArray(p.items) ? p.items : Array.isArray(p.commits) ? p.commits : []
         appendOutput('log.nextCommitsPage.count', { count: commits.length })
@@ -1514,10 +1515,10 @@ async function main() {
         const perPage = 100
         const page = 1
         const query: any = { perPage, page }
-        appendTrace('trace.raw', { msg: '// VirtualFS.listBranches を呼び出します' })
-        appendTrace('trace.raw', { msg: 'const page = await currentVfs.listBranches(' + JSON.stringify(query) + ')' })
+        appendTrace('trace.listBranches.comment')
+        appendTrace('trace.listBranches.call', { query: JSON.stringify(query) })
         const res = await currentVfs.listBranches(query)
-        appendTrace('trace.raw', { msg: 'listBranches => ' + JSON.stringify(res) })
+        appendTrace('trace.listBranches.result', { res: JSON.stringify(res) })
         const p: any = res || {}
         const items = Array.isArray(p.items) ? p.items : Array.isArray(p.branches) ? p.branches : []
         appendOutput('log.listBranches.count', { count: items.length })
@@ -1528,7 +1529,7 @@ async function main() {
             if (b && b.isDefault) flags.push(t('branch.flag.default'))
             if (b && b.protected) flags.push(t('branch.flag.protected'))
             appendOutput(`- ${name}${flags.length ? ' (' + flags.join(', ') + ')' : ''}`)
-          } catch (e) { appendTrace('trace.raw', { msg: '[listBranches] per-item error: ' + String(e) }) }
+          } catch (e) { appendTrace('trace.listBranches.itemError', { err: String(e) }) }
         }
         const nextPage = p.nextPage ?? p.next ?? p.xNextPage ?? p['x-next-page']
         const lastPage = p.lastPage ?? p.last ?? p.xTotalPages ?? p['x-total-pages']
@@ -1555,10 +1556,10 @@ async function main() {
         const from = (prompt(t('prompt.createBranch.fromRef'), '') || '').trim()
         const input: any = { name }
         if (from) input.fromRef = from
-        appendTrace('trace.raw', { msg: '// VirtualFS.createBranch を呼び出します' })
-        appendTrace('trace.raw', { msg: 'const res = await currentVfs.createBranch(' + JSON.stringify(input) + ')' })
+        appendTrace('trace.createBranch.comment')
+        appendTrace('trace.createBranch.call', { input: JSON.stringify(input) })
         const res = await currentVfs.createBranch(input)
-        appendTrace('trace.raw', { msg: 'createBranch => ' + JSON.stringify(res) })
+        appendTrace('trace.createBranch.result', { res: JSON.stringify(res) })
         appendOutput('log.createBranch.success', { name: (res && res.name ? res.name : JSON.stringify(res)) })
         if (res && res.sha) appendOutput('log.createBranch.sha', { sha: String(res.sha) })
         if (res && res.ref) appendOutput('log.createBranch.ref', { ref: String(res.ref) })
@@ -1575,10 +1576,10 @@ async function main() {
       if (!currentVfs) { appendOutput('error.listFilesRaw.vfsNotInit'); return }
       try {
         if (typeof currentVfs.listFilesRaw === 'function') {
-          appendTrace('trace.raw', { msg: '// VirtualFS の listFilesRaw() を実行' })
-          appendTrace('trace.raw', { msg: 'const files = await currentVfs.listFilesRaw()' })
+          appendTrace('trace.listFilesRaw.comment')
+          appendTrace('trace.listFilesRaw.call')
           const files = await currentVfs.listFilesRaw()
-          appendTrace('trace.raw', { msg: 'files => ' + JSON.stringify(files) })
+          appendTrace('trace.listFilesRaw.result', { res: JSON.stringify(files) })
           const count = Array.isArray(files) ? files.length : 0
           appendOutput('log.listFilesRaw.count', { count })
           if (count > 0) appendOutput(JSON.stringify(files, null, 2))
@@ -1586,9 +1587,9 @@ async function main() {
           // Try backend.listFilesRaw as a fallback
           const backend = (currentVfs as any).backend
           if (backend && typeof backend.listFilesRaw === 'function') {
-            appendTrace('trace.raw', { msg: 'const files = await backend.listFilesRaw()' })
+            appendTrace('trace.listFilesRaw.backendCall')
             const files = await backend.listFilesRaw()
-            appendTrace('trace.raw', { msg: 'files => ' + JSON.stringify(files) })
+            appendTrace('trace.listFilesRaw.backendResult', { res: JSON.stringify(files) })
             const count = Array.isArray(files) ? files.length : 0
             appendOutput('log.listFilesRaw.backendCount', { count })
             if (count > 0) appendOutput(JSON.stringify(files, null, 2))

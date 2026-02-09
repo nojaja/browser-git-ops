@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type coverage
  * @purpose Coverage expansion only
  * @policy MODIFICATION ALLOWED
@@ -31,7 +31,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
   describe('Lines 203, 207-208 - readIndex with entries parsing', () => {
     it('readIndex handles missing IndexedDB gracefully', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+          const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         const index = await storage.readIndex()
@@ -51,7 +51,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     it('readIndex initializes entries object', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+          const storage = new IndexedDatabaseStorage('__test_ns')
         
         const index = await storage.readIndex()
         expect(index).toBeDefined()
@@ -65,7 +65,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
   describe('Lines 215-218 - readIndex entries enumeration', () => {
     it('readIndex enumerates info store keys', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+          const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         
@@ -83,7 +83,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     it('readIndex parses entry JSON', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+          const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         
@@ -129,7 +129,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     test.each(cases)('writeIndex %s', async ({ index }) => {
       try {
-        const storage = new IndexedDatabaseStorage()
+          const storage = new IndexedDatabaseStorage('__test_ns')
         await storage.init()
         await storage.writeIndex(index as any)
         const result = await storage.readIndex()
@@ -143,7 +143,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
   describe('Line 418 - Cleanup/finalization paths', () => {
     it('Storage cleanup on destruction', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+          const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         // Perform operations
@@ -156,7 +156,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     it('Multiple operations sequence', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+          const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         
@@ -176,8 +176,8 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
   describe('Constructor variations', () => {
     it('basic constructor behaviour (default & custom roots)', () => {
       try {
-        const storageDefault = new IndexedDatabaseStorage()
-        const storageCustom = new IndexedDatabaseStorage('custom-db')
+          const storageDefault = new IndexedDatabaseStorage('__test_ns')
+          const storageCustom = new IndexedDatabaseStorage('__test_ns','custom-db')
         expect(storageDefault).toBeInstanceOf(IndexedDatabaseStorage)
         expect(storageCustom).toBeInstanceOf(IndexedDatabaseStorage)
       } catch (e) {
@@ -214,7 +214,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
       }
 
       try {
-        const backend = new IndexedDatabaseStorage()
+          const backend = new IndexedDatabaseStorage('__test_ns')
         const vfs = new VirtualFS({ backend })
         
         await vfs.init()
@@ -231,7 +231,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
       }
 
       try {
-        const backend = new IndexedDatabaseStorage()
+          const backend = new IndexedDatabaseStorage('__test_ns')
         const vfs = new VirtualFS({ backend })
         
         await vfs.init()
@@ -247,7 +247,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
   describe('Blob operations with segments', () => {
     test.each(['workspace', 'base', 'conflict'])('writeBlob to %s segment', async (seg) => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         await storage.init()
         await storage.writeBlob('file.txt', 'content', seg)
         expect(storage).toBeDefined()
@@ -258,7 +258,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     test.each(['workspace', 'base', 'conflict'])('readBlob from %s segment', async (seg) => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         await storage.init()
         const result = await storage.readBlob('file.txt', seg)
         expect(result === null || typeof result === 'string').toBe(true)
@@ -271,7 +271,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
   describe('listFiles operations', () => {
     it('listFiles with prefix', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         const files = await storage.listFiles('prefix', 'workspace', true)
@@ -283,7 +283,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     it('listFiles non-recursive', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         const files = await storage.listFiles('', 'workspace', false)
@@ -295,7 +295,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     test.each(['workspace', 'base', 'conflict'])('listFiles from %s segment', async (seg) => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         await storage.init()
         const files = await storage.listFiles('', seg, true)
         expect(Array.isArray(files)).toBe(true)
@@ -308,7 +308,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
   describe('deleteBlob operations', () => {
     it('deleteBlob from workspace', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         await storage.writeBlob('file.txt', 'content', 'workspace')
@@ -323,7 +323,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     it('deleteBlob handles non-existent file', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         await storage.deleteBlob('nonexistent.txt', 'workspace')
@@ -337,7 +337,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
   describe('Error recovery scenarios', () => {
     it('Sequential operations with errors', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         
@@ -354,7 +354,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     it('Concurrent operations', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         
@@ -376,7 +376,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
   describe('Edge cases', () => {
     it('writeBlob with empty content', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         await storage.writeBlob('empty.txt', '', 'workspace')
@@ -389,7 +389,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     it('writeBlob with large content', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         const large = 'x'.repeat(100000)
@@ -402,7 +402,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     it('writeBlob with special characters', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         const special = '日本語テスト 🎉\n\t'
@@ -416,7 +416,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     it('nested directory paths', async () => {
       try {
-        const storage = new IndexedDatabaseStorage()
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         await storage.writeBlob('a/b/c/d/file.txt', 'content', 'workspace')
@@ -431,7 +431,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
   describe('Index metadata handling', () => {
     it('readIndex returns default when no index exists', async () => {
       try {
-        const storage = new IndexedDatabaseStorage('test-db-empty')
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         const index = await storage.readIndex()
@@ -447,7 +447,7 @@ describeConditional('IndexedDatabaseStorage deep coverage', () => {
 
     it('writeIndex then readIndex roundtrip', async () => {
       try {
-        const storage = new IndexedDatabaseStorage('test-db-roundtrip')
+        const storage = new IndexedDatabaseStorage('__test_ns')
         
         await storage.init()
         

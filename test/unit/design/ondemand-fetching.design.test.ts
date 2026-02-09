@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @fileOverview
  * オンデマンド取得設計の検証テスト
  * 
@@ -226,9 +226,9 @@ describe('design/ondemand-fetching [実装現状検証]', () => {
   })
 
   // ========================================
-  // テスト5: listPaths で期待のファイルが返される
+  // テスト5: readdir で期待のファイルが返される
   // ========================================
-  it('[実装状況] listPaths で期待のファイルが返される', async () => {
+  it('[実装状況] readdir で期待のファイルが返される', async () => {
     jest.spyOn(lib.OpfsStorage, 'availableRoots').mockReturnValue(['GitLab_test01'])
 
     const fileContents: Record<string, string> = {
@@ -255,7 +255,7 @@ describe('design/ondemand-fetching [実装現状検証]', () => {
 
     await vfs.pull({ ref: 'main' })
 
-    const paths = await vfs.listPaths()
+    const paths = await vfs.readdir('.')
     expect(paths.slice().sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
   })
 })

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -9,7 +9,7 @@ import VirtualFS from '../../../../../src/virtualfs/virtualfs'
 import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
 const backends = [
-  ['InMemory', () => new InMemoryStorage()]
+  ['InMemory', () => new InMemoryStorage('__test_ns')]
   // Add other backend factories as needed: IndexedDB/OPFS (with proper fakes)
 ] as const
 

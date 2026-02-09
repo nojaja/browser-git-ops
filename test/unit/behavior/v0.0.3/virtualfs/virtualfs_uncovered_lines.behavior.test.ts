@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -13,7 +13,7 @@ import { InMemoryStorage } from '../../../../../src/virtualfs/inmemoryStorage'
 import { VirtualFS } from '../../../../../src/virtualfs/virtualfs'
 
 async function createVFS() {
-  const backend = new InMemoryStorage()
+  const backend = new InMemoryStorage('__test_ns')
   const vfs = new VirtualFS({ backend })
   await vfs.init()
   return { backend, vfs }
@@ -21,7 +21,7 @@ async function createVFS() {
 describe('VirtualFS - Uncovered line targeting', () => {
   describe('Init and initialization branches (lines 83-85)', () => {
     it('init with no pre-existing index', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       
       // First init - creates default index
@@ -30,7 +30,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('init recovers from error state', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       
       // Manually corrupt index
@@ -48,7 +48,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('init with existing valid index', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs1 = new VirtualFS({ backend })
       await vfs1.init()
       await vfs1.applyBaseSnapshot({ 'file.txt': 'content' }, 'h1')
@@ -101,7 +101,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('WriteFile branches (lines 341, 363-364)', () => {
     it('writeFile creates new blob in workspace', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -112,7 +112,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('writeFile updates existing workspace blob', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -124,7 +124,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('writeFile overwrites base blob with workspace', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -136,7 +136,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('writeFile with very long content', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -150,24 +150,24 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('DeleteFile branches (lines 402-403)', () => {
     it('deleteFile on workspace-only file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.writeFile('workspace.txt', 'content')
-      await vfs.deleteFile('workspace.txt')
+      await vfs.unlink('workspace.txt')
       
       const result = await vfs.readFile('workspace.txt')
       expect(result).toBeNull()
     })
 
     it('deleteFile on base file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'base.txt': 'content' }, 'h1')
-      await vfs.deleteFile('base.txt')
+      await vfs.unlink('base.txt')
       
       const result = await vfs.readFile('base.txt')
       // After delete, base blob may still be accessible
@@ -175,13 +175,13 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('deleteFile on already-deleted file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'file.txt': 'content' }, 'h1')
-      await vfs.deleteFile('file.txt')
-      await vfs.deleteFile('file.txt') // Delete again
+      await vfs.unlink('file.txt')
+      await vfs.unlink('file.txt') // Delete again
       
       const result = await vfs.readFile('file.txt')
       // After second delete, content may still be in base
@@ -189,18 +189,18 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('deleteFile on nonexistent file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       // Should not throw
-      await expect(vfs.deleteFile('doesnotexist.txt')).resolves.toBeUndefined()
+      await expect(vfs.unlink('doesnotexist.txt')).resolves.toBeUndefined()
     })
   })
 
   describe('RenameFile branches (lines 506-507)', () => {
     it('renameFile workspace-only file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -212,7 +212,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('renameFile base file', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -220,21 +220,20 @@ describe('VirtualFS - Uncovered line targeting', () => {
       await vfs.renameFile('base.txt', 'renamed.txt')
       
       expect(await vfs.readFile('renamed.txt')).toBe('content')
-      // After rename, old may have content from base
       const oldResult = await vfs.readFile('base.txt')
       expect(typeof oldResult === 'string' || oldResult === null).toBe(true)
     })
 
-    it('renameFile to existing target', async () => {
-      const backend = new InMemoryStorage()
+    it('renameFile overwrites existing target', async () => {
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.writeFile('source.txt', 'source')
       await vfs.writeFile('target.txt', 'target')
-      
+
       await vfs.renameFile('source.txt', 'target.txt')
-      
+
       const result = await vfs.readFile('target.txt')
       expect(typeof result).toBe('string')
     })
@@ -242,7 +241,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('GetChangeSet branches (lines 555-556, 567-574)', () => {
     it('getChangeSet with creates', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -255,7 +254,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('getChangeSet with updates', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -268,12 +267,12 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('getChangeSet with deletes', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'file.txt': 'content' }, 'h1')
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
       
       const changes = await vfs.getChangeSet()
       const deletes = changes.filter(c => c.type === 'delete')
@@ -286,7 +285,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('getChangeSet with mixed changes', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -298,7 +297,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
       await vfs.writeFile('new.txt', 'new')
       await vfs.writeFile('base1.txt', 'b1_updated')
-      await vfs.deleteFile('base2.txt')
+      await vfs.unlink('base2.txt')
       
       const changes = await vfs.getChangeSet()
       expect(changes.length).toBeGreaterThanOrEqual(3)
@@ -307,7 +306,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('Pull operation branches (lines 663, 694, 806-810, 943-947)', () => {
     it('pull with no local changes', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -318,7 +317,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('pull with local-only files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -330,7 +329,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('pull with remote-only files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -341,7 +340,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('pull with conflicting changes', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -353,7 +352,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('pull with large remote state', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -367,12 +366,12 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('pull reconciliation with delete + recreate', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'file.txt': 'v1' }, 'h1')
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
       await vfs.writeFile('file.txt', 'v2_local')
       
       const result = await vfs.pull('h2', { 'file.txt': 'v2_remote' })
@@ -382,7 +381,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('ListPaths branches', () => {
     it('listPaths with only base files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -392,39 +391,39 @@ describe('VirtualFS - Uncovered line targeting', () => {
         'c.txt': 'c'
       }, 'h1')
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toContain('a.txt')
       expect(paths).toContain('b.txt')
       expect(paths).toContain('c.txt')
     })
 
     it('listPaths with workspace additions', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'base.txt': 'base' }, 'h1')
       await vfs.writeFile('workspace.txt', 'ws')
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toContain('base.txt')
       expect(paths).toContain('workspace.txt')
     })
 
     it('listPaths excludes deleted files', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'delete_me.txt': 'v1' }, 'h1')
-      await vfs.deleteFile('delete_me.txt')
+      await vfs.unlink('delete_me.txt')
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).not.toContain('delete_me.txt')
     })
 
     it('listPaths with mixed operations', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -434,11 +433,11 @@ describe('VirtualFS - Uncovered line targeting', () => {
         'update_me.txt': 'u'
       }, 'h1')
 
-      await vfs.deleteFile('delete_me.txt')
+      await vfs.unlink('delete_me.txt')
       await vfs.writeFile('update_me.txt', 'u_updated')
       await vfs.writeFile('new.txt', 'n')
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toContain('base.txt')
       expect(paths).toContain('update_me.txt')
       expect(paths).toContain('new.txt')
@@ -448,7 +447,7 @@ describe('VirtualFS - Uncovered line targeting', () => {
 
   describe('ApplyBaseSnapshot branches', () => {
     it('applyBaseSnapshot updates head reference', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
@@ -462,28 +461,28 @@ describe('VirtualFS - Uncovered line targeting', () => {
     })
 
     it('applyBaseSnapshot replaces base segment', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'old.txt': 'old' }, 'h1')
-      let paths = await vfs.listPaths()
+      let paths = await vfs.readdir('.')
       expect(paths).toContain('old.txt')
 
       await vfs.applyBaseSnapshot({ 'new.txt': 'new' }, 'h2')
-      paths = await vfs.listPaths()
+      paths = await vfs.readdir('.')
       expect(paths).toContain('new.txt')
       expect(paths).not.toContain('old.txt')
     })
 
     it('applyBaseSnapshot with empty snapshot', async () => {
-      const backend = new InMemoryStorage()
+      const backend = new InMemoryStorage('__test_ns')
       const vfs = new VirtualFS({ backend })
       await vfs.init()
 
       await vfs.applyBaseSnapshot({}, 'h1')
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toEqual([])
     })
   })

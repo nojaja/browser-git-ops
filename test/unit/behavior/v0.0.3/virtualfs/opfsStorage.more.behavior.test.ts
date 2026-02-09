@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -37,7 +37,7 @@ afterEach(() => {
 
 describe('OpfsStorage additional branches', () => {
   it('readIndex/writeIndex when no OPFS returns/null or throws', async () => {
-    const s = new OpfsStorage()
+    const s = new OpfsStorage('__test_ns')
     // no navigator and no originPrivateFileSystem -> readIndex null
     const r = await s.readIndex()
     expect(r).toBeNull()
@@ -62,7 +62,7 @@ describe('OpfsStorage additional branches', () => {
     }
     ;(globalThis as any).navigator = { storage: { getDirectory: async () => root } }
 
-    const s = new OpfsStorage()
+    const s = new OpfsStorage('__test_ns')
     await s.writeIndex({ head: 'h', entries: {} } as any)
     const got = await s.readIndex()
     expect(got).not.toBeNull()
@@ -90,7 +90,7 @@ describe('OpfsStorage additional branches', () => {
     const root = makeDir('', new Map())
     ;(globalThis as any).navigator = { storage: { getDirectory: async () => root } }
 
-    const s = new OpfsStorage()
+    const s = new OpfsStorage('__test_ns')
     await s.writeBlob('a/b/c.txt', 'nested')
     expect(await s.readBlob('a/b/c.txt')).toBe('nested')
 
@@ -119,7 +119,7 @@ describe('OpfsStorage additional branches', () => {
     const root = makeDirWithRemove('', new Map())
     ;(globalThis as any).navigator = { storage: { getDirectory: async () => root } }
 
-    const s = new OpfsStorage()
+    const s = new OpfsStorage('__test_ns')
     await s.writeBlob('d/r.txt', 'origin-content')
     expect(await s.readBlob('d/r.txt')).toBe('origin-content')
     await s.deleteBlob('d/r.txt')

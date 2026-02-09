@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals'
+﻿import { jest } from '@jest/globals'
 import { IndexedDatabaseStorage } from '../../../src/virtualfs/indexedDatabaseStorage'
 
 describe('IndexedDatabaseStorage internals - branch boost', () => {

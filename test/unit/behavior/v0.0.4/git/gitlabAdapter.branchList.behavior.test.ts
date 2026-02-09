@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
+﻿import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 import { GitLabAdapter } from '../../../../../src/git/gitlabAdapter'
 import fetchMock from '../../../../utils/fetchMock'
 

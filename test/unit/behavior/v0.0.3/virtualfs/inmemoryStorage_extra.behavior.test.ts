@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -9,12 +9,12 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('InMemoryStorage extra branches', () => {
   it('writeBlob with unknown segment should reject with unknown segment error', async () => {
-    const s = new InMemoryStorage()
+    const s = new InMemoryStorage('__test_ns')
     await expect(s.writeBlob('a.txt', 'content', 'bogus')).rejects.toThrow('unknown segment')
   })
 
   it('listFiles non-recursive filters nested keys', async () => {
-    const s = new InMemoryStorage('testroot')
+    const s = new InMemoryStorage('__test_ns')
     // prepare workspace blobs
     await s.writeBlob('dir/a.txt', 'one', 'workspace')
     await s.writeBlob('dir/sub/b.txt', 'two', 'workspace')
@@ -25,7 +25,7 @@ describe('InMemoryStorage extra branches', () => {
   })
 
   it('writeBlob to info with invalid json stores raw text', async () => {
-    const s = new InMemoryStorage('infotest')
+    const s = new InMemoryStorage('__test_ns')
     // write to info segment raw text
     await s.writeBlob('x.txt', 'not-json-@@', 'info')
     const info = await s.readBlob('x.txt', 'info')

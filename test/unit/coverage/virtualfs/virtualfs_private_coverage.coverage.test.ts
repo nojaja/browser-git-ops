@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type coverage
  * @purpose Coverage expansion only
  * @policy MODIFICATION ALLOWED
@@ -14,7 +14,7 @@ describe('VirtualFS private helpers coverage', () => {
   let backend: any
 
   beforeEach(async () => {
-    backend = new InMemoryStorage()
+    backend = new InMemoryStorage('__test_ns')
     vfs = new VirtualFS({ backend })
     await vfs.init()
   })

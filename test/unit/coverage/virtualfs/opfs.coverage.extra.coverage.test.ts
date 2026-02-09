@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type coverage
  * @purpose Coverage expansion only
  * @policy MODIFICATION ALLOWED
@@ -98,7 +98,7 @@ describe('OpfsStorage extra coverage', () => {
     // make navigator.storage.getDirectory available
     ;(globalThis as any).navigator = { storage: { getDirectory: async () => root } }
 
-    const s = new OpfsStorage('apigit_storage')
+    const s = new OpfsStorage('__test_ns','apigit_storage')
     await s.init()
 
     // write blobs under workspace and base
@@ -124,7 +124,7 @@ describe('OpfsStorage extra coverage', () => {
     const { root, files } = makeOpfsRoot()
     ;(globalThis as any).navigator = { storage: { getDirectory: async () => root } }
 
-    const s = new OpfsStorage('apigit_storage')
+    const s = new OpfsStorage('__test_ns','apigit_storage')
     await s.init()
 
     // write malformed info entry directly via file handle

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -9,12 +9,12 @@ import { InMemoryStorage } from '../../../../../src/virtualfs/inmemoryStorage'
 
 describe('InMemoryStorage behaviors', () => {
   it('throws on unknown segment', async () => {
-    const s = new InMemoryStorage()
+    const s = new InMemoryStorage('__test_ns')
     await expect(s.writeBlob('p', 'c', 'bogus' as any)).rejects.toThrow('unknown segment')
   })
 
   it('readBlob falls back from workspace to base', async () => {
-    const s = new InMemoryStorage()
+    const s = new InMemoryStorage('__test_ns')
     await s.writeBlob('p', 'B', 'base')
     const val = await s.readBlob('p')
     expect(val).toBe('B')
@@ -23,7 +23,7 @@ describe('InMemoryStorage behaviors', () => {
   })
 
   it('info state is modified when base existed before workspace write', async () => {
-    const s = new InMemoryStorage()
+    const s = new InMemoryStorage('__test_ns')
     await s.writeBlob('p', 'base-content', 'base')
     await s.writeBlob('p', 'ws-content', 'workspace')
     const info = await s.readBlob('p', 'info')
@@ -33,7 +33,7 @@ describe('InMemoryStorage behaviors', () => {
   })
 
   it('info state is added when no base existed before workspace write', async () => {
-    const s = new InMemoryStorage()
+    const s = new InMemoryStorage('__test_ns')
     await s.writeBlob('q', 'ws-content', 'workspace')
     const info = await s.readBlob('q', 'info')
     expect(info).not.toBeNull()

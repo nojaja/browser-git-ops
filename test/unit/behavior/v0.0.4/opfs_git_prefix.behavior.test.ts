@@ -1,4 +1,4 @@
-import '../../../setupOpfs.js'
+﻿import '../../../setupOpfs.js'
 import { resetMockOPFS } from 'opfs-mock'
 import { configureFetchMock, clearFetchMock } from '../../../utils/fetchMock'
 import { jest } from '@jest/globals'

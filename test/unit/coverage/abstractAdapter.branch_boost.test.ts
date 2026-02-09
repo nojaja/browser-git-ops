@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals'
+﻿import { jest } from '@jest/globals'
 import * as AA from '../../../src/git/abstractAdapter'
 
 // 1) ファイル内の分岐を列挙

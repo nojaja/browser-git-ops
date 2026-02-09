@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @test-type behavior
  * @purpose Requirement or design guarantee
  * @policy DO NOT MODIFY
@@ -16,7 +16,7 @@ import InMemoryStorage from '../../../../../src/virtualfs/inmemoryStorage'
  */
 describe('VirtualFS critical branches - push/pull error handling', () => {
   it('push with createTree error should throw', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -40,7 +40,7 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
   })
 
   it('push with createCommit error should throw', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -64,7 +64,7 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
   })
 
   it('pull with conflict when remote adds new file and workspace unchanged', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -74,7 +74,7 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
     // remote adds file2, file1 unchanged
     const normalized: any = {
       headSha: 'head2',
-      shas: { 'file1.txt': (await vfs['shaOf']('content1')), 'file2.txt': 'newsha' },
+      shas: { 'file1.txt': 'content1', 'file2.txt': 'newsha' },
       fetchContent: async (paths: string[]) => {
         const out: Record<string, string> = {}
         for (const p of paths) {
@@ -91,7 +91,7 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
   })
 
   it('pull with remote deletion and workspace unchanged', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -101,7 +101,7 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
     // remote deletes file2 (not in shas)
     const normalized: any = {
       headSha: 'head2',
-      shas: { 'file1.txt': (await vfs['shaOf']('content1')) },
+      shas: { 'file1.txt': 'content1' },
       fetchContent: async (_paths: string[]) => ({}),
     }
 
@@ -113,7 +113,7 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
   })
 
   it('push with createBlobs returning wrong sha should throw', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -137,7 +137,7 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
   })
 
   it('pull with partial content fetch results in conflict', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
@@ -162,7 +162,7 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
   })
 
   it('pull with workspace conflict - remote deletion vs local modification', async () => {
-    const backend = new InMemoryStorage()
+    const backend = new InMemoryStorage('__test_ns')
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
