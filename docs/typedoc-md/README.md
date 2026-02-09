@@ -1,6 +1,6 @@
 browser-git-ops
 
-# browser-git-ops - v0.0.4
+# browser-git-ops - v0.0.5
 
 ## Table of contents
 

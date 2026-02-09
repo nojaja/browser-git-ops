@@ -1,4 +1,4 @@
-[browser-git-ops - v0.0.4](../README.md) / VirtualFS
+[browser-git-ops - v0.0.5](../README.md) / VirtualFS
 
 # Class: VirtualFS
 

@@ -1,4 +1,4 @@
-[browser-git-ops - v0.0.4](../README.md) / GitLabAdapter
+[browser-git-ops - v0.0.5](../README.md) / GitLabAdapter
 
 # Class: GitLabAdapter
 
