@@ -39,7 +39,6 @@ describe('VirtualFS conflict and edge cases', () => {
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
-    const baseSha = await vfs.shaOfGitBlob('base')
     await vfs.applyBaseSnapshot({ 'conflict.txt': 'base' }, 'h0')
 
     // Mark as conflict and add conflict data
@@ -49,11 +48,10 @@ describe('VirtualFS conflict and edge cases', () => {
       conflicts: ['conflict.txt']
     })
 
-    const remoteSha = await vfs.shaOfGitBlob('remote')
     await backend.writeBlob('conflict.txt', 'base', 'base')
     await backend.writeBlob('conflict.txt', 'workspace', 'workspace')
     // v0.0.4: conflict segment stores Info JSON metadata, not Blob content
-    const conflictInfo = { path: 'conflict.txt', baseSha: remoteSha, state: 'conflict', updatedAt: Date.now() }
+    const conflictInfo = { path: 'conflict.txt', baseSha: 'remoteSha', state: 'conflict', updatedAt: Date.now() }
     await backend.writeBlob('conflict.txt', JSON.stringify(conflictInfo), 'conflict')
     // For on-demand fetch: actual blob would be in conflictBlob segment
     await backend.writeBlob('conflict.txt', 'remote', 'conflictBlob')
@@ -74,12 +72,10 @@ describe('VirtualFS conflict and edge cases', () => {
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
-    const baseSha = await vfs.shaOfGitBlob('original')
-    
     // Setup: file in base and workspace
     await backend.writeBlob('file.txt', JSON.stringify({ 
       path: 'file.txt', 
-      baseSha, 
+      baseSha: 'original', 
       state: 'unmodified' 
     }), 'info')
     await backend.writeBlob('file.txt', 'original', 'base')
@@ -133,9 +129,9 @@ describe('VirtualFS conflict and edge cases', () => {
 
     await vfs.applyBaseSnapshot({ 'file.txt': 'content' }, 'h0')
 
-    await vfs.deleteFile('file.txt')
+    await vfs.unlink('file.txt')
 
-    const paths = await vfs.listPaths()
+    const paths = await vfs.readdir('.')
     expect(paths).not.toContain('file.txt')
   })
 
@@ -247,17 +243,6 @@ describe('VirtualFS conflict and edge cases', () => {
     expect(result.conflicts).toBeDefined()
   })
 
-  // Test shaOfGitBlob with empty content
-  it('shaOfGitBlob handles empty string', async () => {
-    const backend = new InMemoryStorage()
-    const vfs = new VirtualFS({ backend })
-
-    const sha = await vfs.shaOfGitBlob('')
-    
-    expect(sha).toBeTruthy()
-    expect(typeof sha).toBe('string')
-  })
-
   // Test listPaths after rename
   it('listPaths reflects renamed files', async () => {
     const backend = new InMemoryStorage()
@@ -271,7 +256,7 @@ describe('VirtualFS conflict and edge cases', () => {
 
     await vfs.renameFile('a.txt', 'renamed.txt')
 
-    const paths = await vfs.listPaths()
+    const paths = await vfs.readdir('.')
 
     expect(paths).toContain('renamed.txt')
     expect(paths).toContain('b.txt')

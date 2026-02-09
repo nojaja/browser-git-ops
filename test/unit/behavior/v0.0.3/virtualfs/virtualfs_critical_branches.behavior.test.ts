@@ -74,7 +74,7 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
     // remote adds file2, file1 unchanged
     const normalized: any = {
       headSha: 'head2',
-      shas: { 'file1.txt': (await vfs['shaOf']('content1')), 'file2.txt': 'newsha' },
+      shas: { 'file1.txt': 'content1', 'file2.txt': 'newsha' },
       fetchContent: async (paths: string[]) => {
         const out: Record<string, string> = {}
         for (const p of paths) {
@@ -101,7 +101,7 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
     // remote deletes file2 (not in shas)
     const normalized: any = {
       headSha: 'head2',
-      shas: { 'file1.txt': (await vfs['shaOf']('content1')) },
+      shas: { 'file1.txt': 'content1' },
       fetchContent: async (_paths: string[]) => ({}),
     }
 

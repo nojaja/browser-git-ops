@@ -16,6 +16,7 @@ export interface Logger {
   warn: (..._messages: any[]) => void
   error: (..._messages: any[]) => void
 }
+
 /**
  * Compute SHA-1 of string content using Web Crypto
  * @param content The input string
@@ -105,16 +106,15 @@ export async function fetchWithRetry(input: RequestInfo, init: RequestInit, atte
   throw new RetryableError(String(lastError))
 }
 
-// Standard error types for adapters to share
 /**
  * Error indicating the operation is retryable and may succeed on later attempts.
  */
-export class RetryableError extends Error {}
+export class RetryableError extends Error { }
 
 /**
  * Error indicating the operation failed in a non-retryable way.
  */
-export class NonRetryableError extends Error {}
+export class NonRetryableError extends Error { }
 
 /**
  * Map items with limited concurrency
@@ -184,7 +184,6 @@ export abstract class AbstractGitAdapter {
     this.logger = logger
   }
 
-  // Internal helpers to forward logs only when a logger is injected
   /**
    * Log debug messages when a logger is present.
    * @param _messages messages to log (unused when no logger)
@@ -241,14 +240,6 @@ export abstract class AbstractGitAdapter {
     }
   }
 
-  /**
-   * Proxy to shared fetchWithRetry implementation
-   * @param input RequestInfo
-   * @param init RequestInit
-   * @param attempts retry attempts
-   * @param baseDelay base delay ms
-   * @returns Promise resolving to Response
-   */
   /**
    * Normalize different header-like shapes into a plain object.
    * @param headerLike headers in Headers, array, or plain object form
@@ -364,14 +355,6 @@ export abstract class AbstractGitAdapter {
     return base + jitter
   }
 
-  /**
-   * Delegate to shared mapWithConcurrency implementation
-   * @template T,R
-   * @param items items to map
-   * @param mapper async mapper
-   * @param concurrency concurrency limit
-   * @returns Promise resolving to mapped results
-   */
   /**
    * Map items with limited concurrency by delegating to the shared helper.
    * @template T,R

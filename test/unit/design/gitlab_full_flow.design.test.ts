@@ -63,21 +63,21 @@ describe('VirtualFS full GitLab flow (pull, edit, delete, push)', () => {
     const pullRes = await currentVfs.pull()
     expect(pullRes.remotePaths.slice().sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
 
-    // ④listPaths 結果確認
-    const pathsAfterPull = await currentVfs.listPaths()
+    // ④readdir 結果確認
+    const pathsAfterPull = await currentVfs.readdir('.')
     expect(pathsAfterPull.slice().sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
 
     // write new file t5.txt
     await currentVfs.writeFile('t5.txt', 'hello')
-    const pathsAfterWrite = await currentVfs.listPaths()
+    const pathsAfterWrite = await currentVfs.readdir('.')
     expect(pathsAfterWrite.sort()).toEqual(['t5.txt','tt2.txt','tt1.txt','t4.txt','t3.txt','t2.txt','t1.txt','README.md'].sort())
 
     const changes1 = await currentVfs.getChangeSet()
     expect(changes1).toEqual([{ type: 'create', path: 't5.txt', content: 'hello' }])
 
     // delete t4.txt
-    await currentVfs.deleteFile('t4.txt')
-    const pathsAfterDelete = await currentVfs.listPaths()
+    await currentVfs.unlink('t4.txt')
+    const pathsAfterDelete = await currentVfs.readdir('.')
     expect(pathsAfterDelete.sort()).toEqual(['t5.txt','tt2.txt','tt1.txt','t3.txt','t2.txt','t1.txt','README.md'].sort())
 
     const changes2 = await currentVfs.getChangeSet()
@@ -119,7 +119,7 @@ describe('VirtualFS full GitLab flow (pull, edit, delete, push)', () => {
     // getIndex and head check
     const idx = await currentVfs.getIndex()
     expect(idx.head).toBe(remoteHead)
-    // Do not access idx.entries directly; verify via backend.listFiles and vfs.listPaths
+    // Do not access idx.entries directly; verify via backend.listFiles and vfs.readdir
     const filesForIndex = await backend.listFilesRaw()
     const baseNames = filesForIndex.map((f:any) => f.path.split('/').pop())
     expect(baseNames).toEqual(expect.arrayContaining(EXPECTED_REMOTE_PATHS))
@@ -129,8 +129,8 @@ describe('VirtualFS full GitLab flow (pull, edit, delete, push)', () => {
     const pushRes = await currentVfs.push(pushInput as any)
     expect(pushRes.commitSha).toBe('0437a3a7ad2664deb12da00c5a4167e8c4455e6b')
 
-    // after push, listPaths updates (order-insensitive)
-    const afterPushPaths = await currentVfs.listPaths()
+    // after push, readdir updates (order-insensitive)
+    const afterPushPaths = await currentVfs.readdir('.')
     expect(afterPushPaths.sort()).toEqual(['tt2.txt','tt1.txt','t5.txt','t3.txt','t2.txt','t1.txt','README.md'].sort())
 
     const finalChanges = await currentVfs.getChangeSet()

@@ -23,6 +23,12 @@ A browser-native Git operations library that provides a VirtualFS and platform a
 - **CORS-Free Operations**: Direct API integration without proxy workarounds
 - **TypeScript Support**: Fully typed API with TypeScript definitions
 
+## v0.0.5: FS-compatible API
+
+- Adds Node-like filesystem methods on `VirtualFS`: `stat`, `unlink`, `mkdir`, `rmdir`, `readdir`.
+- `Stats` objects now include Git identifiers when available (`gitBlobSha`, `gitCommitSha`).
+- `deleteFile` is removed from the public API; use `unlink` instead.
+
 ## Status
 
 - ✅ Core VirtualFS functionality (delta generation, index management, local edits)
@@ -73,19 +79,28 @@ async function example() {
   // 3. Pull latest content from remote
   await vfs.pull()
 
-  // 4. List files
-  const files = await vfs.listPaths()
+  // 4. List files (use the FS-compatible API)
+  const files = await vfs.readdir('.')
   console.log('Files:', files)
 
   // 5. Make local changes
   await vfs.writeFile('README.md', '# Hello World')
   await vfs.writeFile('docs/guide.md', '## Getting Started')
 
-  // 6. Get change set
+  // 6. Stat a file (Stats includes gitBlobSha/gitCommitSha when available)
+  const s = await vfs.stat('README.md')
+  console.log('size=', s.size, 'isFile=', s.isFile())
+
+  // 7. Delete a file (use unlink instead of deleteFile)
+  await vfs.unlink('docs/guide.md')
+
+  // 8. Create/remove directories
+  await vfs.mkdir('notes')
+  await vfs.rmdir('notes', { recursive: true })
+  // 9. Get change set and push
   const changes = await vfs.getChangeSet()
   console.log('Changes:', changes)
 
-  // 7. Push changes to remote
   const index = await vfs.getIndex()
   const result = await vfs.push({
     parentSha: index.head,

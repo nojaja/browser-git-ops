@@ -15,17 +15,20 @@ export interface StorageBackend {
    * @returns {Promise<void>}
    */
   init(): Promise<void>
+
   /**
    * index.json を読み込む
    * @returns {Promise<IndexFile|null>}
    */
   readIndex(): Promise<IndexFile | null>
+
   /**
    * index.json を書き込む
    * @param {IndexFile} index
    * @returns {Promise<void>}
    */
   writeIndex(_index: IndexFile): Promise<void>
+
   /**
    * ファイルコンテンツを保存
    * @param {string} filepath
@@ -34,6 +37,7 @@ export interface StorageBackend {
    * @returns {Promise<void>}
    */
   writeBlob(_filepath: string, _content: string, _segment?: Segment): Promise<void>
+
   /**
    * ファイルコンテンツを読み出す
    * @param {string} filepath
@@ -71,16 +75,6 @@ export interface StorageBackend {
    * @param branch branch name or undefined to clear
    */
   setBranch?(_branch?: string | null): void
-
-  /**
-   * 指定プレフィックス配下のファイル一覧を取得します。
-   * デバッグなどに利用する、segmentを使った出し分け処理を行わないより直接的な参照を行うためのメソッド
-   * @param prefix 取得対象のディレクトリプレフィックス（省略時はルート）
-   * @param recursive サブディレクトリも含める場合は true（デフォルト true）
-   * @returns Promise<Array<{path:string, info:string|null}>>
-   */
-  
-
 }
 
 /**
@@ -92,11 +86,13 @@ export interface StorageBackendConstructor {
    * コンストラクタ。ルートパスやDB名などのオプション引数を受け取れるようにする。
    * 実装側はこの引数を利用して初期化を行うことができます。
    */
-  new (_root?: string): StorageBackend
+  new(_root?: string): StorageBackend
+
   /**
    * このストレージ実装が利用可能かどうかを返す（例: 環境依存のチェック）。
    */
   canUse(): boolean
+  
   /**
    * このストレージ実装で利用可能なルートパスあるいはDB名の一覧を返す。
    * 例えばローカルFS実装ならベースディレクトリ名、IndexedDB実装ならDB名候補を返す等。

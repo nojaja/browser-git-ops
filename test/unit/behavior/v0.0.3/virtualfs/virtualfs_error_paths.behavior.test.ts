@@ -21,7 +21,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
       // init with no existing info segment
       await vfs.init()
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toEqual([])
     })
   })
@@ -73,12 +73,12 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'file.txt': 'content' }, 'h1')
-      await vfs.deleteFile('file.txt')
+        await vfs.unlink('file.txt')
       
       // Delete again
-      await vfs.deleteFile('file.txt')
+        await vfs.unlink('file.txt')
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).not.toContain('file.txt')
     })
 
@@ -92,7 +92,7 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
       // Rename without modifying in workspace first
       await vfs.renameFile('old.txt', 'new.txt')
       
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toContain('new.txt')
       expect(paths).not.toContain('old.txt')
     })
@@ -157,11 +157,11 @@ describe('VirtualFS - Error Handling and Edge Cases', () => {
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'file.txt': 'content' }, 'h1')
-      await vfs.deleteFile('file.txt')
+        await vfs.unlink('file.txt')
       
       const changes = await vfs.getChangeSet()
       if (changes.length === 0) {
-        const paths = await vfs.listPaths()
+        const paths = await vfs.readdir('.')
         expect(paths).not.toContain('file.txt')
       } else {
         expect(changes.length).toBeGreaterThanOrEqual(1)

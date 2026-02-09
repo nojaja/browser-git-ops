@@ -82,7 +82,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
       await vfs.init()
 
       await vfs.writeFile('file.txt', 'content')
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
 
       // After delete, readFile returns null
       const result = await vfs.readFile('file.txt')
@@ -95,7 +95,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
       await vfs.init()
 
       // Should not throw
-      await expect(vfs.deleteFile('nonexistent.txt')).resolves.toBeUndefined()
+      await expect(vfs.unlink('nonexistent.txt')).resolves.toBeUndefined()
     })
   })
 
@@ -209,7 +209,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
       await vfs.init()
 
       await vfs.applyBaseSnapshot({ 'file.txt': 'base' }, 'h1')
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
 
       const result = await vfs.pull('h2', { 'file.txt': 'remote' })
       expect(result).toHaveProperty('fetchedPaths')
@@ -240,7 +240,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
 
       // Local: modify a, delete b, create d
       await vfs.writeFile('a.txt', 'a_local')
-      await vfs.deleteFile('b.txt')
+      await vfs.unlink('b.txt')
       await vfs.writeFile('d.txt', 'd_local')
 
       // Remote: modify b, delete c, create e
@@ -365,7 +365,7 @@ describe('VirtualFS - Additional edge cases and error paths', () => {
       expect(r2).toBe('v2')
 
       // Delete
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
       let r3 = await vfs.readFile('file.txt')
       expect(r3).toBeNull()
 

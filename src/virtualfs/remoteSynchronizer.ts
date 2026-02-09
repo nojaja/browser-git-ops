@@ -26,7 +26,7 @@ export class RemoteSynchronizer {
     private _indexManager: IndexManager,
     private _conflictManager: ConflictManager,
     private _applier: LocalChangeApplier
-  ) {}
+  ) { }
 
   /**
    * リモートのスナップショットをpullしてローカルを同期する
@@ -53,7 +53,7 @@ export class RemoteSynchronizer {
 
     if (conflicts.length === 0) {
       this._indexManager.setHead(normalized.headSha)
-        await this._indexManager.saveIndex()
+      await this._indexManager.saveIndex()
       return { conflicts, fetchedPaths: Object.keys(fetched), reconciledPaths }
     }
 
@@ -309,8 +309,8 @@ export class RemoteSynchronizer {
     const infoTxt = await this._backend.readBlob(p, 'info')
     if (infoTxt) ie = JSON.parse(infoTxt)
     if (!ie) ie = { path: p }
-      await this._conflictManager.setIndexEntryToConflict(p, ie, remoteHeadSha)
-      await this._indexManager.saveIndex()
+    await this._conflictManager.setIndexEntryToConflict(p, ie, remoteHeadSha)
+    await this._indexManager.saveIndex()
     // v0.0.4: Store remote metadata (info) in conflict segment for on-demand fetching
     const remoteInfo = { path: p, baseSha: remoteHeadSha, state: 'conflict', updatedAt: Date.now() }
     await this._backend.writeBlob(p, JSON.stringify(remoteInfo), 'conflict')
@@ -445,7 +445,7 @@ export class RemoteSynchronizer {
   /**
    * Read and parse the stored info entry for `path`.
    * Returns parsed object or null when missing/invalid.
-    * @returns {Promise<any|null>} parsed object or null
+   * @returns {Promise<any|null>} parsed object or null
    */
   private async _readInfoEntry(path: string): Promise<any | null> {
     try {
@@ -466,7 +466,7 @@ export class RemoteSynchronizer {
   /**
    * Attempt to fetch base content using adapterInstance.getBlob.
    * Returns string when fetched, null when fetch attempted but failed, or undefined when adapter not supported.
-    * @returns {Promise<string|null|undefined>} fetched content, null, or undefined
+   * @returns {Promise<string|null|undefined>} fetched content, null, or undefined
    */
   private async _tryFetchBaseWithAdapter(adapterInstance: any, baseSha: string, path: string): Promise<string | null | undefined> {
     if (!adapterInstance || typeof adapterInstance.getBlob !== 'function') return undefined
@@ -500,7 +500,7 @@ export class RemoteSynchronizer {
   /**
    * Attempt to fetch raw file using adapterInstance._fetchFileRaw if available.
    * Returns string when fetched, null when attempted but failed, or undefined when adapter not supported.
-    * @returns {Promise<string|null|undefined>} fetched content, null, or undefined
+   * @returns {Promise<string|null|undefined>} fetched content, null, or undefined
    */
   private async _tryFetchRawFile(adapterInstance: any, path: string, ie: any): Promise<string | null | undefined> {
     if (!adapterInstance || typeof adapterInstance._fetchFileRaw !== 'function') return undefined

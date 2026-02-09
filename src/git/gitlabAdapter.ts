@@ -1,6 +1,5 @@
 import { GitAdapter } from './adapter.ts'
 import AbstractGitAdapter, { mapWithConcurrency } from './abstractAdapter.ts'
-// Use Web Crypto directly for SHA-1
 
 type GLOptions = { projectId: string; token: string; host?: string }
 
@@ -66,7 +65,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * GitLab のページングヘッダを解析します（x-next-page / x-total-pages）。
-    * @returns {{nextPage?: number, lastPage?: number}} ページ番号情報
+   * @returns {{nextPage?: number, lastPage?: number}} ページ番号情報
    */
   private _parsePagingHeaders(resp: Response): { nextPage?: number; lastPage?: number } {
     const out: { nextPage?: number; lastPage?: number } = {}
@@ -98,13 +97,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * コンテンツから sha1 を算出します。
-   * @param {string} content コンテンツ
-   * @returns {string} sha1 ハッシュ
-   */
-  // shaOf is inherited from AbstractGitAdapter
-
-  /**
    * 変更一覧から blob sha のマップを作成します（疑似実装）。
    * @param {any[]} changes 変更一覧
    * @returns {Promise<Record<string,string>>} path->sha マップ
@@ -116,6 +108,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     }
     return map
   }
+
   /**
    * 互換用のツリー作成。実際には actions を保持しておき、マーカーを返します。
    * @param {any[]} _changes 変更一覧
@@ -194,9 +187,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     return await this.postCommit(url, body)
   }
 
-  /**
-   * Retrieve project metadata (default branch, name, id) and cache it.
-   */
   /**
    * Retrieve project metadata (default branch, name, id) and cache it.
    * @returns {Promise<import('../virtualfs/types.ts').RepositoryMetadata>} repository metadata
@@ -302,7 +292,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * Convert change descriptors to GitLab API actions
-    * @returns {Array<any>} API-compatible actions array
+   * @returns {Array<any>} API-compatible actions array
    */
   private createActions(changes: Array<{ type: string; path: string; content?: string }>) {
     return changes.map((c) => {
@@ -312,11 +302,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     })
   }
 
-  /**
-   * Verify remote branch head matches expected parent SHA.
-   * @throws Error if non-fast-forward
-    * @returns {Promise<void>}
-   */
   /**
    * Verify that remote branch head matches expected parent SHA.
    * Throws when non-fast-forward detected.
@@ -354,10 +339,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * Post commit request and parse response
-    * @returns {Promise<any>}
-    */
-  /**
    * Post commit request and return parsed commit response.
    * @param {string} url endpoint URL
    * @param {string} body request body
@@ -370,20 +351,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * fetch をリトライ付きで実行します。
-   * @param {string} url リクエスト URL
-   * @param {RequestInit} opts fetch オプション
-   * @param {number} [retries] 最大リトライ回数
-   * @returns {Promise<Response>} レスポンス
-   */
-  // fetchWithRetry is provided by AbstractGitAdapter
-
-  /**
-   * Wait helper for fetch retry backoff.
-   * @param attempt Attempt number
-   * @returns {Promise<void>} resolves after backoff
-   */
-  /**
    * Wait helper for retry backoff.
    * @param {number} attempt attempt number
    * @returns {Promise<void>}
@@ -394,31 +361,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * ステータスが再試行対象か判定します。
-   * @param {number} status ステータスコード
-   * @returns {boolean}
-   */
-  // isRetryableStatus is provided by AbstractGitAdapter
-
-  /**
-   * バックオフ時間を計算します。
-   * @param {number} attempt 試行回数（1..）
-   * @returns {number} ミリ秒
-   */
-  // backoffMs provided by AbstractGitAdapter
-
-  // small concurrency mapper used for fetching files
-  /**
-   * 並列マッピングユーティリティ
-   * @template T, R
-   * @param {T[]} items 入力配列
-   * @param {(t:T)=>Promise<R>} mapper マッピング関数
-   * @param {number} concurrency 同時実行数
-   * @returns {Promise<R[]>}
-   */
-  // mapWithConcurrency provided by AbstractGitAdapter
-
-  /**
    * Prepare JSON body for commit API call.
    * @returns {string} JSON body
    */
@@ -426,9 +368,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     return JSON.stringify({ branch, commit_message: message, actions })
   }
 
-  /**
-   * Optionally verify parent SHA; swallow non-422 errors.
-   */
   /**
    * Optionally verify parent SHA; rethrow errors after logging.
    * @param {string} expectedParentSha expected SHA
@@ -447,7 +386,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   /**
    * リポジトリのスナップショットを取得します。
    * @param {string} branch ブランチ名 (default: 'main')
-  * @returns {Promise<{headSha:string,shas:Record<string,string>,fetchContent:(paths:string[])=>Promise<Record<string,string>>}>}
+   * @returns {Promise<{headSha:string,shas:Record<string,string>,fetchContent:(paths:string[])=>Promise<Record<string,string>>}>}
    */
   async fetchSnapshot(branch = 'main', concurrency = 5): Promise<any> {
     const headSha = await this._determineHeadSha(branch)
@@ -465,11 +404,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     return { headSha, shas, fetchContent, snapshot }
   }
 
-  /**
-   * Determine the remote head SHA for a branch. Falls back to branch name on error.
-   * @param {string} branch Branch name
-   * @returns {Promise<string>} head SHA or branch
-   */
   /**
    * Determine the head SHA for a branch; fallback to branch name if unavailable.
    * @param {string} branch branch name
@@ -496,11 +430,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * Fetch repository tree and build shas/fileSet.
-   * @param {string} branch Branch name
-   * @returns {Promise<{shas:Record<string,string>,fileSet:Set<string>}>}
-   */
-  /**
    * Fetch repository tree and build shas map and fileSet.
    * @param {string} branch branch name
    * @returns {Promise<{shas:Record<string,string>,fileSet:Set<string>}>}
@@ -512,10 +441,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     return this._buildShasAndFileSet(files)
   }
 
-  /**
-   * Helper to fetch files from the repository tree with caching and concurrency.
-    * @returns {Promise<Record<string,string>>}
-   */
   /**
    * Fetch contents for requested paths from a FileSet with caching.
    * @param {Set<string>} fileSet set of available files
@@ -543,14 +468,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * 指定パスのファイル内容を取得し、キャッシュと snapshot を更新します。
-   * @param {Map<string,string>} cache キャッシュマップ
-   * @param {Record<string,string>} snapshot スナップショットマップ
-   * @param {string} p ファイルパス
-   * @param {string} branch ブランチ名
-   * @returns {Promise<string|null>} ファイル内容または null
-   */
-  /**
    * Fetch the content for a single file path, updating cache and snapshot.
    * @param {Map<string,string>} cache cache map
    * @param {Record<string,string>} snapshot snapshot map
@@ -574,12 +491,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   }
 
   /**
-   * ファイルの raw コンテンツを取得して返します。失敗時は null を返します。
-   * @param {string} path ファイルパス
-   * @param {string} branch ブランチ名
-    * @returns {Promise<string|null>} ファイル内容または null
-   */
-  /**
    * Fetch raw file content from GitLab; return null on failure.
    * @param {string} path file path
    * @param {string} branch branch name
@@ -589,17 +500,16 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     try {
       const rawResponse = await this.fetchWithRetry(`${this.baseUrl}/repository/files/${encodeURIComponent(path)}/raw?ref=${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
       if (!rawResponse.ok) {
-          if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('fetchSnapshot file failed', path)
+        if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('fetchSnapshot file failed', path)
         return null
       }
       return await rawResponse.text()
     } catch {
-        if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('fetchSnapshot file error', path)
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('fetchSnapshot file error', path)
       return null
     }
   }
 
-  /** Build shas map and fileSet from tree entries */
   /**
    * Build shas map and fileSet from tree entries
    * @returns {{shas:Record<string,string>,fileSet:Set<string>}}
@@ -617,18 +527,6 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     return { shas, fileSet }
   }
 
-  /**
-   * Resolve a commit-ish (branch name, tag name, or SHA) to a commit SHA.
-   * Resolution order: branch -> tag -> commits endpoint -> treat as SHA
-   * Throws if not resolvable.
-   */
-  /**
-   * Resolve a commit-ish (branch, tag, or SHA) to a commit SHA.
-   * Resolution order: branch -> tag -> commits endpoint -> treat as SHA
-   * Throws if not resolvable.
-   * @param {string} reference commit-ish to resolve
-   * @returns {Promise<string>} resolved commit SHA
-   */
   /**
    * Resolve a commit-ish (branch, tag, or SHA) to a commit SHA.
    * Resolution order: branch -> tag -> commits endpoint -> treat as SHA

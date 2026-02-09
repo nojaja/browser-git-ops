@@ -18,7 +18,7 @@ describe('VirtualFS pull and conflict flows', () => {
 
     await vfs.applyBaseSnapshot({ 'existing.txt': 'v1' }, 'oldhead')
 
-    const newSha = await vfs.shaOfGitBlob('v2')
+    const newSha = 'v2sha'
     const normalized: any = {
       headSha: 'newhead',
       shas: { 'existing.txt': newSha },
@@ -37,7 +37,7 @@ describe('VirtualFS pull and conflict flows', () => {
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
-    const sha1 = await vfs.shaOfGitBlob('same')
+    const sha1 ='samesha'
     await vfs.applyBaseSnapshot({ 'file.txt': 'same' }, 'h1')
 
     const normalized: any = {
@@ -61,7 +61,7 @@ describe('VirtualFS pull and conflict flows', () => {
 
     await vfs.applyBaseSnapshot({}, 'h0')
 
-    const sha = await vfs.shaOfGitBlob('remote content')
+    const sha = 'newcontentsha'
     const normalized: any = {
       headSha: 'h1',
       shas: { 'newfile.txt': sha },
@@ -81,11 +81,11 @@ describe('VirtualFS pull and conflict flows', () => {
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
-    const sha = await vfs.shaOfGitBlob('content')
+    const sha = 'contentsha'
     await vfs.applyBaseSnapshot({ 'file.txt': 'content' }, 'h0')
 
     // Delete locally
-    await vfs.deleteFile('file.txt')
+    await vfs.unlink('file.txt')
 
     // Pull from remote which still has it
     const normalized: any = {
@@ -106,18 +106,15 @@ describe('VirtualFS pull and conflict flows', () => {
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
-    const baseSha = await vfs.shaOfGitBlob('original')
-    const remoteSha = await vfs.shaOfGitBlob('remote')
-
     // Setup: base file, locally modified
-    await backend.writeBlob('conflict.txt', JSON.stringify({ path: 'conflict.txt', baseSha, state: 'modified' }), 'info')
+    await backend.writeBlob('conflict.txt', JSON.stringify({ path: 'conflict.txt', baseSha:'original', state: 'modified' }), 'info')
     await backend.writeBlob('conflict.txt', 'original', 'base')
     await backend.writeBlob('conflict.txt', 'local', 'workspace')
 
     // Pull remote change
     const normalized: any = {
       headSha: 'remote-h',
-      shas: { 'conflict.txt': remoteSha },
+      shas: { 'conflict.txt': 'remote' },
       fetchContent: async () => ({ 'conflict.txt': 'remote' })
     }
 
@@ -133,8 +130,7 @@ describe('VirtualFS pull and conflict flows', () => {
     const vfs = new VirtualFS({ backend })
     await vfs.init()
 
-    const baseSha = await vfs.shaOfGitBlob('base')
-    await backend.writeBlob('willdelete.txt', JSON.stringify({ path: 'willdelete.txt', baseSha, state: 'unmodified' }), 'info')
+    await backend.writeBlob('willdelete.txt', JSON.stringify({ path: 'willdelete.txt', baseSha: 'base', state: 'unmodified' }), 'info')
     await backend.writeBlob('willdelete.txt', 'base', 'base')
     await backend.writeBlob('willdelete.txt', 'base', 'workspace')
 
@@ -185,14 +181,11 @@ describe('VirtualFS pull and conflict flows', () => {
 
     await vfs.applyBaseSnapshot({ 'a.txt': 'av1' }, 'h0')
 
-    const sha1 = await vfs.shaOfGitBlob('av2')
-    const sha2 = await vfs.shaOfGitBlob('bv1')
-
     const normalized: any = {
       headSha: 'h1',
       shas: {
-        'a.txt': sha1,
-        'b.txt': sha2
+        'a.txt': 'aaa',
+        'b.txt': 'bbb'
       },
       fetchContent: async () => ({
         'a.txt': 'av2',

@@ -106,7 +106,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
       await vfs.writeFile('f1.txt', 'c1')
       await vfs.writeFile('f2.txt', 'c2')
       await vfs.writeFile('f3.txt', 'c3')
-      await vfs.deleteFile('f2.txt')
+      await vfs.unlink('f2.txt')
       await vfs.writeFile('f4.txt', 'c4')
 
       // Verify states
@@ -333,7 +333,7 @@ describe('VirtualFS - Backend compatibility and storage variations', () => {
       await vfs.writeFile('file1.txt', 'c1')
       await vfs.writeFile('file2.txt', 'c2')
 
-      await vfs.deleteFile('file2.txt')
+      await vfs.unlink('file2.txt')
       await vfs.renameFile('file1.txt', 'file2.txt')
 
       let result = await vfs.readFile('file2.txt')

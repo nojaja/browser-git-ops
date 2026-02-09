@@ -1337,10 +1337,10 @@ async function main() {
         }
         appendOutput('log.showSnapshot.start')
         try {
-          const paths: string[] = currentVfs.listPaths ? await currentVfs.listPaths() : []
+          const paths: string[] = await currentVfs.readdir('.')
 
           appendTrace('trace.raw', { msg: '// スナップショット内のパス一覧を取得' })
-          appendTrace('trace.raw', { msg: 'const paths = await currentVfs.listPaths()' })
+          appendTrace('trace.raw', { msg: "const paths = await currentVfs.readdir('.')" })
           appendTrace('trace.raw', { msg: 'paths => ' + JSON.stringify(paths) })
             if (!paths || paths.length === 0) {
             appendOutput('log.showSnapshot.noFiles')

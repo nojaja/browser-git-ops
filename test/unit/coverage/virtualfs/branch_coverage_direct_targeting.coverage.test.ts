@@ -81,7 +81,7 @@ describe('Storage error paths and fallbacks', () => {
       await vfs.init()
       
       await vfs.writeFile('file.txt', 'data')
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toContain('file.txt')
     })
   })
@@ -103,7 +103,7 @@ describe('Storage error paths and fallbacks', () => {
       await vfs.init()
       
       // Delete should not throw
-      await expect(vfs.deleteFile('nonexistent.txt')).resolves.toBeUndefined()
+      await expect(vfs.unlink('nonexistent.txt')).resolves.toBeUndefined()
     })
 
     it('VirtualFS handles rename on non-existent files', async () => {
@@ -180,7 +180,7 @@ describe('Storage error paths and fallbacks', () => {
       await vfs.init()
       
       await vfs.writeFile('file.txt', 'content')
-      await vfs.deleteFile('file.txt')
+      await vfs.unlink('file.txt')
       expect(await vfs.readFile('file.txt')).toBeNull()
     })
 

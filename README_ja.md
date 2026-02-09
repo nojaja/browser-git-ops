@@ -23,6 +23,12 @@
 - **CORS フリー**: プロキシなしで直接 API 連携
 - **TypeScript サポート**: 完全な型定義付き API
 
+## v0.0.5: FS 互換 API
+
+- `VirtualFS` に Node ライクなファイル操作メソッドを追加しました: `stat`, `unlink`, `mkdir`, `rmdir`, `readdir`。
+- `Stats` に Git 識別子（`gitBlobSha`, `gitCommitSha`）を含めるようになりました。
+- public な `deleteFile` は削除され、`unlink` を使用してください。
+
 ## ステータス
 
 - ✅ VirtualFS コア機能（差分生成、index 管理、ローカル編集）
@@ -74,12 +80,23 @@ async function example() {
   await vfs.pull()
 
   // 4. ファイル一覧を取得
-  const files = await vfs.listPaths()
+  const files = await vfs.readdir('.')
   console.log('ファイル:', files)
 
   // 5. ローカルで変更を行う
   await vfs.writeFile('README.md', '# Hello World')
   await vfs.writeFile('docs/guide.md', '## はじめに')
+
+  // Stat（可能なら gitBlobSha/gitCommitSha を含む）
+  const s = await vfs.stat('README.md')
+  console.log('size=', s.size, 'isFile=', s.isFile())
+
+  // ファイル削除（deleteFile の代わりに unlink を使用）
+  await vfs.unlink('docs/guide.md')
+
+  // ディレクトリ作成 / 削除
+  await vfs.mkdir('notes')
+  await vfs.rmdir('notes', { recursive: true })
 
   // 6. 変更セットを取得
   const changes = await vfs.getChangeSet()
@@ -215,9 +232,9 @@ class VirtualFS {
   // ファイル操作
   async writeFile(path: string, content: string): Promise<void>
   async readFile(path: string): Promise<string>
-  async deleteFile(path: string): Promise<void>
+  async unlink(path: string): Promise<void>
   async renameFile(fromPath: string, toPath: string): Promise<void>
-  async listPaths(): Promise<string[]>
+  async readdir(path: string, options?: { withFileTypes?: boolean }): Promise<string[] | Dirent[]>
   
   // 変更管理
   async getChangeSet(): Promise<ChangeItem[]>

@@ -5,6 +5,7 @@
 */
 import { jest } from '@jest/globals'
 import { IndexManager } from '../../../src/virtualfs/indexManager'
+import VirtualFS from '../../../src/virtualfs/virtualfs'
 
 describe('IndexManager - extra coverage', () => {
   it('saveIndex removes lastCommitKey when undefined', async () => {
@@ -37,8 +38,9 @@ describe('IndexManager - extra coverage', () => {
 
   it('listPaths returns empty array when no infos', async () => {
     const backend: any = { readIndex: jest.fn(), writeIndex: jest.fn(), listFiles: jest.fn().mockResolvedValue([]) }
-    const m = new IndexManager(backend)
-    const out = await m.listPaths()
+    // use VirtualFS.readdir('.') to assert listing semantics
+    const vfs = new VirtualFS({ backend })
+    const out = await vfs.readdir('.')
     expect(Array.isArray(out)).toBe(true)
     expect(out.length).toBe(0)
   })

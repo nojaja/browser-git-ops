@@ -6,7 +6,7 @@ import { GitLabAdapter } from '../git/gitlabAdapter.ts'
 import { Logger } from '../git/abstractAdapter.ts'
 import type { CommitHistoryQuery, CommitHistoryPage } from '../git/adapter.ts'
 import type { BranchListQuery, BranchListPage, RepositoryMetadata } from './types.ts'
-import { shaOf, shaOfGitBlob } from './hashUtils.ts'
+import { shaOf } from './hashUtils.ts'
 import { LocalChangeApplier } from './localChangeApplier.ts'
 import { LocalFileManager } from './localFileManager.ts'
 import { IndexManager } from './indexManager.ts'
@@ -63,6 +63,7 @@ export class VirtualFS {
   get head(): string {
     return this.indexManager.getHead()
   }
+
   /**
    * Setter for head
    * @param {string} h - head value
@@ -79,6 +80,7 @@ export class VirtualFS {
   get lastCommitKey(): string | undefined {
     return this.indexManager.getLastCommitKey()
   }
+
   /**
    * Set lastCommitKey
    * @param {string|undefined} k
@@ -86,24 +88,6 @@ export class VirtualFS {
    */
   set lastCommitKey(k: string | undefined) {
     this.indexManager.setLastCommitKey(k)
-  }
-
-  /**
-   * SHA-1 helper wrapper (delegates to ./hashUtils)
-   * @param {string} content - ハッシュ対象の文字列
-   * @returns {Promise<string>} SHA-1 ハッシュの16進表現
-   */
-  async shaOf(content: string): Promise<string> {
-    return await shaOf(content)
-  }
-
-  /**
-   * SHA helper for Git blob formatting
-   * @param {string} content - blob コンテンツ
-   * @returns {Promise<string>} SHA-1 ハッシュの16進表現（git blob 用）
-   */
-  async shaOfGitBlob(content: string): Promise<string> {
-    return await shaOfGitBlob(content)
   }
 
   /**
@@ -143,6 +127,7 @@ export class VirtualFS {
     await this._tryInjectLogger()
     await this._tryPersistAdapterMeta()
   }
+
   /**
    * Try to inject the configured logger into the adapter instance (best-effort).
    * @returns {Promise<void>}
@@ -242,13 +227,314 @@ export class VirtualFS {
   }
 
   /**
+   * Helper: obtain backend listFilesRaw in a safe manner.
+   * @returns {Promise<any[]>}
+   */
+  private async _getBackendFilesRaw(): Promise<any[]> {
+    try {
+      if (this.backend && typeof (this.backend as any).listFilesRaw === 'function') {
+        return await (this.backend as any).listFilesRaw()
+      }
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('_getBackendFilesRaw failed', error)
+    }
+    return []
+  }
+
+  /**
+   * Helper: apply parsed info text into stats object when possible.
+   * @param infoTxt raw info text
+   * @param stats stats object to mutate
+   * @returns {void}
+   */
+  private _applyInfoTxtToStats(infoTxt: any, stats: any): void {
+    if (!infoTxt) return
+    try {
+      const info = JSON.parse(infoTxt)
+      if (typeof info.baseSha === 'string') stats.gitBlobSha = info.baseSha
+      if (typeof info.updatedAt === 'number') stats.mtime = new Date(info.updatedAt)
+      if (typeof info.size === 'number') stats.size = info.size
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('parse info failed', error)
+    }
+  }
+
+  /**
+   * Find a matched backend entry for the given filepath.
+   * @param filepath target filepath
+   * @param filesRaw backend raw listing
+   * @returns {any|null}
+   */
+  private _findMatchedFile(filepath: string, filesRaw: Array<any>): any | null {
+    if (!Array.isArray(filesRaw)) return null
+    return filesRaw.find((f: any) => {
+      if (!f || !f.path) return false
+      return f.path === filepath || f.path.endsWith('/' + filepath) || f.path.endsWith('\/' + filepath)
+    })
+  }
+
+  /**
+   * Create default stats object with consistent shape.
+   * @param now current Date
+   * @returns {any}
+   */
+  private _createDefaultStats(now: Date): any {
+    return {
+      dev: 0,
+      ino: 0,
+      mode: 0o100644,
+      nlink: 1,
+      uid: 0,
+      gid: 0,
+      rdev: 0,
+      size: 0,
+      blksize: undefined,
+      blocks: undefined,
+      atime: now,
+      mtime: now,
+      ctime: now,
+      birthtime: now,
+      /** @returns {boolean} */
+      isFile: () => true,
+      /** @returns {boolean} */
+      isDirectory: () => false,
+    }
+  }
+  /**
+   * Populate stats.gitCommitSha from adapterMeta if available.
+   * @param stats stats object to mutate
+   * @returns {void}
+   */
+  private _populateCommitShaFromMeta(stats: any): void {
+    if (!stats.gitCommitSha && this.adapterMeta && this.adapterMeta.opts && this.adapterMeta.opts.branch) {
+      stats.gitCommitSha = this.adapterMeta.opts.branch
+    }
+  }
+
+  /**
+   * Try to resolve commit SHA from an instantiated adapter when needed.
+   * @param stats stats object to mutate
+   * @returns {Promise<void>}
+   */
+  private async _resolveCommitShaFromAdapter(stats: any): Promise<void> {
+    const instAdapter = await this._safeGetAdapterInstance()
+    if (!instAdapter || stats.gitCommitSha) return
+    if (typeof instAdapter.resolveRef !== 'function') return
+    try {
+      const branch = (this.adapterMeta && this.adapterMeta.opts && this.adapterMeta.opts.branch) || 'main'
+      const resolved = await instAdapter.resolveRef(branch)
+      if (resolved) stats.gitCommitSha = resolved
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('_resolveCommitShaFromAdapter resolveRef failed', error)
+    }
+  }
+
+  /**
+   * Safely get adapter instance, returning null on error.
+   * @returns {Promise<any|null>}
+   */
+  private async _safeGetAdapterInstance(): Promise<any | null> {
+    try {
+      return await this.getAdapterInstance()
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('_safeGetAdapterInstance failed', error)
+      return null
+    }
+  }
+
+  /**
+   * Helper: populate stats.gitCommitSha using adapterMeta or adapter.resolveRef when available.
+   * @param stats stats object to mutate
+   * @returns {Promise<void>}
+   */
+  private async _resolveAdapterCommitShaIfNeeded(stats: any): Promise<void> {
+    this._populateCommitShaFromMeta(stats)
+    if (!stats.gitCommitSha) await this._resolveCommitShaFromAdapter(stats)
+  }
+
+  /**
+   * Determine whether a normalized path is an exact file entry in the provided entries.
+   * @param normalizedDirectory normalized directory string
+   * @param keys index keys array
+   * @param entries index entries object
+   * @returns {boolean}
+   */
+  private _isExactFile(normalizedDirectory: string, keys: string[], entries: any): boolean {
+    return keys.includes(normalizedDirectory) && (entries as any)[normalizedDirectory] && (entries as any)[normalizedDirectory].state !== 'deleted'
+  }
+
+  /**
+   * Collect immediate child names from index entries for given directory.
+   * @param normalizedDirectory normalized directory string
+   * @param entries index entries object
+   * @returns {Set<string>} set of immediate child names
+   */
+  private _collectNamesFromIndex(normalizedDirectory: string, entries: any): Set<string> {
+    const outNames = new Set<string>()
+    const keys = Object.keys(entries || {})
+    for (const k of keys) {
+      const v = (entries as any)[k]
+      if (v && v.state === 'deleted') continue
+
+      if (normalizedDirectory === '.' || normalizedDirectory === '') {
+        this._collectNamesFromIndexRoot(k, outNames)
+        continue
+      }
+
+      this._processIndexKeyForDirectory(k, normalizedDirectory, outNames)
+    }
+    return outNames
+  }
+
+  /**
+   * Process a single index key for a non-root directory and add immediate child when applicable.
+   * @param key index key
+   * @param normalizedDirectory normalized directory string
+   * @param outNames set to mutate
+   * @returns {void}
+   */
+  private _processIndexKeyForDirectory(key: string, normalizedDirectory: string, outNames: Set<string>): void {
+    if (key === normalizedDirectory) return
+    if (key.startsWith(normalizedDirectory + '/')) {
+      const rest = key.slice(normalizedDirectory.length + 1)
+      const first = rest.indexOf('/') === -1 ? rest : rest.slice(0, rest.indexOf('/'))
+      outNames.add(first)
+    }
+  }
+
+  /**
+   * Safe wrapper for backend.listFiles returning [] on failure.
+   * @param normalizedDirectory directory path
+   * @returns {Promise<any[]>}
+   */
+  private async _getBackendList(normalizedDirectory: string): Promise<any[]> {
+    try {
+      return await (this.backend as any).listFiles(normalizedDirectory, undefined, false)
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('_getBackendList failed', error)
+      return []
+    }
+  }
+
+  /**
+   * Helper for collecting names when scanning root directory entries.
+   * @param key index key
+   * @param outNames set to mutate
+   * @returns {void}
+   */
+  private _collectNamesFromIndexRoot(key: string, outNames: Set<string>): void {
+    const first = key.indexOf('/') === -1 ? key : key.slice(0, key.indexOf('/'))
+    outNames.add(first)
+  }
+
+  /**
+   * Check whether normalizedDirectory corresponds to an exact file entry.
+   * @param normalizedDirectory normalized directory string
+   * @param entries index entries object
+   * @returns {boolean}
+   */
+  private _hasExactEntry(normalizedDirectory: string, entries: any): boolean {
+    const keys = Object.keys(entries || {})
+    return this._isExactFile(normalizedDirectory, keys, entries)
+  }
+
+  /**
+   * Consult backend.listFiles to collect immediate child names for given directory.
+   * Best-effort: logs and returns empty set on failure.
+   * @param normalizedDirectory normalized directory string
+   * @returns {Promise<Set<string>>}
+   */
+  private async _collectNamesFromBackend(normalizedDirectory: string): Promise<Set<string>> {
+    const outNames = new Set<string>()
+    if (!this._backendSupportsListFiles()) return outNames
+    const backendList = await this._getBackendList(normalizedDirectory)
+    if (!Array.isArray(backendList) || backendList.length === 0) return outNames
+    for (const it of backendList) this._processBackendEntry(it, normalizedDirectory, outNames)
+    return outNames
+  }
+
+  /**
+   * Return true when backend supports listFiles
+   * @returns {boolean}
+   */
+  private _backendSupportsListFiles(): boolean {
+    return !!(this.backend && typeof (this.backend as any).listFiles === 'function')
+  }
+
+  /**
+   * Process a single backend listFiles entry and add immediate child name to outNames when applicable.
+   * @param it backend entry
+   * @param normalizedDirectory normalized directory string
+   * @param outNames set to mutate
+   * @returns {void}
+   */
+  private _processBackendEntry(it: any, normalizedDirectory: string, outNames: Set<string>): void {
+    try {
+      if (!it || !it.path) return
+      const p = it.path
+      if (p === normalizedDirectory) return
+      if (p.startsWith(normalizedDirectory + '/')) {
+        const rest = p.slice(normalizedDirectory.length + 1)
+        const first = rest.indexOf('/') === -1 ? rest : rest.slice(0, rest.indexOf('/'))
+        outNames.add(first)
+      }
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('_processBackendEntry failed', error)
+    }
+  }
+
+  /**
+   * Build Dirent-like lightweight objects for given names.
+   * @param names array of names
+   * @param keys array of index keys
+   * @param entries index entries object
+   * @param normalizedDirectory normalized directory string
+   * @returns {Array<any>} array of Dirent-like objects
+   */
+  private _buildDirentTypes(names: string[], keys: string[], entries: any, normalizedDirectory: string): Array<any> {
+    const out: Array<any> = []
+    for (const name of names) {
+      const childPath = normalizedDirectory === '.' ? name : `${normalizedDirectory}/${name}`
+      const { isFile, isDirectory } = this._determineChildType(childPath, keys, entries)
+      /** @returns {boolean} */
+      const _isFileFunction = function () { return isFile && !isDirectory }
+      /** @returns {boolean} */
+      const _isDirectoryFunction = function () { return isDirectory }
+      out.push({ name, isFile: _isFileFunction, isDirectory: _isDirectoryFunction })
+    }
+    return out
+  }
+
+  /**
+   * Determine whether a childPath corresponds to a file, directory, or both.
+   * @param childPath path of child
+   * @param keys index keys
+   * @param entries index entries
+   * @returns {{isFile:boolean,isDirectory:boolean}}
+   */
+  private _determineChildType(childPath: string, keys: string[], entries: any): { isFile: boolean; isDirectory: boolean } {
+    let isDirectory = false
+    let isFile = false
+    for (const k of keys) {
+      if (k === childPath && (entries as any)[k] && (entries as any)[k].state !== 'deleted') {
+        isFile = true
+      }
+      if (k.startsWith(childPath + '/')) {
+        isDirectory = true
+        break
+      }
+    }
+    return { isFile, isDirectory }
+  }
+
+  /**
    * Return persisted adapter metadata (if any).
    * @returns {any|null}
    */
   getAdapterMeta(): any | null {
     return this.adapterMeta
   }
- 
+
   /**
    * ファイルを書き込みます（ローカル編集）。
    * @param {string} filepath ファイルパス
@@ -261,16 +547,7 @@ export class VirtualFS {
     await this.loadIndex()
   }
 
-  /**
-   * ファイルを削除します（トゥームストーン作成を含む）。
-   * @param {string} filepath ファイルパス
-   * @returns {Promise<void>}
-   */
-  async deleteFile(filepath: string) {
-    // delegate delete to LocalFileManager then reload index
-    await this.localFileManager.deleteFile(filepath)
-    await this.loadIndex()
-  }
+
 
   /**
    * rename を delete + create の合成で行うヘルパ
@@ -286,7 +563,7 @@ export class VirtualFS {
     await this.writeFile(to, content)
 
     // delete original path (creates tombstone if base existed)
-    await this.deleteFile(from)
+    await this.unlink(from)
   }
 
   /**
@@ -307,8 +584,8 @@ export class VirtualFS {
         // re-check after on-demand fetch
         content = await this.localFileManager.readFile(filepath)
       }
-    } catch {
-      // best-effort: if on-demand fetch fails, fall back to null
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('readFile on-demand fetch failed', error)
     }
 
     return content
@@ -321,6 +598,170 @@ export class VirtualFS {
    */
   async readConflict(filepath: string) {
     return await this.conflictManager.readConflict(filepath)
+  }
+
+  /**
+   * fs.stat 互換: 指定ファイルのメタ情報を返す
+   * ワークスペース上の情報を優先し、未取得時は Git のメタ情報で補完する。
+   * @returns {Promise<any>} stats オブジェクト
+   */
+  async stat(filepath: string) {
+    if (!filepath || typeof filepath !== 'string') throw new TypeError('filepath is required')
+
+    // consult backend listing to determine workspace presence
+    const filesRaw: Array<any> = await this._getBackendFilesRaw()
+    const matched = this._findMatchedFile(filepath, filesRaw)
+
+    const now = new Date()
+    const stats: any = this._createDefaultStats(now)
+
+    // try to read info blob to extract baseSha or other metadata
+    try {
+      const infoTxt = await (this.backend as any).readBlob(filepath, 'info')
+      this._applyInfoTxtToStats(infoTxt, stats)
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('stat readBlob failed', error)
+    }
+
+    // include workspace presence marker when matched
+    if (matched) {
+      stats.workspacePath = matched.path
+    }
+
+    // include adapter/commit/branch identifiers when possible
+    await this._resolveAdapterCommitShaIfNeeded(stats)
+
+    return stats
+  }
+
+  /**
+   * fs.unlink 互換: ファイルを削除する
+   */
+  async unlink(filepath: string) {
+    if (!filepath || typeof filepath !== 'string') throw new TypeError('filepath is required')
+    // Delegate to LocalFileManager.deleteFile (workspace/internal)
+    await this.localFileManager.deleteFile(filepath)
+    await this.loadIndex()
+  }
+
+  /**
+   * fs.mkdir 互換 (簡易実装): workspace 側にディレクトリ情報を書き込む
+   */
+  async mkdir(dirpath: string, _options?: { recursive?: boolean; mode?: number }) {
+    if (!dirpath || typeof dirpath !== 'string') throw new TypeError('dirpath is required')
+    // Best-effort: create an info entry to mark directory
+    const info = { path: dirpath, state: 'dir', createdAt: Date.now() }
+    if (this.backend && typeof (this.backend as any).writeBlob === 'function') {
+      await (this.backend as any).writeBlob(dirpath, JSON.stringify(info), 'info-workspace').catch((error: any) => { throw Object.assign(new Error('ディレクトリ作成失敗'), { code: 'EEXIST', cause: error }) })
+    }
+  }
+
+  /**
+   * fs.rmdir 互換 (簡易実装)
+   */
+  async rmdir(dirpath: string, options?: { recursive?: boolean }) {
+    if (!dirpath || typeof dirpath !== 'string') throw new TypeError('dirpath is required')
+    // Build children list from the reconstructed index paths so that
+    // workspace-local entries (as returned by listPaths) are accurately
+    // detected regardless of backend-specific URI prefixes.
+    const children = await this._listChildrenOfDir(dirpath)
+    if (children.length > 0 && !(options && options.recursive)) {
+      const errorObject: any = new Error('Directory not empty')
+      errorObject.code = 'ENOTEMPTY'
+      throw errorObject
+    }
+    if (options && options.recursive) await this._deleteChildrenRecursive(children)
+  }
+
+  /**
+   * Return list of child paths for given dirpath based on index entries.
+   * @param dirpath directory path
+   * @returns {Promise<string[]>}
+   */
+  private async _listChildrenOfDir(dirpath: string): Promise<string[]> {
+    const paths = await this.listPaths()
+    return paths.filter((p) => p === dirpath || p.startsWith(dirpath + '/'))
+  }
+
+  /**
+   * Delete array of children using localFileManager, logging failures per-child.
+   * @param children array of paths
+   * @returns {Promise<void>}
+   */
+  private async _deleteChildrenRecursive(children: string[]): Promise<void> {
+    for (const p of children) {
+      try {
+        await this.localFileManager.deleteFile(p)
+      } catch (error) {
+        if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('rmdir recursive delete failed for', p, error)
+      }
+    }
+  }
+
+  /**
+   * fs.readdir 互換 (簡易実装)
+   * @returns {Promise<string[]|Array<any>>}
+   */
+  async readdir(dirpath: string, options?: { withFileTypes?: boolean }) {
+    if (!dirpath || typeof dirpath !== 'string') throw new TypeError('dirpath is required')
+
+    // Fast-path: obtain index entries once and operate on keys array
+    const index = await this.indexManager.getIndex()
+    const entries = (index && (index as any).entries) || {}
+    const keys = Object.keys(entries)
+
+    const names = await this._gatherDirectoryNames(dirpath, entries, keys)
+    const maybeEmpty = this._returnIfNoNames(names, options)
+    if (maybeEmpty !== null) return maybeEmpty
+
+    const normalizedDirectory = dirpath === '' ? '.' : dirpath
+    if (options && options.withFileTypes) return this._buildDirentTypes(names, keys, entries, normalizedDirectory)
+    return names
+  }
+
+  /**
+   * Return an empty array when names is empty according to options, else null to continue.
+   * @param names array of names
+   * @param options readdir options
+   * @returns {Array<any>|null}
+   */
+  private _returnIfNoNames(names: string[] | null | undefined, options?: { withFileTypes?: boolean }): Array<any> | null {
+    if (!names || names.length === 0) return options && options.withFileTypes ? [] : []
+    return null
+  }
+
+  /**
+   * Gather immediate child names for a directory using index and backend as fallback.
+   * Throws ENOTDIR when the path represents a file.
+   * @param dirpath original directory path
+   * @param entries index entries object
+   * @param keys array of index keys
+   * @returns {Promise<string[]>} immediate child names
+   */
+  private async _gatherDirectoryNames(dirpath: string, entries: any, keys: string[]): Promise<string[]> {
+    const normalizedDirectory = dirpath === '' ? '.' : dirpath
+    const outNames = new Set<string>()
+
+    const isExactFile = this._isExactFile(normalizedDirectory, keys, entries)
+
+    // collect from index
+    const indexNames = this._collectNamesFromIndex(normalizedDirectory, entries)
+    for (const n of indexNames) outNames.add(n)
+
+    // fallback to backend when index had no children
+    if (outNames.size === 0 && normalizedDirectory !== '.' && !isExactFile) {
+      const backendNames = await this._collectNamesFromBackend(normalizedDirectory)
+      for (const n of backendNames) outNames.add(n)
+    }
+
+    if (isExactFile && outNames.size === 0) {
+      const errorObject: any = new Error('ディレクトリではありません')
+      errorObject.code = 'ENOTDIR'
+      throw errorObject
+    }
+
+    if (outNames.size === 0) return []
+    return Array.from(outNames)
   }
 
   /**
@@ -339,7 +780,7 @@ export class VirtualFS {
    * @param {string} headSha リモート HEAD
    * @returns {Promise<void>}
    */
-  async applyBaseSnapshot(snapshot: Record<string, string>, headSha: string) {
+  private async applyBaseSnapshot(snapshot: Record<string, string>, headSha: string) {
     return await this.remoteSynchronizer.applyBaseSnapshot(snapshot, headSha)
   }
 
@@ -365,19 +806,15 @@ export class VirtualFS {
    * 登録されているパス一覧を返します。
    * @returns {string[]}
    */
-  async listPaths(): Promise<string[]> {
+  private async listPaths(): Promise<string[]> {
     // Build paths from the reconstructed index so that workspace-local
     // info (workspace/info) takes precedence over git-scoped info.
     const index = await this.indexManager.getIndex()
     const entries = (index && (index as any).entries) || {}
     const out: string[] = []
     for (const k of Object.keys(entries)) {
-      try {
-        const v = (entries as any)[k]
-        if (v && v.state === 'deleted') continue
-      } catch {
-        // ignore and include
-      }
+      const v = (entries as any)[k]
+      if (v && v.state === 'deleted') continue
       out.push(k)
     }
     return out
@@ -387,7 +824,7 @@ export class VirtualFS {
     * ワークスペースとインデックスから変更セットを生成します。
     * @returns {Promise<Array<{type:string,path:string,content?:string,baseSha?:string}>>} 変更リスト
     */
-    async getChangeSet() {
+  async getChangeSet() {
     return await this.changeTracker.getChangeSet()
   }
 
@@ -439,8 +876,8 @@ export class VirtualFS {
     if (input.parentSha && typeof (adapter as any).getCommitTreeSha === 'function') {
       try {
         baseTreeSha = await (adapter as any).getCommitTreeSha(input.parentSha)
-      } catch {
-        // ignore and proceed without base_tree if fetching fails
+      } catch (error) {
+        if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('getCommitTreeSha failed, continuing without baseTree', error)
         baseTreeSha = undefined
       }
     }
@@ -621,7 +1058,7 @@ export class VirtualFS {
   /**
    * Persist the requested branch into adapter metadata (best-effort).
    * @param {string} branch branch name to persist
-    * @returns {Promise<void>}
+   * @returns {Promise<void>}
    */
   private async _persistAdapterBranchMeta(branch: string, adapterInstance: any): Promise<void> {
     const meta = (this.adapterMeta && this.adapterMeta.opts) ? { ...(this.adapterMeta) } : (await this.getAdapter())
@@ -642,7 +1079,7 @@ export class VirtualFS {
   private async _trySetBackendBranch(branch: string): Promise<void> {
     try {
       if (this.backend && typeof (this.backend as any).setBranch === 'function') {
-        ;(this.backend as any).setBranch(branch)
+        ; (this.backend as any).setBranch(branch)
       }
     } catch (error) {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('backend.setBranch failed', error)
@@ -673,7 +1110,7 @@ export class VirtualFS {
   private async _writeAdapterMetaToIndex(): Promise<void> {
     try {
       const index = await this.indexManager.getIndex()
-      ;(index as any).adapter = this.adapterMeta
+        ; (index as any).adapter = this.adapterMeta
       await this.backend.writeIndex(index)
     } catch (error) {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('writing index failed', error)
@@ -715,7 +1152,7 @@ export class VirtualFS {
    */
   async getRemoteDiffs(
     remote?: RemoteSnapshotDescriptor | string | { fetchSnapshot: () => Promise<RemoteSnapshotDescriptor> }
-  ): Promise<{ remote: RemoteSnapshotDescriptor | null; remoteShas: Record<string, string>; diffs: string[] } > {
+  ): Promise<{ remote: RemoteSnapshotDescriptor | null; remoteShas: Record<string, string>; diffs: string[] }> {
     let resolved: RemoteSnapshotDescriptor | string | null = null
     try {
       resolved = await this._resolveDescriptor(remote as any, undefined)
@@ -842,7 +1279,7 @@ export class VirtualFS {
   /**
    * Convenience to get default branch name from adapter repository metadata.
    * Returns null when adapter not available.
-    * @returns {Promise<string|null>}
+   * @returns {Promise<string|null>}
    */
   async getDefaultBranch(): Promise<string | null> {
     const instAdapter = await this.getAdapterInstance()
@@ -878,11 +1315,6 @@ export class VirtualFS {
   }
 
   /**
-   * Normalize a resolved descriptor (string headSha or object) into a
-   * RemoteSnapshotDescriptor or null. Helper to reduce cognitive complexity.
-    * @returns {Promise<RemoteSnapshotDescriptor|null>} 正規化された descriptor または null
-   */
-  /**
    * Try persisting repository metadata when available. Best-effort.
    * @param instAdapter adapter instance or null
    * @param result branch list result used for fallback default branch detection
@@ -916,6 +1348,7 @@ export class VirtualFS {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('persistDefaultBranchCandidate failed', error)
     }
   }
+
   /**
    * Normalize a resolved descriptor (string headSha or object) into a
    * RemoteSnapshotDescriptor or null.
@@ -963,8 +1396,6 @@ export class VirtualFS {
     return remote as any
   }
 
-  
-
   /**
    * Try to obtain a snapshot descriptor from the persisted adapter instance.
    * @returns {Promise<RemoteSnapshotDescriptor|null>} snapshot descriptor or null when unavailable
@@ -996,7 +1427,7 @@ export class VirtualFS {
 
     // generate commitKey for idempotency if not provided (must be set for adapter flows)
     if (!input.commitKey) {
-      input.commitKey = await this.shaOf((input.parentSha || '') + JSON.stringify(input.changes))
+      input.commitKey = await shaOf((input.parentSha || '') + JSON.stringify(input.changes))
     }
 
     // Try to obtain a persisted/instantiated adapter from this VirtualFS.

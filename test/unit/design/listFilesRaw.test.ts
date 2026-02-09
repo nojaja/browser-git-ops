@@ -119,15 +119,15 @@ describe('design/listFilesRaw', () => {
     expect(pullRes).toBeDefined()
     expect(pullRes.remotePaths.slice().sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
 
-    // ④listPaths 結果確認
-    const paths = await currentVfs.listPaths()
+    // ④readdir 結果確認
+    const paths = await currentVfs.readdir('.')
     expect(paths.slice().sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
 
     // ⑤ファイルの削除 (t5.txt)
-    await currentVfs.deleteFile('t5.txt')
+    await currentVfs.unlink('t5.txt')
 
-    // ⑥ listPaths 結果変化確認 (t5.txt が消えていることは listPaths の順序維持で確認)
-    const pathsAfterDelete = await currentVfs.listPaths();
+    // ⑥ readdir 結果変化確認 (t5.txt が消えていることは readdir の順序維持で確認)
+    const pathsAfterDelete = await currentVfs.readdir('.');
     expect(pathsAfterDelete.slice().sort()).toEqual(EXPECTED_AFTER_DELETE_PATHS.slice().sort());
 
     // ⑦ backend.listFilesRaw の結果検証 (path 値の配列を抽出して比較)
@@ -143,8 +143,8 @@ describe('design/listFilesRaw', () => {
     // ⑧ 削除を元に戻す
     await backend.deleteBlob('t5.txt', 'workspace');
 
-    // ⑨ listPaths 再確認
-    const pathsAfterRestore = await currentVfs.listPaths();
+    // ⑨ readdir 再確認
+    const pathsAfterRestore = await currentVfs.readdir('.');
     expect(pathsAfterRestore.slice().sort()).toEqual(EXPECTED_AFTER_RESTORE_PATHS.slice().sort());
 
     // ⑩ listFilesRaw 再確認
@@ -258,8 +258,8 @@ describe('OpfsStorage.listFilesRaw - paths match expected constants', () => {
     expect(pullRes).toBeDefined()
     expect(pullRes.remotePaths.slice().sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
 
-    // ④listPaths 結果確認
-    const paths = await currentVfs.listPaths()
+    // ④readdir 結果確認
+    const paths = await currentVfs.readdir('.')
     expect(paths.sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
 
     // ⑤ listFilesRaw before delete
@@ -273,14 +273,14 @@ describe('OpfsStorage.listFilesRaw - paths match expected constants', () => {
 
 
     // ⑥ファイルの削除 (t5.txt)
-    await currentVfs.deleteFile('t5.txt')
+    await currentVfs.unlink('t5.txt')
 
     // ⑦ getChangeSet contains delete
     const changes = await currentVfs.getChangeSet()
     expect(changes).toEqual(expect.arrayContaining([{ type: 'delete', path: 't5.txt', baseSha: expect.any(String) }]))
 
-    // ⑧ listPaths after delete
-    const pathsAfterDelete = await currentVfs.listPaths()
+    // ⑧ readdir after delete
+    const pathsAfterDelete = await currentVfs.readdir('.')
     expect(pathsAfterDelete.sort()).toEqual(['tt2.txt','tt1.txt','t3.txt','t2.txt','t1.txt','README.md'].sort())
 
     // ⑨ listFilesRaw after delete

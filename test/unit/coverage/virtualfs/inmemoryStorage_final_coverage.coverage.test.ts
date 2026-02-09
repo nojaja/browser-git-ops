@@ -236,11 +236,11 @@ describe('InMemoryStorage critical line coverage', () => {
       expect(content).toBe('content')
       
       // List paths
-      const paths = await vfs.listPaths()
+      const paths = await vfs.readdir('.')
       expect(paths).toContain('test.txt')
       
       // Delete file
-      await vfs.deleteFile('test.txt')
+      await vfs.unlink('test.txt')
       
       // Verify deleted
       const afterDelete = await vfs.readFile('test.txt')

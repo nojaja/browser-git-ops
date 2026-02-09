@@ -21,8 +21,8 @@ describe('renameFile helper', () => {
     const hasCreate = changes.find((c: any) => c.type === 'create' && c.path === 'd.txt')
     const hasDelete = changes.find((c: any) => c.type === 'delete' && c.path === 'c.txt')
     expect(hasCreate).toBeDefined()
-    if (!hasDelete) {
-      const paths = await vfs.listPaths()
+      if (!hasDelete) {
+      const paths = await vfs.readdir('.')
       expect(paths).not.toContain('c.txt')
     } else {
       expect(hasDelete).toBeDefined()

@@ -45,7 +45,7 @@ describe('OpfsStorage + GitLab pull', () => {
     resetMockOPFS()
   })
 
-  it('pulls from GitLab and backend reflects the same paths (listPaths & listFilesRaw)', async () => {
+  it('pulls from GitLab and backend reflects the same paths (readdir & listFilesRaw)', async () => {
     // mock fetch to simulate GitLab API
     const branchJson = { name: 'main', commit: { id: '25a5767c9cd5d1fd235cf359c92dec1957369060' } }
 
@@ -87,8 +87,8 @@ describe('OpfsStorage + GitLab pull', () => {
     // ③初回のリポジトリアクセス
     const res = await currentVfs.pull()
 
-    // ④listPaths 結果確認
-    const paths = await currentVfs.listPaths()
+    // ④readdir 結果確認
+    const paths = await currentVfs.readdir('.')
     expect(paths.slice().sort()).toEqual(EXPECTED_REMOTE_PATHS.slice().sort())
 
     // ⑤ listFilesRaw 確認
