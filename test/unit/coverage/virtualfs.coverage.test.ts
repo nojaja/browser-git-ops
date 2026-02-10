@@ -18,7 +18,8 @@ describe('virtualfs - coverage focused tests', () => {
       fetchSnapshot: jest.fn(async (sha: string) => ({ headSha: sha, shas: { 'a.txt': 's1' }, fetchContent: async () => ({}) }))
     }
     vfs.remoteSynchronizer = { pull: jest.fn(async () => ({ conflicts: [] })) }
-    await vfs.setAdapter(adapter, { type: 'github', opts: {} })
+    vfs.adapter = adapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
 
     const res = await vfs.pull({ ref: 'feature' })
 
@@ -38,7 +39,8 @@ describe('virtualfs - coverage focused tests', () => {
       fetchSnapshot: jest.fn(async (sha: string) => ({ headSha: sha, shas: {}, fetchContent: async () => ({}) }))
     }
     vfs.remoteSynchronizer = { pull: jest.fn(async () => ({ conflicts: [] })) }
-    await vfs.setAdapter(adapter, { type: 'github', opts: { branch: 'feature' } })
+    vfs.adapter = adapter
+    await vfs.setAdapter({ type: 'github', opts: { branch: 'feature' } })
 
     const res = await vfs.pull()
 
@@ -56,7 +58,8 @@ describe('virtualfs - coverage focused tests', () => {
       fetchSnapshot: jest.fn(async () => ({ headSha: 'x', shas: {}, fetchContent: async () => ({}) }))
     }
     vfs.remoteSynchronizer = { pull: jest.fn() }
-    await vfs.setAdapter(adapter, { type: 'github', opts: {} })
+    vfs.adapter = adapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
 
     await expect(vfs.pull({ ref: 'f' })).rejects.toThrow(/does not support resolveRef/)
   })

@@ -187,7 +187,8 @@ describe('VirtualFS conflict and edge cases', () => {
       createCommit: jest.fn().mockResolvedValue('c-nested'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapterNested, { type: 'github' })
+    vfs.adapter = mockAdapterNested
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const result = await vfs.push(input)
     
     expect(result.commitSha).toBeTruthy()
@@ -300,7 +301,8 @@ describe('VirtualFS conflict and edge cases', () => {
       commitKey: 'k'
     }
 
-    await vfs.setAdapter(mockAdapter, { type: 'github' })
+    vfs.adapter = mockAdapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     await vfs.push(input)
 
     // Verify call sequence

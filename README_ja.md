@@ -61,12 +61,12 @@ import { VirtualFS, OpfsStorage, GitHubAdapter } from 'browser-git-ops'
 
 async function example() {
   // 1. OPFS バックエンドで VirtualFS を初期化
-  const backend = new OpfsStorage('my-workspace')
+  const backend = new OpfsStorage('appname','my-workspace')
   const vfs = new VirtualFS({ backend })
   await vfs.init()
 
   // 2. アダプタを設定（GitHub または GitLab）
-  await vfs.setAdapter(null, {
+  await vfs.setAdapter({
     type: 'github',
     opts: {
       owner: 'your-username',
@@ -77,7 +77,7 @@ async function example() {
   })
 
   // 3. リモートから最新の内容を取得
-  await vfs.pull()
+  await vfs.pull({ ref: 'main' })
 
   // 4. ファイル一覧を取得
   const files = await vfs.readdir('.')
@@ -105,9 +105,7 @@ async function example() {
   // 7. 変更をリモートにプッシュ
   const index = await vfs.getIndex()
   const result = await vfs.push({
-    parentSha: index.head,
-    message: 'ドキュメントを更新',
-    changes: changes
+    message: 'ドキュメントを更新'
   })
   console.log('プッシュ結果:', result)
 }
@@ -118,7 +116,7 @@ async function example() {
 ```typescript
 import { VirtualFS, IndexedDatabaseStorage } from 'browser-git-ops'
 
-const backend = new IndexedDatabaseStorage('my-workspace')
+const backend = new IndexedDatabaseStorage('appname','my-workspace')
 const vfs = new VirtualFS({ backend })
 await vfs.init()
 ```
@@ -126,7 +124,7 @@ await vfs.init()
 ### GitLab アダプタの使用
 
 ```typescript
-await vfs.setAdapter(null, {
+await vfs.setAdapter({
   type: 'gitlab',
   opts: {
     projectId: 'username/project',
@@ -241,7 +239,7 @@ class VirtualFS {
   async revertChanges(): Promise<void>
   
   // リモート同期
-  async setAdapter(adapter: any, meta?: any): Promise<void>
+  async setAdapter(meta: { type: 'github' | 'gitlab' | string, opts?: any}): Promise<void>
   async pull(reference?: string, baseSnapshot?: Record<string, string>): Promise<any>
   async push(input: CommitInput): Promise<any>
   

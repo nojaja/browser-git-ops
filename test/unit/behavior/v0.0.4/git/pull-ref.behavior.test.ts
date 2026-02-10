@@ -43,7 +43,8 @@ describe('VirtualFS.pull() with ref (TDD behavior tests for v0.0.4)', () => {
     }
 
     // persist adapter meta as if previously configured (gitlab shape expected by tests)
-    await vfs.setAdapter(fakeAdapter, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: '******', branch: 'main' } })
+    vfs.adapter = fakeAdapter
+    await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: '******', branch: 'main' } })
   })
 
   it('resolves ref, applies snapshot and updates head and adapterMeta.opts.branch on success', async () => {
@@ -79,7 +80,8 @@ describe('VirtualFS.pull() with ref (TDD behavior tests for v0.0.4)', () => {
 
   it('uses adapterMeta.opts.branch when no ref specified', async () => {
     // ensure adapterMeta.opts.branch is set to 'feature'
-    await vfs.setAdapter(fakeAdapter, { type: 'github', opts: { branch: 'feature' } })
+    vfs.adapter = fakeAdapter
+    await vfs.setAdapter({ type: 'github', opts: { branch: 'feature' } })
 
     await expect((vfs as any).pull()).resolves.toBeDefined()
 

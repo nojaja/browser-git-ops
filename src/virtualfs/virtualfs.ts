@@ -1,4 +1,4 @@
-﻿import { IndexFile } from './types.ts'
+﻿import { IndexFile, AdapterMeta } from './types.ts'
 import { StorageBackend } from './storageBackend.ts'
 import { OpfsStorage } from './opfsStorage.ts'
 import { GitHubAdapter } from '../git/githubAdapter.ts'
@@ -27,7 +27,7 @@ export class VirtualFS {
   // optional logger injected via constructor options; propagated to adapters when present
   private logger?: Logger
   // adapter metadata persisted in index
-  private adapterMeta: any | null = null
+  private adapterMeta: AdapterMeta | null = null
   // `workspace` state moved to StorageBackend implementations; tombstones are
   // persisted in the backend as `info` entries with `state: 'deleted'.`.
   private indexManager: IndexManager
@@ -120,11 +120,10 @@ export class VirtualFS {
    * @param meta metadata to persist (e.g. { type:'github', opts: {...} })
    * @returns {Promise<void>}
    */
-  async setAdapter(adapter: any | null, meta?: any) {
-    this.adapter = adapter
-    this.adapterMeta = meta || null
-    // If adapter instance provided, propagate logger when available
-    await this._tryInjectLogger()
+  async setAdapter(meta: AdapterMeta) {
+    if (!meta || typeof meta.type !== 'string' || meta.opts == null) throw new Error('Adapter meta is required')
+    this.adapterMeta = meta
+    // persist only adapter metadata; adapter instance is no longer accepted here
     await this._tryPersistAdapterMeta()
   }
 
@@ -167,8 +166,14 @@ export class VirtualFS {
     if (this.adapterMeta) return this.adapterMeta
     try {
       const index = await this.indexManager.getIndex()
-      this.adapterMeta = (index as any).adapter || null
-      return this.adapterMeta
+      const persisted = (index as any).adapter || null
+      // validate persisted shape
+      if (persisted && typeof persisted.type === 'string') {
+        this.adapterMeta = persisted as AdapterMeta
+        return this.adapterMeta
+      }
+      this.adapterMeta = null
+      return null
     } catch (error) {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('getAdapter getIndex failed', error)
       return null
@@ -1060,12 +1065,12 @@ export class VirtualFS {
    * @param {string} branch branch name to persist
    * @returns {Promise<void>}
    */
-  private async _persistAdapterBranchMeta(branch: string, adapterInstance: any): Promise<void> {
+  private async _persistAdapterBranchMeta(branch: string, _adapterInstance: any): Promise<void> {
     const meta = (this.adapterMeta && this.adapterMeta.opts) ? { ...(this.adapterMeta) } : (await this.getAdapter())
     if (!meta) return
-    const newMeta = { ...(this.adapterMeta || {}), opts: { ...(this.adapterMeta && this.adapterMeta.opts) || {}, branch } }
-    // keep current adapter instance if present
-    await this.setAdapter(this.adapter || adapterInstance, newMeta)
+    const newMeta = { ...(meta || {}), opts: { ...(meta.opts || {}), branch } }
+    // persist only metadata (adapter instance not passed)
+    await this.setAdapter(newMeta)
     // Also inform backend about branch scope when backend supports it
     await this._trySetBackendBranch(branch)
 
@@ -1307,7 +1312,7 @@ export class VirtualFS {
       options.defaultBranch = md.defaultBranch
       if (md.name) options.repositoryName = md.name
       if (md.id !== undefined) options.repositoryId = md.id
-      this.adapterMeta.opts = options
+      this.adapterMeta!.opts = options
       await this._writeAdapterMetaToIndex()
     } catch (error) {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('persist repository metadata aborted', error)

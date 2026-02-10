@@ -35,7 +35,8 @@ describe('coverage fix: VirtualFS push cleanup', () => {
       createCommitWithActions: async (_branch: string, _message: string, _changes: any[], _parent: any) => 'commit-ck',
       updateRef: async (_: string, __: string) => undefined
     }
-    await (vfs as any).setAdapter(mockAdapter, { type: 'gitlab' })
+      vfs.adapter = mockAdapter
+      await vfs.setAdapter({ type: 'gitlab', opts: {} })
 
     const res = await vfs.push(input)
     expect(res).toBeDefined()

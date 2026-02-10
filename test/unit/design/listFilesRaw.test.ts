@@ -112,7 +112,7 @@ describe('design/listFilesRaw', () => {
     await currentVfs.init()
 
     // ②gitlabの接続設定追加
-    await currentVfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: '******', branch: 'main' } })
+    await currentVfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: '******', branch: 'main' } })
 
     // ③初回のリポジトリアクセス
     const pullRes = await currentVfs.pull()
@@ -251,7 +251,7 @@ describe('OpfsStorage.listFilesRaw - paths match expected constants', () => {
     await currentVfs.init()
 
     // ②gitlabの接続設定追加
-    await currentVfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: '******', branch: 'main' } })
+    await currentVfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: '******', branch: 'main' } })
 
     // ③初回のリポジトリアクセス
     const pullRes = await currentVfs.pull()

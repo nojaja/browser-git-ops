@@ -27,7 +27,8 @@ describe('VirtualFS targeted branch coverage', () => {
 
     const input: any = { parentSha: 'head1', changes: [{ type: 'create', path: 'p.txt', content: 'x' }], message: 'm', commitKey: 'k' }
 
-    await vfs.setAdapter(adapter, { type: 'github' })
+    vfs.adapter = adapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     await expect(vfs.push(input)).rejects.toThrow('非互換な更新')
   })
 

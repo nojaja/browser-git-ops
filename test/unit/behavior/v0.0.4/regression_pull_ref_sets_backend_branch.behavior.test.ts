@@ -42,7 +42,7 @@ describe('regression: pull({ref}) should set backend branch scope', () => {
     await vfs.init()
 
     // Persist adapter meta so getAdapterInstance will create GitLabAdapter
-    await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', token: 'dummy-token', branch: 'main' } })
+    await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', token: 'dummy-token', branch: 'main' } })
 
     // Perform pull by ref 'test'
     const res = await vfs.pull({ ref: 'test' })

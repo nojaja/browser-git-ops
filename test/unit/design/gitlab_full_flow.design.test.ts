@@ -57,7 +57,7 @@ describe('VirtualFS full GitLab flow (pull, edit, delete, push)', () => {
     await currentVfs.init()
 
     // ②gitlabの接続設定追加
-    await currentVfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'aaaaa', branch: 'main' } })
+    await currentVfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'aaaaa', branch: 'main' } })
 
     // ③初回のリポジトリアクセス
     const pullRes = await currentVfs.pull()
