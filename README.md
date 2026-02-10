@@ -61,12 +61,12 @@ import { VirtualFS, OpfsStorage, GitHubAdapter } from 'browser-git-ops'
 
 async function example() {
   // 1. Initialize VirtualFS with OPFS backend
-  const backend = new OpfsStorage('appname','my-workspace')
+  const backend = new OpfsStorage('my-workspace')
   const vfs = new VirtualFS({ backend })
   await vfs.init()
 
   // 2. Configure adapter (GitHub or GitLab)
-  await vfs.setAdapter({
+  await vfs.setAdapter(null, {
     type: 'github',
     opts: {
       owner: 'your-username',
@@ -77,7 +77,7 @@ async function example() {
   })
 
   // 3. Pull latest content from remote
-  await vfs.pull({ ref: 'main' })
+  await vfs.pull()
 
   // 4. List files (use the FS-compatible API)
   const files = await vfs.readdir('.')
@@ -97,13 +97,15 @@ async function example() {
   // 8. Create/remove directories
   await vfs.mkdir('notes')
   await vfs.rmdir('notes', { recursive: true })
-
   // 9. Get change set and push
   const changes = await vfs.getChangeSet()
   console.log('Changes:', changes)
 
+  const index = await vfs.getIndex()
   const result = await vfs.push({
-    message: 'Update documentation'
+    parentSha: index.head,
+    message: 'Update documentation',
+    changes: changes
   })
   console.log('Push result:', result)
 }
@@ -114,7 +116,7 @@ async function example() {
 ```typescript
 import { VirtualFS, IndexedDatabaseStorage } from 'browser-git-ops'
 
-const backend = new IndexedDatabaseStorage('appname','my-workspace')
+const backend = new IndexedDatabaseStorage('my-workspace')
 const vfs = new VirtualFS({ backend })
 await vfs.init()
 ```
@@ -122,7 +124,7 @@ await vfs.init()
 ### Using GitLab Adapter
 
 ```typescript
-await vfs.setAdapter({
+await vfs.setAdapter(null, {
   type: 'gitlab',
   opts: {
     projectId: 'username/project',
@@ -228,16 +230,16 @@ class VirtualFS {
   // File Operations
   async writeFile(path: string, content: string): Promise<void>
   async readFile(path: string): Promise<string>
-  async unlink(path: string): Promise<void>
+  async deleteFile(path: string): Promise<void>
   async renameFile(fromPath: string, toPath: string): Promise<void>
-  async readdir(path: string, options?: { withFileTypes?: boolean }): Promise<string[] | Dirent[]>
+  async listPaths(): Promise<string[]>
   
   // Change Management
   async getChangeSet(): Promise<ChangeItem[]>
   async revertChanges(): Promise<void>
   
   // Remote Synchronization
-  async setAdapter(meta: { type: 'github' | 'gitlab' | string, opts?: any }): Promise<void>
+  async setAdapter(adapter: any, meta?: any): Promise<void>
   async pull(reference?: string, baseSnapshot?: Record<string, string>): Promise<any>
   async push(input: CommitInput): Promise<any>
   
@@ -256,17 +258,17 @@ class VirtualFS {
 ```typescript
 // OPFS Backend
 class OpfsStorage implements StorageBackend {
-  constructor(rootName?: string)
+  constructor(namespace: string, rootName?: string)
 }
 
 // IndexedDB Backend
 class IndexedDatabaseStorage implements StorageBackend {
-  constructor(rootName?: string)
+  constructor(namespace: string, rootName?: string)
 }
 
 // In-Memory Backend (for testing)
 class InMemoryStorage implements StorageBackend {
-  constructor()
+  constructor(namespace: string, rootName?: string)
 }
 ```
 

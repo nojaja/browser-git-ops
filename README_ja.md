@@ -258,17 +258,17 @@ class VirtualFS {
 ```typescript
 // OPFS バックエンド
 class OpfsStorage implements StorageBackend {
-  constructor(rootName?: string)
+  constructor(namespace: string, rootName?: string)
 }
 
 // IndexedDB バックエンド
 class IndexedDatabaseStorage implements StorageBackend {
-  constructor(rootName?: string)
+  constructor(namespace: string, rootName?: string)
 }
 
 // インメモリバックエンド（テスト用）
 class InMemoryStorage implements StorageBackend {
-  constructor()
+  constructor(namespace: string, rootName?: string)
 }
 ```
 
