@@ -41,7 +41,8 @@ describe('commitKey injection and index metadata', () => {
       updateRef: async () => {}
     }
 
-    await vfs.setAdapter(adapter as any, { type: 'github' })
+    vfs.adapter = adapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const res = await vfs.push({ parentSha: parent, message: 'm', changes })
     expect(res.commitSha).toBe('commit-gh')
     // compute expected commitKey
@@ -66,7 +67,8 @@ describe('commitKey injection and index metadata', () => {
       updateRef: async () => {}
     }
 
-    await vfs.setAdapter(adapter as any, { type: 'gitlab' })
+    vfs.adapter = adapter
+    await vfs.setAdapter({ type: 'gitlab', opts: {} })
     const res = await vfs.push({ parentSha: parent, message: 'ml', changes, ref: 'main' })
     expect(res.commitSha).toBe('commit-gl')
     const expectedKey = crypto.createHash('sha1').update(parent + JSON.stringify(changes)).digest('hex')

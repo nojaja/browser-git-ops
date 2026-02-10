@@ -15,11 +15,13 @@ export interface IndexFile {
   // 最後にプッシュしたコミットの commitKey（任意）
   lastCommitKey?: string
   // adapter metadata persisted by VirtualFS (optional)
-  adapter?: {
-    type: 'github' | 'gitlab' | string
-    opts?: any
-  }
+  adapter?: AdapterMeta
   entries: Record<string, IndexEntry>
+}
+
+export interface AdapterMeta {
+  type: string
+  opts?: Record<string, any>
 }
 
 export interface TombstoneEntry {

@@ -23,7 +23,7 @@ describe('virtualfs mkdir/rmdir (v0.0.5)', () => {
     const backend = new (lib as any).OpfsStorage('GitLab_test01')
     const vfs = new (lib as any).VirtualFS({ backend, logger: undefined })
     await vfs.init()
-    await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
+    await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
 
     await (vfs as any).mkdir('work/newdir')
 
@@ -41,7 +41,7 @@ describe('virtualfs mkdir/rmdir (v0.0.5)', () => {
     const backend = new (lib as any).OpfsStorage('GitLab_test01')
     const vfs = new (lib as any).VirtualFS({ backend, logger: undefined })
     await vfs.init()
-    await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
+    await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
 
     // create workspace files under work/dir
     await (vfs as any).writeFile('work/dir/a.txt', 'a')

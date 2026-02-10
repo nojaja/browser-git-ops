@@ -66,7 +66,7 @@ describe('behavior/v0.0.5 - StorageBackend namespace support (Opfs)', () => {
     const currentVfs = new lib.VirtualFS({ backend, logger: undefined })
     await currentVfs.init()
 
-    await currentVfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
+    await currentVfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
 
     const pullRes = await currentVfs.pull()
     expect(pullRes).toBeDefined()

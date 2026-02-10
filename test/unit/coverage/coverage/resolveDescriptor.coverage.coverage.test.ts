@@ -22,7 +22,8 @@ describe('coverage: _resolveDescriptor branches', () => {
     expect(typeof r1.remoteShas).toBe('object')
 
     // ensure fallback when remote is undefined and adapter instance available
-    await vfs.setAdapter(adapterLike as any, { type: 'mock' })
+      vfs.adapter = adapterLike
+      await vfs.setAdapter({ type: 'mock', opts: {} })
     const r2 = await vfs.getRemoteDiffs(undefined)
     expect(r2).toBeDefined()
     expect(r2.remote).not.toBeNull()

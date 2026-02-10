@@ -31,7 +31,7 @@ describe('VirtualFS.createBranch (integration behavior)', () => {
     const vfs = new lib.VirtualFS({ backend, logger: undefined })
     await vfs.init()
 
-    await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'owner/repo', host: 'https://gitlab.com', token: '***', branch: 'main' } })
+    await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'owner/repo', host: 'https://gitlab.com', token: '***', branch: 'main' } })
     await vfs.pull()
 
     const result = await vfs.createBranch({ name: 'feature/new-branch' } as any)
@@ -49,7 +49,7 @@ describe('VirtualFS.createBranch (integration behavior)', () => {
     const backend = new lib.OpfsStorage('test-repo')
     const vfs = new lib.VirtualFS({ backend, logger: undefined })
     await vfs.init()
-    await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'owner/repo', host: 'https://gitlab.com', token: '***', branch: 'main' } })
+    await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'owner/repo', host: 'https://gitlab.com', token: '***', branch: 'main' } })
     await vfs.pull()
 
     const result = await vfs.createBranch({ name: 'hotfix/from-sha', fromRef: 'specificSha123' } as any)
@@ -74,7 +74,7 @@ describe('VirtualFS.createBranch (integration behavior)', () => {
     const backend = new lib.OpfsStorage('test-repo')
     const vfs = new lib.VirtualFS({ backend, logger: undefined })
     await vfs.init()
-    await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'owner/repo', host: 'https://gitlab.com', token: '***', branch: 'main' } })
+    await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'owner/repo', host: 'https://gitlab.com', token: '***', branch: 'main' } })
     await vfs.pull()
 
     await expect(vfs.createBranch({ name: 'existing-branch' } as any)).rejects.toThrow(/already exists/)

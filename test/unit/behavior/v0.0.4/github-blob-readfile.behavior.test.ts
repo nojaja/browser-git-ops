@@ -54,7 +54,7 @@ describe('behavior/v0.0.4 - GitHub blob / readFile handling', () => {
     await backend.writeBlob(path, JSON.stringify(info), 'info')
 
     // set adapter metadata so adapter instance will be created lazily
-    await vfs.setAdapter(null, { type: 'github', opts: { owner: 'nojaja', repo: 'testrep', token: '', branch: 'main' } })
+    await vfs.setAdapter({ type: 'github', opts: { owner: 'nojaja', repo: 'testrep', token: '', branch: 'main' } })
 
     // attempt to read file -> should trigger on-demand fetch and write to 'base'
     const content = await vfs.readFile(path)

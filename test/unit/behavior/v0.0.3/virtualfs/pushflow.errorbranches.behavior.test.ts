@@ -39,7 +39,8 @@ describe('VirtualFS push error branches', () => {
       message: 'msg',
     }
 
-    await vfs.setAdapter(adapter as any, { type: 'gitlab' })
+    vfs.adapter = adapter as any
+    await vfs.setAdapter({ type: 'gitlab', opts: {} })
     await expect(vfs.push(input)).rejects.toThrow('非互換な更新')
   })
 
@@ -64,7 +65,8 @@ describe('VirtualFS push error branches', () => {
       message: 'msg',
     }
 
-    await vfs.setAdapter(adapter as any, { type: 'gitlab' })
+    vfs.adapter = adapter as any
+    await vfs.setAdapter({ type: 'gitlab', opts: {} })
     const res = await vfs.push(input)
     expect(res.commitSha).toBe('commit-sha-ok')
     // index should be updated even when updateRef warned

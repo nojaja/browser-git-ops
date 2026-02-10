@@ -61,12 +61,12 @@ import { VirtualFS, OpfsStorage, GitHubAdapter } from 'browser-git-ops'
 
 async function example() {
   // 1. Initialize VirtualFS with OPFS backend
-  const backend = new OpfsStorage('my-workspace')
+  const backend = new OpfsStorage('appname','my-workspace')
   const vfs = new VirtualFS({ backend })
   await vfs.init()
 
   // 2. Configure adapter (GitHub or GitLab)
-  await vfs.setAdapter(null, {
+  await vfs.setAdapter({
     type: 'github',
     opts: {
       owner: 'your-username',
@@ -77,7 +77,7 @@ async function example() {
   })
 
   // 3. Pull latest content from remote
-  await vfs.pull()
+  await vfs.pull({ ref: 'main' })
 
   // 4. List files (use the FS-compatible API)
   const files = await vfs.readdir('.')
@@ -97,15 +97,13 @@ async function example() {
   // 8. Create/remove directories
   await vfs.mkdir('notes')
   await vfs.rmdir('notes', { recursive: true })
+
   // 9. Get change set and push
   const changes = await vfs.getChangeSet()
   console.log('Changes:', changes)
 
-  const index = await vfs.getIndex()
   const result = await vfs.push({
-    parentSha: index.head,
-    message: 'Update documentation',
-    changes: changes
+    message: 'Update documentation'
   })
   console.log('Push result:', result)
 }
@@ -116,7 +114,7 @@ async function example() {
 ```typescript
 import { VirtualFS, IndexedDatabaseStorage } from 'browser-git-ops'
 
-const backend = new IndexedDatabaseStorage('my-workspace')
+const backend = new IndexedDatabaseStorage('appname','my-workspace')
 const vfs = new VirtualFS({ backend })
 await vfs.init()
 ```
@@ -124,7 +122,7 @@ await vfs.init()
 ### Using GitLab Adapter
 
 ```typescript
-await vfs.setAdapter(null, {
+await vfs.setAdapter({
   type: 'gitlab',
   opts: {
     projectId: 'username/project',
@@ -230,16 +228,16 @@ class VirtualFS {
   // File Operations
   async writeFile(path: string, content: string): Promise<void>
   async readFile(path: string): Promise<string>
-  async deleteFile(path: string): Promise<void>
+  async unlink(path: string): Promise<void>
   async renameFile(fromPath: string, toPath: string): Promise<void>
-  async listPaths(): Promise<string[]>
+  async readdir(path: string, options?: { withFileTypes?: boolean }): Promise<string[] | Dirent[]>
   
   // Change Management
   async getChangeSet(): Promise<ChangeItem[]>
   async revertChanges(): Promise<void>
   
   // Remote Synchronization
-  async setAdapter(adapter: any, meta?: any): Promise<void>
+  async setAdapter(meta: { type: 'github' | 'gitlab' | string, opts?: any }): Promise<void>
   async pull(reference?: string, baseSnapshot?: Record<string, string>): Promise<any>
   async push(input: CommitInput): Promise<any>
   

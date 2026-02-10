@@ -27,7 +27,8 @@ describe('VirtualFS advanced edge cases', () => {
 
     // ensure adapter is present so push goes through adapter path and rejects as expected
     const mockAdapterEmpty: any = { createCommitWithActions: async () => { throw new Error('No changes') }, updateRef: async () => undefined }
-    await vfs.setAdapter(mockAdapterEmpty, { type: 'gitlab' })
+    vfs.adapter = mockAdapterEmpty
+    await vfs.setAdapter({ type: 'gitlab', opts: {} })
     await expect(vfs.push(input)).rejects.toThrow('No changes')
   })
 
@@ -122,14 +123,16 @@ describe('VirtualFS advanced edge cases', () => {
       createCommit: jest.fn().mockResolvedValue('c-types'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapterTypes, { type: 'github' })
+    vfs.adapter = mockAdapterTypes
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const mockAdapter: any = {
       createBlobs: jest.fn().mockResolvedValue({}),
       createTree: jest.fn().mockResolvedValue('t-edge'),
       createCommit: jest.fn().mockResolvedValue('c-edge'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapter, { type: 'github' })
+    vfs.adapter = mockAdapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const result = await vfs.push(input)
     expect(result.commitSha).toBeTruthy()
   })
@@ -228,7 +231,8 @@ describe('VirtualFS advanced edge cases', () => {
       createCommit: jest.fn().mockResolvedValue('c-long'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapterLong, { type: 'github' })
+    vfs.adapter = mockAdapterLong
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const result = await vfs.push(input)
     expect(result.commitSha).toBeTruthy()
   })

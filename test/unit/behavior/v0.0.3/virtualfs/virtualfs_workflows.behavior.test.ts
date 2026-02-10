@@ -61,7 +61,8 @@ describe('VirtualFS advanced workflows', () => {
       createCommit: jest.fn().mockResolvedValue('a1b2c3d4e5f6'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapter1, { type: 'github' })
+    vfs.adapter = mockAdapter1
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const result = await vfs.push(input)
     expect(result.commitSha).toBeTruthy()
     expect(result.commitSha).toMatch(/^[a-f0-9]+$/)
@@ -105,7 +106,8 @@ describe('VirtualFS advanced workflows', () => {
       createCommit: jest.fn().mockResolvedValue('commitDeep'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapter2, { type: 'github' })
+    vfs.adapter = mockAdapter2
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const result = await vfs.push(input)
     expect(result.commitSha).toBeTruthy()
   })
@@ -174,7 +176,8 @@ describe('VirtualFS advanced workflows', () => {
       message: 'msg',
       commitKey: 'ck'
     }
-    await vfs.setAdapter(mockAdapter, { type: 'github' })
+    vfs.adapter = mockAdapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const result = await vfs.push(input)
     expect(mockAdapter.createBlobs).toHaveBeenCalledTimes(1)
     expect(mockAdapter.createTree).toHaveBeenCalledTimes(1)

@@ -1,6 +1,6 @@
 {
   "name": "browser-git-ops",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "type": "module",
   "module": "dist/index.mjs",
   "main": "dist/index.js",
@@ -43,9 +43,7 @@
     "pretest:e2e": "npm run build",
     "test:e2e": "playwright test --config=playwright.config.cjs",
     "test:ci": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage --runInBand",
-    "migrate:tests": "node ./scripts/migrate-tests.js",
     "lint": "eslint \"src/**/*.{ts,js}\"",
-    "lint2": "eslint \"src/**/*.{ts,js}\" --config .eslintrc.cjs --rule \"unicorn/prevent-abbreviations:off\" --rule \"unicorn/filename-case:off\" --rule \"unicorn/prefer-early-return:off\" --rule \"unicorn/no-duplicated-branches:off\"",
     "depcruise": "depcruise --config .dependency-cruiser.cjs src || exit 0",
     "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
     "build:browser": "esbuild ./src/index.ts --bundle --outfile=dist/index.js --format=iife --global-name=APIGitLib --platform=browser --sourcemap",

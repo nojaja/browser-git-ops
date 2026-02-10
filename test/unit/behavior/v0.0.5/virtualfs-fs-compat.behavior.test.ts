@@ -40,7 +40,7 @@ describe('virtualfs fs-compatible API (v0.0.5) - stat/unlink/migrations', () => 
     const backend = new (lib as any).OpfsStorage('GitLab_test01')
     const vfs = new (lib as any).VirtualFS({ backend, logger: undefined })
     await vfs.init()
-    await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
+    await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
 
     // Simulate workspace absence
     const listSpy = jest.spyOn(backend, 'listFilesRaw').mockResolvedValue([])
@@ -69,7 +69,7 @@ describe('virtualfs fs-compatible API (v0.0.5) - stat/unlink/migrations', () => 
     const backend = new (lib as any).OpfsStorage('GitLab_test01')
     const vfs = new (lib as any).VirtualFS({ backend, logger: undefined })
     await vfs.init()
-    await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
+    await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
 
     // Simulate workspace presence by returning a listFilesRaw entry
     const listSpy = jest.spyOn(backend, 'listFilesRaw').mockResolvedValue([

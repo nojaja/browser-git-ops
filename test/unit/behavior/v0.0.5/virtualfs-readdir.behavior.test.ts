@@ -23,7 +23,7 @@ describe('virtualfs readdir (v0.0.5)', () => {
     const backend = new (lib as any).OpfsStorage('GitLab_test01')
     const vfs = new (lib as any).VirtualFS({ backend, logger: undefined })
     await vfs.init()
-    await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
+    await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
 
     // Create workspace files via public API so index is updated
     await (vfs as any).writeFile('work/dir/a.txt', 'a')
@@ -45,7 +45,7 @@ describe('virtualfs readdir (v0.0.5)', () => {
     const backend = new (lib as any).OpfsStorage('GitLab_test01')
     const vfs = new (lib as any).VirtualFS({ backend, logger: undefined })
     await vfs.init()
-    await vfs.setAdapter(null, { type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
+    await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: 'x', branch: 'main' } })
 
     // No workspace files -> readdir should return empty array
     const dirents = await (vfs as any).readdir('work/dir', { withFileTypes: true })

@@ -35,7 +35,8 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
       commitKey: 'k1',
     }
 
-    await vfs.setAdapter(adapter, { type: 'github' })
+    vfs.adapter = adapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     await expect(vfs.push(input)).rejects.toThrow('tree creation failed')
   })
 
@@ -59,7 +60,8 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
       commitKey: 'k1',
     }
 
-    await vfs.setAdapter(adapter, { type: 'github' })
+    vfs.adapter = adapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     await expect(vfs.push(input)).rejects.toThrow('commit failed')
   })
 
@@ -132,7 +134,8 @@ describe('VirtualFS critical branches - push/pull error handling', () => {
     }
 
     // Should throw when blob sha missing
-    await vfs.setAdapter(adapter, { type: 'github' })
+    vfs.adapter = adapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     await expect(vfs.push(input)).rejects.toThrow()
   })
 

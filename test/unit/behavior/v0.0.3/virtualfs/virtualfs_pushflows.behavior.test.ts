@@ -35,28 +35,32 @@ describe('VirtualFS push flow branches', () => {
       createCommit: jest.fn().mockResolvedValue('commit-1'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapter, { type: 'github' })
+    vfs.adapter = mockAdapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const mockAdapter2: any = {
       createBlobs: jest.fn().mockResolvedValue({}),
       createTree: jest.fn().mockResolvedValue('t1'),
       createCommit: jest.fn().mockResolvedValue('c1'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapter2, { type: 'github' })
+    vfs.adapter = mockAdapter2
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const mockAdapterNested: any = {
       createBlobs: jest.fn().mockResolvedValue({}),
       createTree: jest.fn().mockResolvedValue('t-nested'),
       createCommit: jest.fn().mockResolvedValue('c-nested'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapterNested, { type: 'github' })
+    vfs.adapter = mockAdapterNested
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const mockAdapter3: any = {
       createBlobs: jest.fn().mockResolvedValue({}),
       createTree: jest.fn().mockResolvedValue('tnested'),
       createCommit: jest.fn().mockResolvedValue('cnested'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapter3, { type: 'github' })
+    vfs.adapter = mockAdapter3
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const result = await vfs.push(input)
     expect(result.commitSha).toBeTruthy()
   })
@@ -83,7 +87,8 @@ describe('VirtualFS push flow branches', () => {
       createCommit: jest.fn().mockResolvedValue('commit-2'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapter, { type: 'github' })
+    vfs.adapter = mockAdapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const result = await vfs.push(input)
     expect(result.commitSha).toBeTruthy()
   })
@@ -110,7 +115,8 @@ describe('VirtualFS push flow branches', () => {
       createCommit: jest.fn().mockResolvedValue('commit-3'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapter, { type: 'github' })
+    vfs.adapter = mockAdapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const result = await vfs.push(input)
     expect(result.commitSha).toBeTruthy()
   })
@@ -137,7 +143,8 @@ describe('VirtualFS push flow branches', () => {
       commitKey: 'ck'
     }
 
-    await vfs.setAdapter(mockAdapter, { type: 'github' })
+    vfs.adapter = mockAdapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const res = await vfs.push(input)
     expect(res.commitSha).toBeTruthy()
     if (typeof mockAdapter.createBlobs === 'function') {
@@ -173,7 +180,8 @@ describe('VirtualFS push flow branches', () => {
       commitKey: 'ck'
     }
 
-    await vfs.setAdapter(mockAdapter, { type: 'github' })
+    vfs.adapter = mockAdapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const mockAdapter2: any = {
       createCommitWithActions: undefined,
       createBlobs: jest.fn().mockResolvedValue({}),
@@ -181,7 +189,8 @@ describe('VirtualFS push flow branches', () => {
       createCommit: jest.fn().mockResolvedValue('commit-4'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapter2, { type: 'github' })
+    vfs.adapter = mockAdapter2
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const result = await vfs.push(input)
     expect(result.commitSha).toBeTruthy()
     if (typeof mockAdapter2.updateRef === 'function') {
@@ -231,7 +240,8 @@ describe('VirtualFS push flow branches', () => {
       createCommit: jest.fn().mockResolvedValue('commit-nested'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapter, { type: 'github' })
+    vfs.adapter = mockAdapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
 
     const result = await vfs.push(input)
     expect(result.commitSha).toBeTruthy()

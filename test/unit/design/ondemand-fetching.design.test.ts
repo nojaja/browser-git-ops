@@ -92,7 +92,7 @@ describe('design/ondemand-fetching [実装現状検証]', () => {
     const vfs = new lib.VirtualFS({ backend, logger: undefined })
     await vfs.init()
 
-    await vfs.setAdapter(null, { type: 'gitlab', opts: gitlabConfig })
+    await vfs.setAdapter({ type: 'gitlab', opts: gitlabConfig })
 
     const pullRes = await vfs.pull({ ref: 'main' })
 
@@ -127,7 +127,7 @@ describe('design/ondemand-fetching [実装現状検証]', () => {
     const vfs = new lib.VirtualFS({ backend, logger: undefined })
     await vfs.init()
 
-    await vfs.setAdapter(null, { type: 'gitlab', opts: gitlabConfig })
+    await vfs.setAdapter({ type: 'gitlab', opts: gitlabConfig })
 
     const pullRes = await vfs.pull({ ref: 'main' })
 
@@ -161,7 +161,7 @@ describe('design/ondemand-fetching [実装現状検証]', () => {
     const vfs = new lib.VirtualFS({ backend, logger: undefined })
     await vfs.init()
 
-    await vfs.setAdapter(null, { type: 'gitlab', opts: gitlabConfig })
+    await vfs.setAdapter({ type: 'gitlab', opts: gitlabConfig })
 
     const pullRes = await vfs.pull({ ref: 'main' })
 
@@ -198,7 +198,7 @@ describe('design/ondemand-fetching [実装現状検証]', () => {
     const vfs = new lib.VirtualFS({ backend, logger: undefined })
     await vfs.init()
 
-    await vfs.setAdapter(null, { type: 'gitlab', opts: gitlabConfig })
+    await vfs.setAdapter({ type: 'gitlab', opts: gitlabConfig })
 
     await vfs.pull({ ref: 'main' })
 
@@ -251,7 +251,7 @@ describe('design/ondemand-fetching [実装現状検証]', () => {
     const vfs = new lib.VirtualFS({ backend, logger: undefined })
     await vfs.init()
 
-    await vfs.setAdapter(null, { type: 'gitlab', opts: gitlabConfig })
+    await vfs.setAdapter({ type: 'gitlab', opts: gitlabConfig })
 
     await vfs.pull({ ref: 'main' })
 

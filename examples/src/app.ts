@@ -440,8 +440,7 @@ async function main() {
     const token = tokenInput.value.trim()
     appendOutput('log.connect.input', { repo: repo || '<未入力>', token: token ? '***' : '<未入力>' })
     // Emit adapter-created markers to satisfy E2E expectations
-    appendOutput('log.github.adapterCreated')
-    appendOutput('log.gitlab.adapterCreated')
+
 
     try {
       // Parse URL to support self-hosted instances as well as github.com/gitlab.com
@@ -531,11 +530,15 @@ async function main() {
                 try {
                   if (typeof (lib as any).GitHubAdapter === 'function') {
                     adapterInstance = new (lib as any).GitHubAdapter(ghOpts)
+                    appendTrace('trace.adapter.githubInstanceCreated', { opts: JSON.stringify({ owner: ghOpts.owner, repo: ghOpts.repo, branch: ghBranch }) })
+                    // ja.json -> { "trace.adapter.githubInstanceCreated": "GitHubAdapter インスタンスが作成されました: {opts}" }
+                    // en.json -> { "trace.adapter.githubInstanceCreated": "GitHubAdapter instance created: {opts}" }
                   }
                 } catch (e) {
                   adapterInstance = null
                 }
-                await currentVfs.setAdapter(adapterInstance, { type: 'github', opts: ghOpts })
+                currentVfs.adapter = adapterInstance
+                await currentVfs.setAdapter({ type: 'github', opts: ghOpts })
                   appendOutput('log.github.registered', { branch: ghBranch })
 
                 appendTrace('trace.adapter.setGitHubAdapter', { opts: JSON.stringify({ owner: ghOpts.owner, repo: ghOpts.repo, branch: ghBranch }) })
@@ -574,11 +577,14 @@ async function main() {
                 try {
                   if (typeof (lib as any).GitLabAdapter === 'function') {
                     adapterInstance = new (lib as any).GitLabAdapter(glOpts)
+                    appendTrace('trace.adapter.gitlabInstanceCreated', { opts: JSON.stringify({ projectId: glOpts.projectId, host: glOpts.host, branch: glBranch }) })
+                    // ja.json -> { "trace.adapter.gitlabInstanceCreated": "GitLabAdapter インスタンスが作成されました: {opts}" }
                   }
                 } catch (e) {
                   adapterInstance = null
                 }
-                await currentVfs.setAdapter(adapterInstance, { type: 'gitlab', opts: glOpts })
+                currentVfs.adapter = adapterInstance
+                await currentVfs.setAdapter({ type: 'gitlab', opts: glOpts })
                 appendOutput('log.gitlab.registered', { branch: glBranch })
                 appendTrace('trace.adapter.setGitLabAdapter', { opts: JSON.stringify({ projectId: glOpts.projectId, host: glOpts.host, branch: glBranch }) })
               } catch (e) {
@@ -849,7 +855,8 @@ async function main() {
         // If a pending adapter was stored earlier (connect attempted before VFS existed), persist it now
         try {
           if (PENDING_ADAPTER && typeof vfs.setAdapter === 'function') {
-            await vfs.setAdapter(PENDING_ADAPTER.instance || null, PENDING_ADAPTER.meta)
+            vfs.adapter = PENDING_ADAPTER.instance || null
+            await vfs.setAdapter(PENDING_ADAPTER.meta)
             // signal registration
             if (PENDING_ADAPTER.meta && PENDING_ADAPTER.meta.type === 'gitlab') appendOutput('log.gitlab.registered', { branch: PENDING_ADAPTER.meta.opts && PENDING_ADAPTER.meta.opts.branch })
             if (PENDING_ADAPTER.meta && PENDING_ADAPTER.meta.type === 'github') appendOutput('log.github.registered', { branch: PENDING_ADAPTER.meta.opts && PENDING_ADAPTER.meta.opts.branch })

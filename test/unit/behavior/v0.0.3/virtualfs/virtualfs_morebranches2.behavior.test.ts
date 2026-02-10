@@ -75,7 +75,8 @@ describe('VirtualFS additional branch coverage', () => {
       commitKey: 'k1'
     }
 
-    await vfs.setAdapter(adapter, { type: 'github' })
+    vfs.adapter = adapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const res = await vfs.push(input)
     expect(res.commitSha).toBe('newcommitsha')
     expect(adapter.createTree).toHaveBeenCalled()
@@ -163,7 +164,8 @@ describe('VirtualFS additional branch coverage', () => {
       commitKey: 'k2'
     }
 
-    await vfs.setAdapter(adapter, { type: 'github' })
+    vfs.adapter = adapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     await vfs.push(input)
 
     // head should be updated

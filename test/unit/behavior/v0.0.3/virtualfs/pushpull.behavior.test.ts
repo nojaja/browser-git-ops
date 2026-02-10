@@ -56,7 +56,8 @@ describe('VirtualFS pull/push', () => {
       createCommit: jest.fn().mockResolvedValue('c-pp'),
       updateRef: jest.fn().mockResolvedValue(true)
     }
-    await vfs.setAdapter(mockAdapter, { type: 'github' })
+    vfs.adapter = mockAdapter
+    await vfs.setAdapter({ type: 'github', opts: {} })
     const result = await vfs.push({ message: 'm', parentSha: 'head1', changes })
     expect(result.commitSha).toBeDefined()
     const idx = await vfs.getIndex()
