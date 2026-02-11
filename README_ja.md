@@ -88,8 +88,12 @@ async function example() {
   await vfs.writeFile('docs/guide.md', '## はじめに')
 
   // Stat（可能なら gitBlobSha/gitCommitSha を含む）
+  // Stat: Node の fs.Stats に類似したオブジェクトを返します。
+  // Git 管理下のファイルでは `gitBlobSha` / `gitCommitSha` / `gitRef` が追加されることがあります。
   const s = await vfs.stat('README.md')
   console.log('size=', s.size, 'isFile=', s.isFile())
+  // Git 固有フィールド (追跡外ファイルでは undefined になる可能性があります)
+  console.log('gitBlobSha=', s.gitBlobSha, 'gitCommitSha=', s.gitCommitSha, 'gitRef=', s.gitRef)
 
   // ファイル削除（deleteFile の代わりに unlink を使用）
   await vfs.unlink('docs/guide.md')
@@ -251,6 +255,18 @@ class VirtualFS {
   async getIndex(): Promise<IndexFile>
   async saveIndex(): Promise<void>
 }
+
+// `vfs.stat(path)` が返す Stats 相当オブジェクトは Node.js の `fs.Stats` に類似した標準フィールドを持ち、
+// 必要に応じて Git 固有の識別子を含みます（実装参照）。情報例:
+// interface FsStatsLike {
+//   dev: number; ino: number; mode: number; nlink: number; uid: number; gid: number;
+//   size: number; atime: Date; mtime: Date; ctime: Date; birthtime: Date;
+//   isFile(): boolean; isDirectory(): boolean;
+//   // Git 固有（任意）:
+//   gitBlobSha?: string; // トラッキングされているファイルの blob SHA
+//   gitCommitSha?: string; // そのパスに対する最新コミット SHA
+//   gitRef?: string; // 参照（branch 等）を示す文字列
+// }
 ```
 
 ### ストレージバックエンド
