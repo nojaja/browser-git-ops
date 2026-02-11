@@ -244,7 +244,10 @@ class VirtualFS {
   async revertChanges(): Promise<void>
   
   // Remote Synchronization
-  async setAdapter(adapter: any, meta?: any): Promise<void>
+  async setAdapter(meta: { type: 'github' | 'gitlab' | string, opts?: any}): Promise<void>
+  async getAdapter(): Promise<{ type: string, opts?: any } | null>
+  async getAdapterInstance(): Promise<any | null>
+  getAdapterMeta(): { type: string, opts?: any } | null
   async pull(reference?: string, baseSnapshot?: Record<string, string>): Promise<any>
   async push(input: CommitInput): Promise<any>
   
@@ -270,6 +273,39 @@ class VirtualFS {
 //   gitRef?: string; // reference/branch used to derive these values
 // }
 ```
+
+#### Adapter Retrieval and Management
+
+```typescript
+// Get persisted adapter metadata (configuration, not instance)
+async getAdapter(): Promise<{ type: string, opts?: any } | null>
+// Example:
+const meta = await vfs.getAdapter()
+if (meta) {
+  console.log('Adapter type:', meta.type)
+  console.log('Branch:', meta.opts?.branch)
+  console.log('Owner:', meta.opts?.owner) // GitHub case
+}
+
+// Get cached adapter metadata synchronously
+getAdapterMeta(): { type: string, opts?: any } | null
+// Example:
+const meta = vfs.getAdapterMeta()
+
+// Get or create adapter instance (lazy initialization)
+async getAdapterInstance(): Promise<any | null>
+// Example:
+const adapter = await vfs.getAdapterInstance()
+if (adapter) {
+  // adapter.resolveRef, adapter.push, etc. are now available
+}
+```
+
+**Note**: 
+- `getAdapter()` and `getAdapterInstance()` serve different purposes
+- `getAdapter()` returns persisted metadata (type and opts)
+- `getAdapterInstance()` creates/retrieves the adapter instance from metadata
+- `getAdapterMeta()` synchronously returns cached metadata (no Promise)
 
 ### Storage Backends
 
