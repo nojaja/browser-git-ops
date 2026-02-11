@@ -244,6 +244,9 @@ class VirtualFS {
   
   // リモート同期
   async setAdapter(meta: { type: 'github' | 'gitlab' | string, opts?: any}): Promise<void>
+  async getAdapter(): Promise<{ type: string, opts?: any } | null>
+  async getAdapterInstance(): Promise<any | null>
+  getAdapterMeta(): { type: string, opts?: any } | null
   async pull(reference?: string, baseSnapshot?: Record<string, string>): Promise<any>
   async push(input: CommitInput): Promise<any>
   
@@ -268,6 +271,39 @@ class VirtualFS {
 //   gitRef?: string; // 参照（branch 等）を示す文字列
 // }
 ```
+
+#### アダプタ取得と管理
+
+```typescript
+// アダプタメタデータを取得（インスタンスではなく設定情報）
+async getAdapter(): Promise<{ type: string, opts?: any } | null>
+// 例：
+const meta = await vfs.getAdapter()
+if (meta) {
+  console.log('Adapter type:', meta.type)
+  console.log('Branch:', meta.opts?.branch)
+  console.log('Owner:', meta.opts?.owner) // GitHub の場合
+}
+
+// キャッシュされたアダプタメタデータを同期的に取得
+getAdapterMeta(): { type: string, opts?: any } | null
+// 例：
+const meta = vfs.getAdapterMeta()
+
+// アダプタインスタンスを取得または作成（遅延初期化）
+async getAdapterInstance(): Promise<any | null>
+// 例：
+const adapter = await vfs.getAdapterInstance()
+if (adapter) {
+  // adapter.resolveRef、adapter.push 等のメソッドを利用可能
+}
+```
+
+**注**: 
+- `getAdapter()` と `getAdapterInstance()` は異なります
+- `getAdapter()` は永続化されたメタデータ（type と opts）を返します
+- `getAdapterInstance()` はメタデータからアダプタインスタンスを作成・取得します
+- `getAdapterMeta()` はキャッシュされたメタデータを同期的に返します（Promise なし）
 
 ### ストレージバックエンド
 
