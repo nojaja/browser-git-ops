@@ -61,7 +61,7 @@ import { VirtualFS, OpfsStorage, GitHubAdapter } from 'browser-git-ops'
 
 async function example() {
   // 1. Initialize VirtualFS with OPFS backend
-  const backend = new OpfsStorage('my-workspace')
+  const backend = new OpfsStorage('appname','my-workspace')
   const vfs = new VirtualFS({ backend })
   await vfs.init()
 
@@ -88,8 +88,13 @@ async function example() {
   await vfs.writeFile('docs/guide.md', '## Getting Started')
 
   // 6. Stat a file (Stats includes gitBlobSha/gitCommitSha when available)
+  // 6. Stat a file — returned object implements fs.Stats-like shape
+  //    When the file is tracked by a configured adapter, the returned
+  //    stats may include Git-specific identifiers: gitBlobSha, gitCommitSha, gitRef.
   const s = await vfs.stat('README.md')
   console.log('size=', s.size, 'isFile=', s.isFile())
+  // Git-specific fields (may be undefined for non-tracked files):
+  console.log('gitBlobSha=', s.gitBlobSha, 'gitCommitSha=', s.gitCommitSha, 'gitRef=', s.gitRef)
 
   // 7. Delete a file (use unlink instead of deleteFile)
   await vfs.unlink('docs/guide.md')
@@ -251,6 +256,19 @@ class VirtualFS {
   async getIndex(): Promise<IndexFile>
   async saveIndex(): Promise<void>
 }
+
+// Stats-like object returned by `vfs.stat(path)` includes standard fields
+// similar to Node.js `fs.Stats` and may include Git identifiers when available.
+// Example Type (informational):
+// interface FsStatsLike {
+//   dev: number; ino: number; mode: number; nlink: number; uid: number; gid: number;
+//   size: number; atime: Date; mtime: Date; ctime: Date; birthtime: Date;
+//   isFile(): boolean; isDirectory(): boolean;
+//   // Git-specific (optional):
+//   gitBlobSha?: string; // blob SHA for tracked file
+//   gitCommitSha?: string; // latest commit SHA touching this path
+//   gitRef?: string; // reference/branch used to derive these values
+// }
 ```
 
 ### Storage Backends
