@@ -40,7 +40,9 @@ export class VirtualFS {
 
   /**
    * VirtualFS のインスタンスを初期化します。
-   * @param options オプション
+   * @param {Object} [options] - オプションセット
+   * @param {StorageBackend} [options.backend] - ストレージバックエンド
+   * @param {Logger} [options.logger] - ロガーインスタンス
    * @returns {void}
    */
   constructor(options?: { backend?: StorageBackend; logger?: Logger }) {
@@ -116,8 +118,7 @@ export class VirtualFS {
 
   /**
    * Set adapter instance and persist adapter metadata into index file.
-   * @param adapter adapter instance (or null to clear)
-   * @param meta metadata to persist (e.g. { type:'github', opts: {...} })
+   * @param {AdapterMeta} meta - metadata to persist (e.g. { type:'github', opts: {...} })
    * @returns {Promise<void>}
    */
   async setAdapter(meta: AdapterMeta) {
@@ -213,8 +214,8 @@ export class VirtualFS {
 
   /**
    * Create adapter instance for given type and options. Returns null on failure.
-   * @param type adapter type string
-   * @param opts adapter options
+   * @param {string} type - adapter type string
+   * @param {any} options - adapter options
    * @returns {any|null}
    */
   private _instantiateAdapter(type: string, options: any): any | null {
@@ -445,8 +446,9 @@ export class VirtualFS {
 
   /**
    * Consult backend.listFiles to collect immediate child names for given directory.
+  /**
    * Best-effort: logs and returns empty set on failure.
-   * @param normalizedDirectory normalized directory string
+   * @param {string} normalizedDirectory - normalized directory string
    * @returns {Promise<Set<string>>}
    */
   private async _collectNamesFromBackend(normalizedDirectory: string): Promise<Set<string>> {
@@ -608,6 +610,7 @@ export class VirtualFS {
   /**
    * fs.stat 互換: 指定ファイルのメタ情報を返す
    * ワークスペース上の情報を優先し、未取得時は Git のメタ情報で補完する。
+   * @param {string} filepath - ファイルパス
    * @returns {Promise<any>} stats オブジェクト
    */
   async stat(filepath: string) {
@@ -641,6 +644,8 @@ export class VirtualFS {
 
   /**
    * fs.unlink 互換: ファイルを削除する
+   * @param {string} filepath - ファイルパス
+   * @returns {Promise<void>}
    */
   async unlink(filepath: string) {
     if (!filepath || typeof filepath !== 'string') throw new TypeError('filepath is required')
@@ -651,6 +656,11 @@ export class VirtualFS {
 
   /**
    * fs.mkdir 互換 (簡易実装): workspace 側にディレクトリ情報を書き込む
+   * @param {string} dirpath - ディレクトリパス
+   * @param {Object} [_options] - optional options
+   * @param {boolean} [_options.recursive] - recursive flag
+   * @param {number} [_options.mode] - mode flag
+   * @returns {Promise<void>}
    */
   async mkdir(dirpath: string, _options?: { recursive?: boolean; mode?: number }) {
     if (!dirpath || typeof dirpath !== 'string') throw new TypeError('dirpath is required')
@@ -663,6 +673,10 @@ export class VirtualFS {
 
   /**
    * fs.rmdir 互換 (簡易実装)
+   * @param {string} dirpath - ディレクトリパス
+   * @param {Object} [options] - optional options
+   * @param {boolean} [options.recursive] - recursive delete flag
+   * @returns {Promise<void>}
    */
   async rmdir(dirpath: string, options?: { recursive?: boolean }) {
     if (!dirpath || typeof dirpath !== 'string') throw new TypeError('dirpath is required')
@@ -680,8 +694,8 @@ export class VirtualFS {
 
   /**
    * Return list of child paths for given dirpath based on index entries.
-   * @param dirpath directory path
-   * @returns {Promise<string[]>}
+   * @param {string} dirpath - directory path
+   * @returns {Promise<string[]>} array of child paths
    */
   private async _listChildrenOfDir(dirpath: string): Promise<string[]> {
     const paths = await this.listPaths()
@@ -690,7 +704,7 @@ export class VirtualFS {
 
   /**
    * Delete array of children using localFileManager, logging failures per-child.
-   * @param children array of paths
+   * @param {string[]} children - array of paths to delete
    * @returns {Promise<void>}
    */
   private async _deleteChildrenRecursive(children: string[]): Promise<void> {
@@ -705,7 +719,10 @@ export class VirtualFS {
 
   /**
    * fs.readdir 互換 (簡易実装)
-   * @returns {Promise<string[]|Array<any>>}
+   * @param {string} dirpath - ディレクトリパス
+   * @param {Object} [options] - optional options
+   * @param {boolean} [options.withFileTypes] - withFileTypes flag
+   * @returns {Promise<string[]|Array<any>>} file names or Dirent array
    */
   async readdir(dirpath: string, options?: { withFileTypes?: boolean }) {
     if (!dirpath || typeof dirpath !== 'string') throw new TypeError('dirpath is required')
@@ -726,9 +743,10 @@ export class VirtualFS {
 
   /**
    * Return an empty array when names is empty according to options, else null to continue.
-   * @param names array of names
-   * @param options readdir options
-   * @returns {Array<any>|null}
+   * @param {string[]|null|undefined} names - array of names
+   * @param {Object} [options] - readdir options
+   * @param {boolean} [options.withFileTypes] - withFileTypes flag
+   * @returns {Array<any>|null} empty array or null
    */
   private _returnIfNoNames(names: string[] | null | undefined, options?: { withFileTypes?: boolean }): Array<any> | null {
     if (!names || names.length === 0) return options && options.withFileTypes ? [] : []
@@ -738,9 +756,9 @@ export class VirtualFS {
   /**
    * Gather immediate child names for a directory using index and backend as fallback.
    * Throws ENOTDIR when the path represents a file.
-   * @param dirpath original directory path
-   * @param entries index entries object
-   * @param keys array of index keys
+   * @param {string} dirpath - original directory path
+   * @param {any} entries - index entries object
+   * @param {string[]} keys - array of index keys
    * @returns {Promise<string[]>} immediate child names
    */
   private async _gatherDirectoryNames(dirpath: string, entries: any, keys: string[]): Promise<string[]> {
@@ -791,7 +809,7 @@ export class VirtualFS {
 
   /**
    * 指定エラーが non-fast-forward を示すか判定します。
-   * @param {any} err 例外オブジェクト
+   * @param {any} error - 例外オブジェクト
    * @returns {boolean}
    */
   private _isNonFastForwardError(error: any) {
@@ -826,9 +844,9 @@ export class VirtualFS {
   }
 
   /**
-    * ワークスペースとインデックスから変更セットを生成します。
-    * @returns {Promise<Array<{type:string,path:string,content?:string,baseSha?:string}>>} 変更リスト
-    */
+   * ワークスペースとインデックスから変更セットを生成します。
+   * @returns {Promise<Array<{type:string,path:string,content?:string,baseSha?:string}>>} 変更リスト
+   */
   async getChangeSet() {
     return await this.changeTracker.getChangeSet()
   }
@@ -861,6 +879,9 @@ export class VirtualFS {
 
   /**
    * GitLab 風の actions ベースコミットフローで push を実行します。
+   * @param {any} adapter - adapter instance
+   * @param {any} input - push input
+   * @param {string} branch - branch name
    * @returns {Promise<{commitSha:string}>}
    */
   private async _pushWithActions(adapter: any, input: any, branch: string) {
@@ -871,6 +892,9 @@ export class VirtualFS {
 
   /**
    * GitHub 風の blob/tree/commit フローで push を実行します。
+   * @param {any} adapter - adapter instance
+   * @param {any} input - push input
+   * @param {string} branch - branch name
    * @returns {Promise<{commitSha:string}>}
    */
   private async _pushWithGitHubFlow(adapter: any, input: any, branch: string) {
@@ -895,6 +919,10 @@ export class VirtualFS {
   /**
    * Try to update remote ref and handle common non-fast-forward errors.
    * Throws when the remote reports a non-fast-forward conflict.
+   * @param {any} adapter - adapter instance
+   * @param {string} branch - branch name
+   * @param {string} commitSha - commit SHA
+   * @returns {Promise<void>}
    */
   private async _tryUpdateRef(adapter: any, branch: string, commitSha: string) {
     if (typeof adapter.updateRef === 'function') {
@@ -912,6 +940,8 @@ export class VirtualFS {
   /**
    * Apply changes locally, update index head and persist index.
    * Returns the commit result object for callers.
+   * @param {string} commitSha - commit SHA
+   * @param {any} input - push input
    * @returns {Promise<{commitSha:string}>}
    */
   private async _applyChangesAndFinalize(commitSha: string, input: any) {
@@ -926,6 +956,8 @@ export class VirtualFS {
   /**
    * Handle push when an adapter is provided (delegates to _pushWithActions/_pushWithGitHubFlow).
    * Records commitKey in index metadata and returns the push result.
+   * @param {any} input - push input
+   * @param {any} adapter - adapter instance
    * @returns {Promise<{commitSha:string}>}
    */
   private async _handlePushWithAdapter(input: any, adapter: any) {
@@ -950,8 +982,8 @@ export class VirtualFS {
 
   /**
    * リモートのスナップショットを取り込み、コンフリクト情報を返します。
-   * @param {string} remoteHead リモート HEAD
-   * @param {{[path:string]:string}} baseSnapshot path->content マップ
+   * @param {RemoteSnapshotDescriptor|string|Object} remote - リモート情報
+   * @param {Record<string,string>} [baseSnapshot] - path->content マップ
    * @returns {Promise<{conflicts:Array<import('./types').ConflictEntry>}>}
    */
   async pull(
@@ -1062,7 +1094,8 @@ export class VirtualFS {
 
   /**
    * Persist the requested branch into adapter metadata (best-effort).
-   * @param {string} branch branch name to persist
+   * @param {string} branch - branch name to persist
+   * @param {any} [_adapterInstance] - optional adapter instance (unused)
    * @returns {Promise<void>}
    */
   private async _persistAdapterBranchMeta(branch: string, _adapterInstance: any): Promise<void> {
@@ -1153,6 +1186,7 @@ export class VirtualFS {
    * compute simple diffs against the current index.
    * Returns an object containing the resolved `remote` descriptor (or null),
    * `remoteShas` map and `diffs` array (strings like `added: path` / `updated: path`).
+   * @param {RemoteSnapshotDescriptor|string|Object} [remote] - remote descriptor
    * @returns {Promise<{remote: RemoteSnapshotDescriptor|null, remoteShas: Record<string,string>, diffs: string[]}>}
    */
   async getRemoteDiffs(
@@ -1301,7 +1335,9 @@ export class VirtualFS {
 
   /**
    * Persist repository metadata into IndexFile.adapter.opts for session persistence.
+  /**
    * Best-effort: failures are ignored.
+   * @param {RepositoryMetadata} md - metadata to persist
    * @returns {Promise<void>}
    */
   private async _persistRepositoryMetadata(md: RepositoryMetadata): Promise<void> {

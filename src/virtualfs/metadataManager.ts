@@ -215,6 +215,9 @@ export async function updateInfoForWrite(store: any, filepath: string, seg: stri
 /**
  * Handle direct writes to the 'info' segment: store parsed JSON when possible
  * and fall back to raw text otherwise.
+ * @param {any} store store object
+ * @param {string} filepath file path
+ * @param {string} content segment content
  */
 async function handleInfoSegment(store: any, filepath: string, content: string): Promise<void> {
   try {

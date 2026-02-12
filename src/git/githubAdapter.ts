@@ -21,7 +21,7 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * GitHubAdapter を初期化します。
-   * @param {GHOptions} opts 設定オブジェクト
+   * @param {GHOptions} options 設定オブジェクト
    */
   constructor(options: GHOptions) {
     super(options)
@@ -41,7 +41,10 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * List commits for a ref (GitHub commits API)
-   * @param {{ref:string,perPage?:number,page?:number}} query
+   * @param {Object} query query parameters
+   * @param {string} query.ref reference name (branch/tag/SHA)
+   * @param {number} [query.perPage] items per page
+   * @param {number} [query.page] page number
    * @returns {Promise<import('./adapter').CommitHistoryPage>} ページ情報を返します
    */
   async listCommits(query: { ref: string; perPage?: number; page?: number }) {
@@ -221,7 +224,8 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * List branches via GitHub API and map to BranchListPage.
-    * @returns {Promise<{items:any[],nextPage?:number,lastPage?:number}>}
+   * @param {import('../virtualfs/types.ts').BranchListQuery} [query] query parameters
+   * @returns {Promise<{items:any[],nextPage?:number,lastPage?:number}>}
    */
   async listBranches(query?: import('../virtualfs/types.ts').BranchListQuery) {
     const perPage = (query && query.perPage) || 30
@@ -256,7 +260,7 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * 参照を更新します。
-   * @param {string} ref 参照名（例: heads/main）
+   * @param {string} reference 参照名（例: heads/main）
    * @param {string} commitSha コミット SHA
    * @param {boolean} force 強制更新フラグ
    */
@@ -271,8 +275,8 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * Create a branch (ref) on the remote repository.
-   * @param branchName branch name to create
-   * @param fromSha commit sha to point the new branch at
+   * @param {string} branchName branch name to create
+   * @param {string} fromSha commit sha to point the new branch at
    * @returns {Promise<import('../virtualfs/types.ts').CreateBranchResult>} created branch info
    */
   async createBranch(branchName: string, fromSha: string): Promise<import('../virtualfs/types.ts').CreateBranchResult> {
@@ -319,8 +323,8 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * 指定 ref の先頭コミット SHA を取得します。
-   * @param ref 例: `heads/main`
-    * @returns {Promise<string>} 参照先のコミット SHA
+   * @param {string} reference 䉶: `heads/main`
+   * @returns {Promise<string>} 参照先のコミット SHA
    */
   async getRef(reference: string) {
     // Try plural then singular path using a small helper to reduce cognitive complexity.
@@ -538,6 +542,7 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   /**
    * Decode a base64 string into UTF-8 text. Uses global Buffer when available,
    * falls back to atob/TextDecoder for browsers.
+   * @param {string} safe base64 string to decode
    * @returns {string} decoded UTF-8 string
    */
   private _decodeBase64ToString(safe: string): string {

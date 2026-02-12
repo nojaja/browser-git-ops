@@ -7,14 +7,16 @@ export class LocalChangeApplier {
   private backend: StorageBackend
 
   /**
-   *
+   * LocalChangeApplier を初期化します
+   * @param {StorageBackend} backend ストレージを辛子
    */
   constructor(backend: StorageBackend) {
     this.backend = backend
   }
 
   /**
-   *
+   * 作成または更新を適用します
+   * @param {any} ch 変更オブジェクト
    */
   async applyCreateOrUpdate(ch: any) {
     // Ensure workspace copy is removed first (delete may remove all segments),
@@ -24,7 +26,8 @@ export class LocalChangeApplier {
   }
 
   /**
-   *
+   * 削除を適用します
+   * @param {any} ch 変更オブジェクト
    */
   async applyDelete(ch: any) {
     await this.backend.deleteBlob(ch.path, 'info')

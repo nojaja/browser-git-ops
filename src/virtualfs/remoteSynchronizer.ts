@@ -16,10 +16,10 @@ type RemoteSnapshotDescriptor = {
 export class RemoteSynchronizer {
   /**
    * コンストラクタ
-   * @param {StorageBackend} backend - ストレージバックエンド
-   * @param {IndexManager} indexManager - インデックス管理
-   * @param {ConflictManager} conflictManager - コンフリクト管理
-   * @param {LocalChangeApplier} applier - ローカル適用器
+   * @param {StorageBackend} _backend - ストレージバックエンド
+   * @param {IndexManager} _indexManager - インデックス管理
+   * @param {ConflictManager} _conflictManager - コンフリクト管理
+   * @param {LocalChangeApplier} _applier - ローカル適用器
    */
   constructor(
     private _backend: StorageBackend,
@@ -31,7 +31,8 @@ export class RemoteSynchronizer {
   /**
    * リモートのスナップショットをpullしてローカルを同期する
    * @param {RemoteSnapshotDescriptor|string} remote - リモートスナップショットまたはheadSha
-   * @param {Record<string,string>=} baseSnapshot - オプションのベーススナップショット
+   * @param {Record<string,string>} [baseSnapshot] - オプションのベーススナップショット
+   * @param {any} [adapterInstance] - オプションのadapter instance
    * @returns {Promise<object>} conflicts, fetchedPaths, reconciledPaths を含む結果オブジェクト
    */
   async pull(remote: RemoteSnapshotDescriptor | string, baseSnapshot?: Record<string, string>, adapterInstance?: any): Promise<object> {
@@ -67,7 +68,7 @@ export class RemoteSynchronizer {
   /**
    * ローカルの変更をpushする（インデックス更新を行う）
    * @param {any} input - push 入力（parentSha, changes 等）
-   * @param {any=} adapter - オプションのアダプタ
+   * @param {any} [_adapter] - オプションのアダプタ
    * @returns {Promise<object>} commitSha を含むオブジェクト
    */
   async push(input: any, _adapter?: any): Promise<object> {
@@ -116,7 +117,9 @@ export class RemoteSynchronizer {
 
   /**
    * remote 引数を標準の RemoteSnapshotDescriptor に変換する
-   * @returns {Promise<RemoteSnapshotDescriptor>}
+   * @param {RemoteSnapshotDescriptor|string} remote - リモートスナップショットまたはhead SHA
+   * @param {Record<string,string>} [baseSnapshot] - オプションのベーススナップショット
+   * @returns {Promise<RemoteSnapshotDescriptor>} 標準化されたRemoteSnapshotDescriptor
    */
   private async _normalizeRemoteInput(remote: RemoteSnapshotDescriptor | string, baseSnapshot?: Record<string, string>): Promise<RemoteSnapshotDescriptor> {
     if (typeof remote !== 'string') return remote
@@ -140,7 +143,9 @@ export class RemoteSynchronizer {
 
   /**
    * 追加/更新対象のパス一覧を計算する
-   * @returns {Promise<string[]>}
+   * @param {Record<string,string>} snapshot - パス->内容のマップ
+   * @param {Record<string,string>} newShas - パス->SHAのマップ
+   * @returns {Promise<string[]>} 追加/更新対象のパス配列
    */
   private async _computeToAddOrUpdate(snapshot: Record<string, string>, newShas: Record<string, string>): Promise<string[]> {
     const out: string[] = []
@@ -156,7 +161,8 @@ export class RemoteSynchronizer {
 
   /**
    * 削除対象のパス一覧を計算する
-   * @returns {Promise<string[]>}
+   * @param {Record<string,string>} snapshot - パス->内容のマップ
+   * @returns {Promise<string[]>} 削除対象のパス配列
    */
   private async _computeToRemove(snapshot: Record<string, string>): Promise<string[]> {
     const out: string[] = []
@@ -187,6 +193,9 @@ export class RemoteSynchronizer {
 
   /**
    * 追加/更新を適用する
+   * @param {string[]} toAddOrUpdate - 追加/更新対象のパス配列
+   * @param {Record<string,string>} snapshot - パス->内容のマップ
+   * @param {Record<string,string>} newShas - パス->SHAのマップ
    * @returns {Promise<void>}
    */
   private async _applyAddsOrUpdates(toAddOrUpdate: string[], snapshot: Record<string, string>, newShas: Record<string, string>): Promise<void> {
@@ -210,6 +219,12 @@ export class RemoteSynchronizer {
 
   /**
    * リモートの追加/更新を処理する
+   * @param {Record<string,string>} remoteShas - リモートサイザSHAマップ
+   * @param {Record<string,string>} baseSnapshot - ベーススナップショット
+   * @param {string} remoteHead - リモートヘッドSHA
+   * @param {Array<any>} conflicts - こんふりクト配列
+   * @param {any} [adapterInstance] - オプションのadapter instance
+   * @param {RemoteSnapshotDescriptor} [_normalized] - 正見化されたremote情報
    * @returns {Promise<void>}
    */
   private async _processRemoteAddsAndUpdates(remoteShas: Record<string, string>, baseSnapshot: Record<string, string>, remoteHead: string, conflicts: Array<any>, adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
@@ -220,6 +235,8 @@ export class RemoteSynchronizer {
 
   /**
    * リモートの削除を処理する
+   * @param {Record<string,string>} remoteShas - リモートサイザSHAマップ
+   * @param {Array<any>} conflicts - こんふりクト配列
    * @returns {Promise<void>}
    */
   private async _processRemoteDeletions(remoteShas: Record<string, string>, conflicts: Array<any>): Promise<void> {
@@ -237,7 +254,12 @@ export class RemoteSynchronizer {
   }
 
   /**
-   * プル時に個別パスが既に整合済みか判定する
+   * プル時に个別パスが既に整合済みか判定する
+   * @param {string} p - パス
+   * @param {string} sha - SHA
+   * @param {RemoteSnapshotDescriptor} normalized - 正見化されたremote情報
+   * @param {string[]} pathsToFetch - 取得対象パス配列
+   * @param {string[]} reconciledPaths - 整合済みパス配列
    * @returns {Promise<boolean>} 整合済みならtrue
    */
   private async _classifyRemotePathForPull(p: string, sha: string, normalized: RemoteSnapshotDescriptor, pathsToFetch: string[], reconciledPaths: string[]): Promise<boolean> {
@@ -264,6 +286,13 @@ export class RemoteSynchronizer {
 
   /**
    * 個別のリモートパスを処理する（新規/既存の振り分けを行う）
+   * @param {string} p - パス
+   * @param {string} perFileRemoteSha - ファイルごとのリモートSHA
+   * @param {Record<string,string>} baseSnapshot - ベーススナップショット
+   * @param {Array<any>} conflicts - こんふりクト配列
+   * @param {string} remoteHeadSha - リモートヘッドSHA
+   * @param {any} [adapterInstance] - オプションのadapter instance
+   * @param {RemoteSnapshotDescriptor} [_normalized] - 正見化されたremote情報
    * @returns {Promise<void>}
    */
   private async _handleRemotePath(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, remoteHeadSha: string, adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
@@ -288,6 +317,15 @@ export class RemoteSynchronizer {
 
   /**
    * 新規ファイルに対する処理（追加 or conflict）
+   * @param {string} p - パス
+   * @param {string} perFileRemoteSha - ファイルごとのリモートSHA
+   * @param {Record<string,string>} baseSnapshot - ベーススナップショット
+   * @param {Array<any>} conflicts - こんふりクト配列
+   * @param {Object|undefined} localWorkspace - ローカル workspace sha/content
+   * @param {Object|undefined} localBase - ローカル base sha/content
+   * @param {string} remoteHeadSha - リモートヘッドSHA
+   * @param {any} [adapterInstance] - オプションのadapter instance
+   * @param {RemoteSnapshotDescriptor} [_normalized] - 正見化されたremote情報
    * @returns {Promise<void>}
    */
   private async _handleRemoteNew(p: string, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string } | undefined, localBase: { sha: string; content: string } | undefined, remoteHeadSha: string, adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
@@ -301,6 +339,13 @@ export class RemoteSynchronizer {
 
   /**
    * 新規でコンフリクトが発生した場合の処理
+   * @param {string} p - パス
+   * @param {string|undefined} content - コンテンツ
+   * @param {string} remoteHeadSha - リモートヘッドSHA
+   * @param {Array<any>} conflicts - こんふりクト配列
+   * @param {string} [workspaceSha] - ローカル workspace SHA
+   * @param {string} [baseSha] - base SHA
+   * @param {RemoteSnapshotDescriptor} [_normalized] - 正見化されたremote情報
    * @returns {Promise<void>}
    */
   private async _handleRemoteNewConflict(p: string, content: string | undefined, remoteHeadSha: string, conflicts: Array<any>, workspaceSha: string | undefined, baseSha: string | undefined, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
@@ -319,6 +364,15 @@ export class RemoteSynchronizer {
 
   /**
    * 新規追加を処理する
+   * @param {string} p - パス
+   * @param {string} perFileRemoteSha - ファイルごとのリモートSHA
+   * @param {Record<string,string>} _baseSnapshot - ベーススナップショット
+   * @param {string} _remoteHeadSha - リモートヘッドSHA
+   * @param {Array<any>} _conflicts - こんふりクト配列
+   * @param {string} [_workspaceSha] - ローカル workspace SHA
+   * @param {string} [_baseSha] - base SHA
+   * @param {any} [_adapterInstance] - オプションのadapter instance
+   * @param {RemoteSnapshotDescriptor} [_normalized] - 正見化されたremote情報
    * @returns {Promise<void>}
    */
   private async _handleRemoteNewAdd(p: string, perFileRemoteSha: string, _baseSnapshot: Record<string, string>, _remoteHeadSha: string, _conflicts: Array<any>, _workspaceSha: string | undefined, _baseSha: string | undefined, _adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
@@ -330,6 +384,15 @@ export class RemoteSynchronizer {
 
   /**
    * 既存ファイルに対する更新/競合処理
+   * @param {string} p - パス
+   * @param {any} indexEntry - インデックスエントリ
+   * @param {string} perFileRemoteSha - ファイルごとのリモートSHA
+   * @param {Record<string,string>} baseSnapshot - ベーススナップショット
+   * @param {Array<any>} conflicts - こんふりクト配列
+   * @param {Object|undefined} localWorkspace - ローカル workspace sha/content
+   * @param {string} remoteHeadSha - リモートヘッドSHA
+   * @param {any} [adapterInstance] - オプションのadapter instance
+   * @param {RemoteSnapshotDescriptor} [_normalized] - 正見化されたremote情報
    * @returns {Promise<void>}
    */
   private async _handleRemoteExisting(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string } | undefined, remoteHeadSha: string, adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
@@ -344,6 +407,14 @@ export class RemoteSynchronizer {
 
   /**
    * 既存ファイルの更新処理
+   * @param {string} p - パス
+   * @param {any} indexEntry - インデックスエントリ
+   * @param {string} perFileRemoteSha - ファイルごとのリモートSHA
+   * @param {Record<string,string>} _baseSnapshot - ベーススナップショット
+   * @param {Array<any>} _conflicts - こんふりクト配列
+   * @param {string} _remoteHeadSha - リモートヘッドSHA
+   * @param {any} [_adapterInstance] - オプションのadapter instance
+   * @param {RemoteSnapshotDescriptor} [_normalized] - 正見化されたremote情報
    * @returns {Promise<void>}
    */
   private async _handleRemoteExistingUpdate(p: string, indexEntry: any, perFileRemoteSha: string, _baseSnapshot: Record<string, string>, _conflicts: Array<any>, _remoteHeadSha: string, _adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
@@ -357,6 +428,17 @@ export class RemoteSynchronizer {
 
   /**
    * 既存ファイルで競合が発生した場合の処理
+   * @param {string} p - パス
+   * @param {any} indexEntry - インデックスエントリ
+   * @param {string} perFileRemoteSha - ファイルごとのリモートSHA
+   * @param {Record<string,string>} baseSnapshot - ベーススナップショット
+   * @param {Array<any>} conflicts - こんふりクト配列
+   * @param {Object} localWorkspace - ローカル workspace
+   * @param {string} localWorkspace.sha - workspace sha
+   * @param {string} localWorkspace.content - workspace content
+   * @param {string} remoteHeadSha - リモートヘッドSHA
+   * @param {any} [_adapterInstance] - オプションのadapter instance
+   * @param {RemoteSnapshotDescriptor} [_normalized] - 正見化されたremote情報
    * @returns {Promise<void>}
    */
   private async _handleRemoteExistingConflict(p: string, indexEntry: any, perFileRemoteSha: string, baseSnapshot: Record<string, string>, conflicts: Array<any>, localWorkspace: { sha: string; content: string }, remoteHeadSha: string, _adapterInstance?: any, _normalized?: RemoteSnapshotDescriptor): Promise<void> {
@@ -372,6 +454,10 @@ export class RemoteSynchronizer {
 
   /**
    * リモートで削除されたパスの処理
+   * @param {string} p - パス
+   * @param {any} indexEntry - インデックスエントリ
+   * @param {Record<string,string>} _remoteShas - リモートサイザSHAマップ
+   * @param {Array<any>} conflicts - こんふりクト配列
    * @returns {Promise<void>}
    */
   private async _handleRemoteDeletion(p: string, indexEntry: any, _remoteShas: Record<string, string>, conflicts: Array<any>): Promise<void> {
@@ -395,6 +481,7 @@ export class RemoteSynchronizer {
 
   /**
    * 変更をローカルに適用する（create/update/delete）
+   * @param {any} ch - 変更作業（type, path, content を含む）
    * @returns {Promise<void>}
    */
   private async _applyChangeLocally(ch: any): Promise<void> {
@@ -417,8 +504,8 @@ export class RemoteSynchronizer {
 
   /**
    * On-demand: fetch and store base content for a single path when missing.
-   * @param {string} path
-   * @param {any=} adapterInstance optional adapter instance to fetch remote content
+   * @param {string} path - パス
+   * @param {any} [adapterInstance] - optional adapter instance to fetch remote content
    * @returns {Promise<string|null>} fetched content or null
    */
   async fetchBaseIfMissing(path: string, adapterInstance?: any): Promise<string | null> {
@@ -445,6 +532,7 @@ export class RemoteSynchronizer {
   /**
    * Read and parse the stored info entry for `path`.
    * Returns parsed object or null when missing/invalid.
+   * @param {string} path - パス
    * @returns {Promise<any|null>} parsed object or null
    */
   private async _readInfoEntry(path: string): Promise<any | null> {
@@ -466,6 +554,9 @@ export class RemoteSynchronizer {
   /**
    * Attempt to fetch base content using adapterInstance.getBlob.
    * Returns string when fetched, null when fetch attempted but failed, or undefined when adapter not supported.
+   * @param {any} adapterInstance - adapter instance to fetch from
+   * @param {string} baseSha - base SHA
+   * @param {string} path - パス
    * @returns {Promise<string|null|undefined>} fetched content, null, or undefined
    */
   private async _tryFetchBaseWithAdapter(adapterInstance: any, baseSha: string, path: string): Promise<string | null | undefined> {
@@ -483,6 +574,8 @@ export class RemoteSynchronizer {
   /**
    * Handle a fetched blob-like object: decode if base64 and persist into backend.
    * Returns decoded content string, or null on failure.
+   * @param {any} b - blob-like object with content and encoding
+   * @param {string} path - パス
    * @returns {Promise<string|null>} decoded content or null on failure
    */
   private async _handleFetchedBlob(b: any, path: string): Promise<string | null> {
@@ -500,6 +593,9 @@ export class RemoteSynchronizer {
   /**
    * Attempt to fetch raw file using adapterInstance._fetchFileRaw if available.
    * Returns string when fetched, null when attempted but failed, or undefined when adapter not supported.
+   * @param {any} adapterInstance - adapter instance to fetch from
+   * @param {string} path - パス
+   * @param {any} ie - info entry
    * @returns {Promise<string|null|undefined>} fetched content, null, or undefined
    */
   private async _tryFetchRawFile(adapterInstance: any, path: string, ie: any): Promise<string | null | undefined> {
@@ -520,6 +616,7 @@ export class RemoteSynchronizer {
   /**
    * Decode a base64 string into UTF-8 text. Uses global Buffer when available,
    * falls back to atob/TextDecoder for browsers.
+   * @param {string} safe - base64 文字列
    * @returns {string} decoded UTF-8 string
    */
   private _decodeBase64ToString(safe: string): string {
@@ -533,7 +630,7 @@ export class RemoteSynchronizer {
 
   /**
    * Convert a binary string (result of atob) into a UTF-8 string.
-   * @param bin binary string
+   * @param {string} bin - binary string
    * @returns {string} decoded UTF-8 string
    */
   private _binToUtf8(bin: string): string {
@@ -546,8 +643,8 @@ export class RemoteSynchronizer {
   /**
    * Try to decode base64 using a global Buffer if available.
    * Returns decoded string or undefined when Buffer not available.
-   * @param safe base64 string
-   * @returns {string|undefined}
+   * @param {string} safe - base64 文字列
+   * @returns {string|undefined} decoded string or undefined
    */
   private _tryDecodeWithBuffer(safe: string): string | undefined {
     try {
@@ -564,8 +661,8 @@ export class RemoteSynchronizer {
   /**
    * Try to decode base64 using atob/TextDecoder in browser.
    * Returns decoded string or undefined when atob not available or parse fails.
-   * @param safe base64 string
-   * @returns {string|undefined}
+   * @param {string} safe - base64 文字列
+   * @returns {string|undefined} decoded string or undefined
    */
   private _tryDecodeWithAtob(safe: string): string | undefined {
     try {
