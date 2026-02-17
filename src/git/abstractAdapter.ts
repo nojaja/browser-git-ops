@@ -200,7 +200,7 @@ export abstract class AbstractGitAdapter {
 
   /**
    * Log an informational message if a logger is present.
-   * @param args items to log
+   * @param _messages items to log
    */
   protected logInfo(..._messages: any[]) {
     if (this.logger && typeof this.logger.info === 'function') {
@@ -214,7 +214,7 @@ export abstract class AbstractGitAdapter {
 
   /**
    * Log a warning message if a logger is present.
-   * @param args items to log
+   * @param _messages items to log
    */
   protected logWarn(..._messages: any[]) {
     if (this.logger && typeof this.logger.warn === 'function') {
@@ -228,7 +228,7 @@ export abstract class AbstractGitAdapter {
 
   /**
    * Log an error message if a logger is present.
-   * @param args items to log
+   * @param _messages items to log
    */
   protected logError(..._messages: any[]) {
     if (this.logger && typeof this.logger.error === 'function') {
@@ -268,6 +268,10 @@ export abstract class AbstractGitAdapter {
 
   /**
    * Format a fetch request into a minimal object suitable for logging.
+   * @param input fetch input (URL or Request)
+   * @param init fetch initialization options
+   * @param attempts retry attempts count
+   * @param baseDelay base delay in milliseconds
    * @returns formatted request log object
    */
   private formatRequestForLog(input: RequestInfo, init: RequestInit | undefined, attempts: number, baseDelay: number) {
@@ -280,6 +284,7 @@ export abstract class AbstractGitAdapter {
 
   /**
    * Format a fetch Response into a minimal object suitable for logging.
+   * @param response HTTP response object
    * @returns formatted response log object
    */
   private async formatResponseForLog(response: Response) {

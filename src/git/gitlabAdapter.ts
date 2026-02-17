@@ -14,7 +14,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * GitLabAdapter を初期化します。
-   * @param {GLOpts} opts 設定オブジェクト
+   * @param {GLOptions} options 設定オブジェクト
    */
   constructor(options: GLOptions) {
     super(options)
@@ -31,7 +31,10 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * List commits for a ref (GitLab commits API)
-   * @param {{ref:string,perPage?:number,page?:number}} query
+   * @param {Object} query query parameters
+   * @param {string} query.ref reference name
+   * @param {number} [query.perPage] items per page
+   * @param {number} [query.page] page number
    * @returns {Promise<import('./adapter').CommitHistoryPage>} ページ情報を返します
    */
   async listCommits(query: { ref: string; perPage?: number; page?: number }) {
@@ -65,6 +68,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * GitLab のページングヘッダを解析します（x-next-page / x-total-pages）。
+   * @param {Response} resp HTTP レスポンス
    * @returns {{nextPage?: number, lastPage?: number}} ページ番号情報
    */
   private _parsePagingHeaders(resp: Response): { nextPage?: number; lastPage?: number } {
@@ -152,9 +156,9 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * リファレンス更新は不要なため noop 実装です。
-   * @param {string} _ref ref 名
+   * @param {string} _reference ref 名
    * @param {string} _commitSha コミット SHA
-   * @param {boolean} [_force]
+   * @param {boolean} [_force] 強制フラグ
    * @returns {Promise<void>}
    */
   async updateRef(_reference: string, _commitSha: string, _force = false) {
@@ -165,7 +169,8 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * actions を用いて GitLab のコミット API を呼び出します。
    * @param {string} branch ブランチ名
    * @param {string} message コミットメッセージ
-   * @param {{type:string,path:string,content?:string}[]} changes 変更一覧
+   * @param {Array<{type:string,path:string,content?:string}>} changes 変更一覧
+   * @param {string} [expectedParentSha] 下発コミット SHA
    * @returns {Promise<any>} コミット応答（id など）
    */
   async createCommitWithActions(branch: string, message: string, changes: Array<{ type: string; path: string; content?: string }>, expectedParentSha?: string) {
@@ -220,6 +225,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * List branches via GitLab API and map to BranchListPage.
+   * @param {import('../virtualfs/types.ts').BranchListQuery} [query] query parameters
    * @returns {Promise<{items:any[],nextPage?:number,lastPage?:number}>}
    */
   async listBranches(query?: import('../virtualfs/types.ts').BranchListQuery) {
@@ -239,8 +245,8 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * Create a branch in GitLab: POST /projects/{projectId}/repository/branches
-   * @param branchName name of branch to create
-   * @param fromSha branch/tag name or SHA to base the new branch on
+   * @param {string} branchName name of branch to create
+   * @param {string} fromSha branch/tag name or SHA to base the new branch on
    * @returns {Promise<import('../virtualfs/types.ts').CreateBranchResult>} created branch info
    */
   async createBranch(branchName: string, fromSha: string): Promise<import('../virtualfs/types.ts').CreateBranchResult> {
@@ -292,6 +298,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * Convert change descriptors to GitLab API actions
+   * @param {Array<{type:string,path:string,content?:string}>} changes change descriptors
    * @returns {Array<any>} API-compatible actions array
    */
   private createActions(changes: Array<{ type: string; path: string; content?: string }>) {
@@ -362,6 +369,9 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * Prepare JSON body for commit API call.
+   * @param {string} branch branch name
+   * @param {string} message commit message
+   * @param {any[]} actions commit actions
    * @returns {string} JSON body
    */
   private _prepareCommitBody(branch: string, message: string, actions: any[]) {
@@ -386,6 +396,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
   /**
    * リポジトリのスナップショットを取得します。
    * @param {string} branch ブランチ名 (default: 'main')
+   * @param {number} concurrency fetch concurrency level
    * @returns {Promise<{headSha:string,shas:Record<string,string>,fetchContent:(paths:string[])=>Promise<Record<string,string>>}>}
    */
   async fetchSnapshot(branch = 'main', concurrency = 5): Promise<any> {
@@ -512,6 +523,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * Build shas map and fileSet from tree entries
+   * @param {any[]} files tree file entries
    * @returns {{shas:Record<string,string>,fileSet:Set<string>}}
    */
   private _buildShasAndFileSet(files: any[]) {

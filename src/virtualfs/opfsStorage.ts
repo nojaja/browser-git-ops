@@ -32,6 +32,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * to satisfy the StorageBackendConstructor contract; it returns a cached
    * hint if available and kicks off an async probe to populate the cache.
    * If no information is available synchronously an empty array is returned.
+   * @param {string} namespace Namespace to filter
    * @returns {Promise<string[]>} available root directories
    */
   static async availableRoots(namespace: string): Promise<string[]> {
@@ -64,6 +65,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Collect directory names from OPFS root handle
+   * @param {any} root Directory handle
    * @returns {Promise<string[]>}
    */
   private static async _collectDirectoryNames(root: any): Promise<string[]> {
@@ -79,6 +81,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Extract name from directory handle
+   * @param {any} handle File/directory handle
    * @returns {string}
    */
   private static _extractHandleName(handle: any): string {
@@ -87,6 +90,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Check if handle represents a directory
+   * @param {any} handle File/directory handle
    * @returns {boolean}
    */
   private static _isDirectoryHandle(handle: any): boolean {
@@ -127,6 +131,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
    * `namespace` は必須。挙動:
    * - `new(namespace)` のみの場合は OPFS ルートとして `namespace` を使う（テストの期待値に合わせる）。
    * - `new(namespace, root)` の場合は `namespace/root` を使う。
+   * @param {string} namespace Namespace
+   * @param {string} [root] Optional root directory name
    */
   constructor(namespace: string, root?: string) {
     this.namespace = namespace || ''
@@ -171,6 +177,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Map logical segment to concrete prefix used on OPFS.
+   * @param {string} segment Segment identifier
    * @returns {string} concrete prefix path for the given segment
    */
   private _segmentToPrefix(segment: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info'): string {
@@ -230,6 +237,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * 指定パスのディレクトリを再帰的に作成して返す
+   * @param {any} root Root directory handle
+   * @param {string[]} parts Directory path parts
    * @returns {Promise<any>} 生成されたディレクトリハンドル
    */
   private async ensureDir(root: any, parts: string[]): Promise<any> {
@@ -248,6 +257,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Read index metadata file from OPFS.
+   * @param {any} root Root directory handle
    * @returns {Promise<string|null>}
    */
   private async _readIndexMetadata(root: any): Promise<string | null> {
@@ -298,6 +308,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Read all info entries under VAR_INFO and populate the given IndexFile.entries map.
+   * @param {any} root Root directory handle
+   * @param {IndexFile} result Result IndexFile to populate
    * @returns {Promise<void>}
    */
   private async _readInfoEntries(root: any, result: IndexFile): Promise<void> {
@@ -313,6 +325,10 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   /**
    * Read files at the given prefix and populate result.entries.
    * If `overwrite` is true, entries will be overwritten; otherwise existing entries are preserved.
+   * @param {any} root Root directory handle
+   * @param {string} prefix Prefix path
+   * @param {IndexFile} result Result IndexFile
+   * @param {boolean} overwrite Whether to overwrite existing entries
    * @returns {Promise<void>}
    */
   private async _readFilesIntoEntries(root: any, prefix: string, result: IndexFile, overwrite: boolean): Promise<void> {
@@ -331,6 +347,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * index を書き込む
+   * @param {IndexFile} index - インデックスファイル
    * @returns {Promise<void>} 書込完了時に解決
    */
   async writeIndex(index: IndexFile): Promise<void> {
@@ -381,6 +398,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * blob を書き込む
+   * @param {string} filepath File path
+   * @param {string} content File content
+   * @param {string} [segment] Storage segment
    * @returns {Promise<void>} 書込完了時に解決
    */
   async writeBlob(filepath: string, content: string, segment?: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info'): Promise<void> {
@@ -409,6 +429,11 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Build and persist info metadata for a file written to a segment.
+   * @param {any} root Root directory handle
+   * @param {string} seg Segment name
+   * @param {string} filepath File path
+   * @param {string} sha SHA hash
+   * @param {number} now Current timestamp
    * @returns {Promise<void>}
    */
   private async _updateInfoForWrite(root: any, seg: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info', filepath: string, sha: string, now: number): Promise<void> {
@@ -427,6 +452,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Attempt to load existing info metadata used as basis when updating info.
+   * @param {any} root Root directory handle
+   * @param {string} seg Segment name
+   * @param {string} filepath File path
    * @returns {Promise<any>} parsed existing info object or empty object
    */
   private async _getExistingInfo(root: any, seg: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info', filepath: string): Promise<any> {
@@ -449,6 +477,10 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Build info entry for workspace writes.
+   * @param {any} existing Existing info entry
+   * @param {string} filepath File path
+   * @param {string} sha SHA hash
+   * @param {number} now Current timestamp
    * @returns {any}
    */
   private _buildWorkspaceEntry(existing: any, filepath: string, sha: string, now: number): any {
@@ -462,6 +494,10 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Build info entry for base writes.
+   * @param {any} existing Existing info entry
+   * @param {string} filepath File path
+   * @param {string} sha SHA hash
+   * @param {number} now Current timestamp
    * @returns {any}
    */
   private _buildBaseEntry(existing: any, filepath: string, sha: string, now: number): any {
@@ -475,6 +511,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Build info entry for conflict writes.
+   * @param {any} existing Existing info entry
+   * @param {string} filepath File path
+   * @param {number} now Current timestamp
    * @returns {any}
    */
   private _buildConflictEntry(existing: any, filepath: string, now: number): any {
@@ -488,6 +527,11 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Write content to a file under given prefix, creating directories as needed.
+   * @param {any} root Root directory handle
+   * @param {string} prefix Prefix path
+   * @param {string} filepath File path
+   * @param {string} content File content
+   * @returns {Promise<void>}
    */
   private async _writeToPrefix(root: any, prefix: string, filepath: string, content: string): Promise<void> {
     const fullPath = this.rootDir ? `${this.rootDir}/${prefix}/${filepath}` : `${prefix}/${filepath}`
@@ -502,7 +546,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Read text from a file handle returning null on failure.
-   * @param fh File handle
+   * @param {any} fh File handle
    * @returns {Promise<string|null>} file text or null
    */
   private async _readFileFromHandle(fh: any): Promise<string | null> {
@@ -517,6 +561,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * blob を読み出す
+   * @param {string} filepath File path
+   * @param {any} [segment] Storage segment
    * @returns {Promise<string|null>} ファイル内容、存在しなければ null
    */
   async readBlob(filepath: string, segment?: any): Promise<string | null> {
@@ -527,6 +573,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Read blob from a resolved root. Extracted to reduce cognitive complexity of public entry.
+   * @param {any} root Root directory handle
+   * @param {string} segment Segment name
+   * @param {string} filepath File path
    * @returns {Promise<string|null>}
    */
   private async _readBlobFromRoot(root: any, segment: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info' | undefined, filepath: string): Promise<string | null> {
@@ -543,8 +592,11 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Read from a specific segment prefix.
-    * @returns {Promise<string|null>} file text or null
-    */
+   * @param {any} root Root directory handle
+   * @param {string} segment Segment name
+   * @param {string} filepath File path
+   * @returns {Promise<string|null>} file text or null
+   */
   private async _readFromSegment(root: any, segment: 'workspace' | 'base' | 'conflict' | 'conflictBlob' | 'info' | 'info-git' | 'info-workspace', filepath: string): Promise<string | null> {
     try {
       if (segment === 'info') {
@@ -570,8 +622,10 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Read by trying each variant in order and returning first match.
-    * @returns {Promise<string|null>} file text or null
-    */
+   * @param {any} root Root directory handle
+   * @param {string} filepath File path
+   * @returns {Promise<string|null>} file text or null
+   */
   private async _readFromVariants(root: any, filepath: string): Promise<string | null> {
     for (const v of this.getVariants()) {
       const prefix = v === VAR_WORKSPACE ? this._segmentToPrefix('workspace') : this._segmentToPrefix(v as any)
@@ -583,6 +637,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * blob を削除する
+   * @param {string} filepath File path
+   * @param {any} [segment] Storage segment
    * @returns {Promise<void>} 削除完了時に解決
    */
   async deleteBlob(filepath: string, segment?: any): Promise<void> {
@@ -614,12 +670,12 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   }
 
   /**
-    * Remove a file at a given prefix (does not create directories)
-    * @param root root directory handle
-    * @param prefix prefix dir
-    * @param filepath path relative to prefix
-    * @returns {Promise<void>} resolves when removal attempted (errors are ignored)
-    */
+   * Remove a file at a given prefix (does not create directories)
+   * @param {any} root root directory handle
+   * @param {string} prefix prefix dir
+   * @param {string} filepath path relative to prefix
+   * @returns {Promise<void>} resolves when removal attempted (errors are ignored)
+   */
   private async removeAtPrefix(root: any, prefix: string, filepath: string): Promise<void> {
     const full = this.rootDir ? `${this.rootDir}/${prefix}/${filepath}` : `${prefix}/${filepath}`
     const parts = full.split('/').filter(Boolean)
@@ -647,9 +703,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Read a file under a prefix without throwing. Returns null when not found.
-   * @param root root directory handle
-   * @param prefix prefix dir
-   * @param filepath path relative to prefix
+   * @param {any} root root directory handle
+   * @param {string} prefix prefix dir
+   * @param {string} filepath path relative to prefix
    * @returns {Promise<string|null>} file contents or null when not found
    */
   private async readFromPrefix(root: any, prefix: string, filepath: string): Promise<string | null> {
@@ -667,9 +723,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Traverse into nested directories without creating them.
-   * @param root The starting directory handle
-   * @param parts Path parts to traverse
-   * @returns The final directory handle
+   * @param {any} root The starting directory handle
+   * @param {string[]} parts Path parts to traverse
+   * @returns {Promise<any>} The final directory handle
    */
   private async traverseDir(root: any, parts: string[]): Promise<any> {
     let directory = root
@@ -687,6 +743,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * List all file paths under given prefix (relative paths).
+   * @param {any} root Root directory handle
+   * @param {string} prefix Prefix path
    * @returns {Promise<string[]>} Array of relative file paths; empty array on failure
    */
   private async listFilesAtPrefix(root: any, prefix: string): Promise<string[]> {
@@ -704,6 +762,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Helper to recursively walk directory handles and collect file paths.
+   * @param {any} d Directory handle
+   * @param {string} base Base path
+   * @param {string[]} results Results array
    * @returns {Promise<void>}
    */
   private async _recurseListDir(d: any, base: string, results: string[]): Promise<void> {
@@ -720,6 +781,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Process a single entry returned by entries(): push files or recurse into directories.
+   * @param {any} pair Entry pair from iterator
+   * @param {string} base Base path
+   * @param {string[]} results Results array
    * @returns {Promise<void>}
    */
   private async _processEntryPair(pair: any, base: string, results: string[]): Promise<void> {
@@ -735,6 +799,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Fallback recursion over directory when entries() iterator unavailable.
+   * @param {any} d Directory handle
+   * @param {string} base Base path
+   * @param {string[]} results Results array
    * @returns {Promise<void>}
    */
   private async _recurseListDirFallback(d: any, base: string, results: string[]): Promise<void> {
@@ -744,6 +811,11 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
   }
   
   /**
+   * Handle a single child entry from directory listing.
+   * @param {any} d Directory handle
+   * @param {string} name Entry name
+   * @param {string} base Base path
+   * @param {string[]} results Results array
    * @returns {Promise<void>}
    */
   private async _handleChildEntry(d: any, name: string, base: string, results: string[]): Promise<void> {
@@ -768,6 +840,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Safely list files at prefix, returning an empty array on error.
+   * @param {any} root Root directory handle
+   * @param {string} segPrefix Segment prefix
    * @returns {Promise<string[]>}
    */
   private async _safeListFilesAtPrefix(root: any, segPrefix: string): Promise<string[]> {
@@ -776,6 +850,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Collect info objects for given keys under VAR_INFO
+   * @param {any} root Root directory handle
+   * @param {string[]} keys Array of keys
    * @returns {Promise<Array<{ path: string; info: string | null }>>}
    */
   private async _collectInfoForKeys(root: any, keys: string[]): Promise<Array<{ path: string; info: string | null }>> {
@@ -792,9 +868,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * 指定プレフィックス配下のファイル一覧を取得します。
-   * @param prefix プレフィックス（例: 'dir/sub'）。省略時はルート
-   * @param segment セグメント（'workspace' 等）。省略時は 'workspace'
-   * @param recursive サブディレクトリも含めるか。省略時は true
+   * @param {string} [prefix] プレフィックス（例: 'dir/sub'）。省略時はルート
+   * @param {any} [segment] セグメント（'workspace' 等）。省略時は 'workspace'
+   * @param {boolean} [recursive] サブディレクトリも含めるか。省略時は true
    * @returns {Promise<Array<{ path: string; info: string | null }>>}
    */
   async listFiles(prefix?: string, segment?: any, recursive = true): Promise<Array<{ path: string; info: string | null }>> {
@@ -813,8 +889,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Raw listing that returns implementation-specific URIs and a normalized path.
-   * @param prefix optional prefix to filter
-   * @param recursive whether to include subdirectories
+   * @param {string} [prefix] optional prefix to filter
+   * @param {boolean} [recursive] whether to include subdirectories
    * @returns {Promise<Array<{uri:string,path:string,info?:string|null}>>} array of entries with uri/path/info
    */
   async listFilesRaw(prefix?: string, recursive = true): Promise<Array<{ uri: string; path: string; info?: string | null }>> {
@@ -841,6 +917,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Locate the configured storage root directory handle under navigator.storage root.
+   * @param {any} navRoot Navigator storage root
    * @returns {Promise<any|null>} directory handle or null when not found
    */
   private async _findStorageDirectory(navRoot: any): Promise<any | null> {
@@ -855,6 +932,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Read info metadata for a given key from workspace-local info or git-scoped info.
+   * @param {any} navRoot Navigator storage root
+   * @param {string} key Key to lookup
    * @returns {Promise<string|null>} JSON string or null when absent
    */
   private async _getInfoForOpfsKey(navRoot: any, key: string): Promise<string | null> {
@@ -869,6 +948,9 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Filter keys by prefix and recursion flag for OPFS listing
+   * @param {string[]} keys Array of keys
+   * @param {string} p Path prefix
+   * @param {boolean} recursive Whether to include subdirectories
    * @returns {string[]}
    */
   private _filterKeys(keys: string[], p: string, recursive: boolean): string[] {
@@ -885,6 +967,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * Try to remove a file via its file handle.
+   * @param {any} directory Directory handle
+   * @param {string} name File name
    * @returns {Promise<boolean>} true when removed, false otherwise
    */
   private async tryRemoveFileHandle(directory: any, name: string): Promise<boolean> {
@@ -903,7 +987,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
 
   /**
    * 指定されたルート名のディレクトリを削除します
-   * @param rootName 削除するルート名
+   * @param {string} rootName 削除するルート名
    * @returns {Promise<void>}
    */
   static async delete(rootName: string): Promise<void> {

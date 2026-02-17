@@ -35,6 +35,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * 利用可能なルート名を返します。
+   * @param {string} [namespace] Optional namespace to filter roots
    * @returns {string[]} ルート名の配列
    */
   static availableRoots(namespace?: string): string[] {
@@ -57,7 +58,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
   
   /**
    * コンストラクタ。互換性のためにディレクトリ名を受け取るが無視する。
-   * @param directory 任意のディレクトリ文字列（使用しない）
+   * @param {string} namespace Database namespace
+   * @param {string} [directory] Optional directory name (ignored)
    */
   constructor(namespace: string, directory?: string) {
     // Compose a namespace-prefixed store key
@@ -75,7 +77,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
   }
 
   /**
-   *
+   * Set the current branch for segment-scoped operations.
+   * @param {string | null} [branch] Branch name or null
+   * @returns {void}
    */
   setBranch(branch?: string | null): void {
     this.currentBranch = branch || null
@@ -112,6 +116,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Load workspace-local info entries into result.entries (unprefixed keys)
+   * @param {any} store Storage object
+   * @param {IndexFile} result Result IndexFile
+   * @param {string} branch Branch name
    * @returns {void}
    */
   private _loadInMemoryWorkspaceInfo(store: any, result: IndexFile, branch: string): void {
@@ -124,6 +131,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Load branch-scoped info entries into result.entries without overwriting workspace-local entries
+   * @param {any} store Storage object
+   * @param {IndexFile} result Result IndexFile
+   * @param {string} branch Branch name
    * @returns {void}
    */
   private _loadInMemoryBranchInfo(store: any, result: IndexFile, branch: string): void {
@@ -140,7 +150,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Safely parse stored info JSON and log parse errors.
-   * @returns parsed object or null
+   * @param {string} v JSON text
+   * @param {string} key Entry key
+   * @returns {any | null} parsed object or null
    */
   private _safeParseInfo(v: string, key: string): any | null {
     try {
@@ -153,7 +165,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * IndexFile を設定します。
-   * @param idx 書き込む IndexFile
+   * @param {IndexFile} index 書き込む IndexFile
+   * @returns {Promise<void>}
    */
   async writeIndex(index: IndexFile): Promise<void> {
     const store = InMemoryStorage.stores.get(this.rootKey)!
@@ -177,8 +190,10 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * 指定パスに対して文字列コンテンツを保存します。
-   * @param filepath ファイルパス
-   * @param content ファイル内容
+   * @param {string} filepath ファイルパス
+   * @param {string} content ファイル内容
+   * @param {any} [segment] Storage segment
+   * @returns {Promise<void>}
    */
   async writeBlob(filepath: string, content: string, segment?: any): Promise<void> {
     const seg = segment || SEG_WORKSPACE
@@ -212,6 +227,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
   /**
    * Handle workspace blob writes that should be based on existing git-scoped info.
    * Returns true when the operation is handled and caller should return early.
+   * @param {any} store Storage object
+   * @param {string} filepath File path
+   * @param {string} content File content
    * @returns {Promise<boolean>}
    */
   private async _handleWorkspaceBlobWrite(store: any, filepath: string, content: string): Promise<boolean> {
@@ -232,6 +250,10 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Persist a blob into the appropriate in-memory map for the segment.
+   * @param {any} store Storage object
+   * @param {string} seg Segment name
+   * @param {string} filepath File path
+   * @param {string} content File content
    * @returns {void}
    */
   private _applyBlobToStore(store: any, seg: string, filepath: string, content: string): void {
@@ -253,6 +275,11 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Build the info entry for a write into a given segment.
+   * @param {string} seg Segment name
+   * @param {any} existing Existing info entry
+   * @param {string} filepath File path
+   * @param {string} sha SHA hash
+   * @param {number} now Current timestamp
    * @returns {any} info entry object
    */
   private _buildInfoEntryForSeg(seg: string, existing: any, filepath: string, sha: string, now: number): any {
@@ -266,6 +293,10 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Build info entry when writing to the workspace segment
+   * @param {any} existing Existing info entry
+   * @param {string} filepath File path
+   * @param {string} sha SHA hash
+   * @param {number} now Current timestamp
    * @returns {any}
    */
   private _buildWorkspaceInfoEntry(existing: any, filepath: string, sha: string, now: number): any {
@@ -279,6 +310,10 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Build info entry when writing to the base segment
+   * @param {any} existing Existing info entry
+   * @param {string} filepath File path
+   * @param {string} sha SHA hash
+   * @param {number} now Current timestamp
    * @returns {any}
    */
   private _buildBaseInfoEntry(existing: any, filepath: string, sha: string, now: number): any {
@@ -292,6 +327,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Build info entry when writing to the conflict segment
+   * @param {any} existing Existing info entry
+   * @param {string} filepath File path
+   * @param {number} now Current timestamp
    * @returns {any}
    */
   private _buildConflictInfoEntry(existing: any, filepath: string, now: number): any {
@@ -305,7 +343,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * 指定パスの内容を取得します。
-   * @param filepath ファイルパス
+   * @param {string} filepath ファイルパス
+   * @param {any} [segment] Storage segment
    * @returns {Promise<string|null>} 内容、存在しなければ null
    */
   async readBlob(filepath: string, segment?: any): Promise<string | null> {
@@ -315,6 +354,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Read blob with segment logic extracted for clarity.
+   * @param {any} store Storage object
+   * @param {string} filepath File path
+   * @param {any} [segment] Storage segment
    * @returns {string | null}
    */
   private _readInMemoryBlob(store: any, filepath: string, segment?: any): string | null {
@@ -331,6 +373,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Handle reading when a segment is explicitly provided.
+   * @param {any} store Storage object
+   * @param {string} filepath File path
+   * @param {string} seg Segment name
    * @returns {string | null}
    */
   private _readInMemoryBlobWithSegment(store: any, filepath: string, seg: string): string | null {
@@ -352,6 +397,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Handle explicit workspace-info segment read.
+   * @param {any} store Storage object
+   * @param {string} filepath File path
    * @returns {string|null}
    */
   private _handleInfoWorkspaceSegment(store: any, filepath: string): string | null {
@@ -361,6 +408,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Handle explicit git-scoped info segment read.
+   * @param {any} store Storage object
+   * @param {string} branch Branch name
+   * @param {string} filepath File path
    * @returns {string|null}
    */
   private _handleInfoGitSegment(store: any, branch: string, filepath: string): string | null {
@@ -370,6 +420,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Handle generic info segment read (prefer workspace then git-prefixed).
+   * @param {any} store Storage object
+   * @param {string} branch Branch name
+   * @param {string} filepath File path
    * @returns {string|null}
    */
   private _handleInfoGenericSegment(store: any, branch: string, filepath: string): string | null {
@@ -381,6 +434,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Handle conflictBlob explicit segment read.
+   * @param {any} store Storage object
+   * @param {string} branch Branch name
+   * @param {string} filepath File path
    * @returns {string|null}
    */
   private _handleConflictBlobSegment(store: any, branch: string, filepath: string): string | null {
@@ -390,9 +446,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Read a branch-prefixed info entry if present.
-   * @param store storage object
-   * @param branch branch name
-   * @param filepath file path
+   * @param {any} store storage object
+   * @param {string} branch branch name
+   * @param {string} filepath file path
    * @returns {string|null|undefined} stored info string or undefined when not present
    */
   private _readInfoGit(store: any, branch: string, filepath: string): string | null | undefined {
@@ -402,8 +458,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Read a workspace-local info entry if present.
-   * @param store storage object
-   * @param filepath file path
+   * @param {any} store storage object
+   * @param {string} filepath file path
    * @returns {string|null|undefined} stored info string or undefined when not present
    */
   private _readInfoWorkspace(store: any, filepath: string): string | null | undefined {
@@ -413,9 +469,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Read an on-demand conflict blob if present.
-   * @param store storage object
-   * @param branch branch name
-   * @param filepath file path
+   * @param {any} store storage object
+   * @param {string} branch branch name
+   * @param {string} filepath file path
    * @returns {string|null|undefined} stored conflict blob or undefined when not present
    */
   private _readConflictBlob(store: any, branch: string, filepath: string): string | null | undefined {
@@ -426,10 +482,10 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Helper to read from a mapped segment store using prefixed/unprefixed keys.
-   * @param map segment->store map
-   * @param seg requested segment
-   * @param branch branch name for prefixed keys
-   * @param filepath file path to lookup
+   * @param {Record<string, Map<string, string>>} map segment->store map
+   * @param {string} seg requested segment
+   * @param {string} branch branch name for prefixed keys
+   * @param {string} filepath file path to lookup
    * @returns {string|null} stored value or null
    */
   private _getFromSegmentMap(map: Record<string, Map<string, string>>, seg: string, branch: string, filepath: string): string | null {
@@ -442,7 +498,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * 指定パスのエントリを削除します。
-   * @param filepath ファイルパス
+   * @param {string} filepath ファイルパス
+   * @param {any} [segment] Storage segment
+   * @returns {Promise<void>}
    */
   async deleteBlob(filepath: string, segment?: any): Promise<void> {
     // If segment specified, delete only that segment
@@ -467,9 +525,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * 指定プレフィックス配下のファイル一覧を取得します。
-   * @param prefix プレフィックス（例: 'dir/sub'）
-   * @param segment セグメント（'workspace' 等）。省略時は 'workspace'
-   * @param recursive サブディレクトリも含めるか。省略時は true
+   * @param {string} [prefix] プレフィックス（例: 'dir/sub'）
+   * @param {any} [segment] セグメント（'workspace' 等）。省略時は 'workspace'
+   * @param {boolean} [recursive] サブディレクトリも含めるか。省略時は true
    * @returns {Promise<Array<{ path: string; info: string | null }>>}
    */
   async listFiles(prefix?: string, segment?: any, recursive = true): Promise<Array<{ path: string; info: string | null }>> {
@@ -494,6 +552,10 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Resolve and filter keys for `listFiles` into final key list.
+   * @param {string[]} allKeys All keys from store
+   * @param {string} seg Segment name
+   * @param {string} p Path prefix
+   * @param {boolean} recursive Whether to include subdirectories
    * @returns {string[]} filtered keys
    */
   private _resolveKeysForList(allKeys: string[], seg: string, p: string, recursive: boolean): string[] {
@@ -512,6 +574,8 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Collect file info objects for keys array (InMemory implementation).
+   * @param {string[]} keys Array of keys
+   * @param {any} store Storage object
    * @returns {Array<{path:string, info:string|null}>}
    */
   private _collectFilesInMemory(keys: string[], store: any): Array<{ path: string; info: string | null }> {
@@ -528,6 +592,9 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Filter keys by prefix and recursion flag for InMemoryStorage
+   * @param {string[]} keys Array of keys
+   * @param {string} p Path prefix
+   * @param {boolean} recursive Whether to include subdirectories
    * @returns {string[]}
    */
   private _filterKeys(keys: string[], p: string, recursive: boolean): string[] {
@@ -543,6 +610,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Wrap store to present branch-prefixed info accessors
+   * @param {any} store Storage object
    * @returns {any} wrapped store view for info access
    */
   private _wrapStoreForInfoPrefix(store: any): any {
@@ -555,27 +623,36 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
     const prefixKey = (k: string) => `${branch}${BRANCH_SEP}${k}`
     return Object.assign({}, store, {
       infoBlobs: {
-        /** Check whether prefixed key exists
+        /**
+         * Check whether prefixed key exists
+         * @param {string} k key
          * @returns {boolean}
          */
         has: (k: string) => store.infoBlobs.has(k) || store.infoBlobs.has(prefixKey(k)),
-        /** Get value preferring unprefixed then branch-prefixed key
+        /**
+         * Get value preferring unprefixed then branch-prefixed key
+         * @param {string} k key
          * @returns {string | undefined}
          */
         get: (k: string) => {
           if (store.infoBlobs.has(k)) return store.infoBlobs.get(k)
           return store.infoBlobs.get(prefixKey(k))
         },
-        /** Set value: prefer updating an existing unprefixed entry if present;
+        /**
+         * Set value: prefer updating an existing unprefixed entry if present;
          * otherwise write into the branch-prefixed key. This preserves the
          * expected read semantics where workspace-local info takes precedence.
+         * @param {string} k key
+         * @param {string} v value
          * @returns {any}
          */
         set: (k: string, v: string) => {
           if (store.infoBlobs.has(k)) return store.infoBlobs.set(k, v)
           return store.infoBlobs.set(prefixKey(k), v)
         },
-        /** Delete both unprefixed and prefixed keys
+        /**
+         * Delete both unprefixed and prefixed keys
+         * @param {string} k key
          * @returns {boolean}
          */
         delete: (k: string) => { store.infoBlobs.delete(k); return store.infoBlobs.delete(prefixKey(k)) }
@@ -585,24 +662,34 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Wrap store to present unprefixed info accessors
+   * @param {any} store Storage object
    * @returns {any} wrapped store view for info access
    */
   private _wrapStoreForInfoNoPrefix(store: any): any {
     return Object.assign({}, store, {
       infoBlobs: {
-        /** Check whether key exists
+        /**
+         * Check whether key exists
+         * @param {string} k key
          * @returns {boolean}
          */
         has: (k: string) => store.infoBlobs.has(k),
-        /** Get value for key
+        /**
+         * Get value for key
+         * @param {string} k key
          * @returns {string | undefined}
          */
         get: (k: string) => store.infoBlobs.get(k),
-        /** Set value for key
+        /**
+         * Set value for key
+         * @param {string} k key
+         * @param {string} v value
          * @returns {void}
          */
         set: (k: string, v: string) => store.infoBlobs.set(k, v),
-        /** Delete key
+        /**
+         * Delete key
+         * @param {string} k key
          * @returns {boolean}
          */
         delete: (k: string) => store.infoBlobs.delete(k)
@@ -612,7 +699,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * Calculate SHA-1 hex digest of given content.
-   * @param content Input string
+   * @param {string} content Input string
    * @returns {Promise<string>} Hex encoded SHA-1 digest
    */
   private async shaOf(content: string): Promise<string> {
@@ -625,7 +712,7 @@ export const InMemoryStorage: StorageBackendConstructor = class InMemoryStorage 
 
   /**
    * 指定されたルート名を削除します
-   * @param rootName 削除するルート名
+   * @param {string} rootName 削除するルート名
    * @returns {void}
    */
   static delete(rootName: string): void {

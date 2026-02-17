@@ -103,6 +103,7 @@ export class ChangeTracker {
    * 単一のインデックスファイルから変更を抽出する
    * @param {string} p - ファイルパス
    * @param {string|null} infoTxt - インデックスの情報テキスト
+   * @param {Record<string,any>} indexEntries - インデックスエントリを辛子を使用して捫取
    * @returns {Promise<Array>} 変更配列
    */
   private async _changesForIndexFile(p: string, infoTxt: string | null, indexEntries: Record<string, any> = {}): Promise<Array<{ type: 'create'; path: string; content: string } | { type: 'update'; path: string; content: string; baseSha?: string }>> {

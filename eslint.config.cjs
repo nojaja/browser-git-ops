@@ -43,7 +43,7 @@ module.exports = [
           }
         }
       ],
-      'jsdoc/require-param': 'off',
+      'jsdoc/require-param': 'error',
       'jsdoc/require-returns': 'error',
       '@regru/prefer-early-return/prefer-early-return': ['error', { maximumStatements: 1 }],
       'sonarjs/no-duplicated-branches': 'error',

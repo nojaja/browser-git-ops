@@ -37,7 +37,7 @@ Renames and re-exports [VirtualFS](classes/VirtualFS.md)
 
 #### Defined in
 
-[virtualfs/inmemoryStorage.ts:14](https://github.com/nojaja/browser-git-ops/blob/64877cf6e0c4ccb1d984f9a1dc6d4d1a0c02c0d9/src/virtualfs/inmemoryStorage.ts#L14)
+[virtualfs/inmemoryStorage.ts:14](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/inmemoryStorage.ts#L14)
 
 ___
 
@@ -49,7 +49,7 @@ IndexedDB を用いた永続化実装
 
 #### Defined in
 
-[virtualfs/indexedDatabaseStorage.ts:7](https://github.com/nojaja/browser-git-ops/blob/64877cf6e0c4ccb1d984f9a1dc6d4d1a0c02c0d9/src/virtualfs/indexedDatabaseStorage.ts#L7)
+[virtualfs/indexedDatabaseStorage.ts:7](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/indexedDatabaseStorage.ts#L7)
 
 ___
 
@@ -61,4 +61,4 @@ OPFS (origin private file system) を利用する永続化実装
 
 #### Defined in
 
-[virtualfs/opfsStorage.ts:14](https://github.com/nojaja/browser-git-ops/blob/64877cf6e0c4ccb1d984f9a1dc6d4d1a0c02c0d9/src/virtualfs/opfsStorage.ts#L14)
+[virtualfs/opfsStorage.ts:14](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/opfsStorage.ts#L14)

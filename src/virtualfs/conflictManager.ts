@@ -9,7 +9,9 @@ export class ConflictManager {
   private indexManager: IndexManager
 
   /**
-   *
+   * ConflictManager を適初化します
+   * @param {StorageBackend} backend ストレージを辛子
+   * @param {IndexManager} indexManager インデックス管理オブジェクト
    */
   constructor(backend: StorageBackend, indexManager: IndexManager) {
     this.backend = backend
