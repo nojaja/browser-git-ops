@@ -23,42 +23,42 @@ export interface StorageBackend {
   readIndex(): Promise<IndexFile | null>
 
   /**
-   * index.json を書き込む
-   * @param {IndexFile} index
+  * index.json を書き込む
+  * @param {IndexFile} _index
    * @returns {Promise<void>}
    */
   writeIndex(_index: IndexFile): Promise<void>
 
   /**
-   * ファイルコンテンツを保存
-   * @param {string} filepath
-   * @param {string} content
-   * @param {Segment} segment 保存先セグメント
+  * ファイルコンテンツを保存
+  * @param {string} _filepath
+  * @param {string} _content
+  * @param {Segment} _segment 保存先セグメント
    * @returns {Promise<void>}
    */
   writeBlob(_filepath: string, _content: string, _segment?: Segment): Promise<void>
 
   /**
-   * ファイルコンテンツを読み出す
-   * @param {string} filepath
-   * @param {Segment} segment 読み出すセグメント
+  * ファイルコンテンツを読み出す
+  * @param {string} _filepath
+  * @param {Segment} _segment 読み出すセグメント
    * @returns {Promise<string|null>}
    */
   readBlob(_filepath: string, _segment?: Segment): Promise<string | null>
 
   /**
-   * ファイルを削除する
-   * @param {string} filepath
-   * @param {Segment} [segment] 削除するセグメント（省略時は全セグメント削除）
+  * ファイルを削除する
+  * @param {string} _filepath
+  * @param {Segment} [_segment] 削除するセグメント（省略時は全セグメント削除）
    * @returns {Promise<void>}
    */
   deleteBlob(_filepath: string, _segment?: Segment): Promise<void>
 
   /**
    * 指定プレフィックス配下のファイル一覧を取得します。
-   * @param prefix 取得対象のディレクトリプレフィックス（省略時はルート）
-   * @param segment 取得対象セグメント（省略時は 'workspace'）
-   * @param recursive サブディレクトリも含める場合は true（デフォルト true）
+  * @param _prefix 取得対象のディレクトリプレフィックス（省略時はルート）
+  * @param _segment 取得対象セグメント（省略時は 'workspace'）
+  * @param _recursive サブディレクトリも含める場合は true（デフォルト true）
    * @returns Promise<Array<{path:string, info:string|null}>>
    */
   listFiles(_prefix?: string, _segment?: Segment, _recursive?: boolean): Promise<Array<{ path: string; info: string | null }>>
@@ -72,7 +72,7 @@ export interface StorageBackend {
   /**
    * Set the currently-active branch name for backends that scope data by branch.
    * Implementations may ignore this call if branch-scoped storage is unsupported.
-   * @param branch branch name or undefined to clear
+  * @param _branch branch name or undefined to clear
    */
   setBranch?(_branch?: string | null): void
 }

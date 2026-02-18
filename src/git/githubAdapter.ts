@@ -1,7 +1,7 @@
 import { GitAdapter } from './adapter.ts'
 import AbstractGitAdapter, { fetchWithRetry, classifyStatus, getDelayForResponse, processResponseWithDelay, mapWithConcurrency, shaOf, NonRetryableError } from './abstractAdapter.ts'
 
-type GHOptions = {
+export type GHOptions = {
   owner: string
   repo: string
   token: string

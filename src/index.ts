@@ -5,3 +5,12 @@ export { default as InMemoryStorage } from './virtualfs/inmemoryStorage.ts'
 export { default as GitHubAdapter } from './git/githubAdapter.ts'
 export { default as GitLabAdapter } from './git/gitlabAdapter.ts'
 export { default } from './virtualfs/virtualfs.ts'
+
+// Re-export commonly referenced types so TypeDoc includes them when building
+export type { IndexFile, AdapterMeta, CommitInput, BranchListQuery, BranchListPage, RepositoryMetadata, CreateBranchInput, CreateBranchResult, IndexEntry, BranchInfo, Change as VfsChange, FileState } from './virtualfs/types.ts'
+export type { StorageBackend, StorageBackendConstructor, Segment } from './virtualfs/storageBackend.ts'
+export type { Logger } from './git/abstractAdapter.ts'
+export type { CommitHistoryQuery, CommitHistoryPage, CommitSummary, CommitResult, GitAdapter, Change as GitChange } from './git/adapter.ts'
+export type { GHOptions } from './git/githubAdapter.ts'
+export type { GLOptions } from './git/gitlabAdapter.ts'
+export type { RemoteSnapshotDescriptor } from './virtualfs/virtualfs.ts'

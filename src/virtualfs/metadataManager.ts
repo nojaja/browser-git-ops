@@ -126,7 +126,7 @@ function parseExistingInfo(store: any, filepath: string): any | undefined {
   if (!existingTxt) return undefined
   try {
     return JSON.parse(existingTxt)
-  } catch {
+  } catch (error) {
     return undefined
   }
 }
