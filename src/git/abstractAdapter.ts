@@ -88,23 +88,37 @@ export async function processResponseWithDelay(response: Response, index: number
  */
 export async function fetchWithRetry(input: RequestInfo, init: RequestInit, attempts = 4, baseDelay = 300): Promise<Response> {
   let lastError: any
+
+  async function applyDelayForAttempt(attemptIndex: number) {
+    await new Promise((r) => setTimeout(r, getDelayForResponse(null, attemptIndex, baseDelay)))
+  }
+
+  function rethrowIfNonRetryable(error: any): void {
+    if (error instanceof NonRetryableError) throw error
+  }
+
+  function handleExhausted(error: any): never {
+    if (error instanceof NonRetryableError) throw error
+    // If it's already the exhaustion sentinel, rethrow as-is
+    if (error instanceof RetryExhaustedError) throw error
+    // Wrap any other Error (or value) into a RetryExhaustedError so callers
+    // relying on instanceof RetryExhaustedError detectability will work.
+    if (error instanceof Error) throw new RetryExhaustedError(error.message, error)
+    throw new RetryExhaustedError(String(error))
+  }
+
   for (let attemptIndex = 0; attemptIndex < attempts; attemptIndex++) {
     try {
       const response = await fetch(input, init)
       return await processResponseWithDelay(response, attemptIndex, baseDelay)
     } catch (error) {
       lastError = error
-      // Do not retry on NonRetryableError - rethrow immediately
-      if (error instanceof NonRetryableError) throw error
-      // Apply delay before next retry
-      await new Promise((r) => setTimeout(r, getDelayForResponse(null, attemptIndex, baseDelay)))
+      rethrowIfNonRetryable(error)
+      await applyDelayForAttempt(attemptIndex)
     }
   }
-  // If lastError is a known adapter error, rethrow it to preserve semantics
-  if (lastError instanceof RetryableError || lastError instanceof NonRetryableError) throw lastError
-  // For unknown errors, wrap as RetryableError to indicate exhausted retries
-  if (lastError instanceof Error) throw new RetryableError(lastError.message)
-  throw new RetryableError(String(lastError))
+
+  return handleExhausted(lastError)
 }
 
 /**
@@ -118,6 +132,19 @@ export class RetryableError extends Error { }
 export class NonRetryableError extends Error { }
 
 /**
+ * Error indicating that retry attempts were exhausted and no further retries will be made.
+ */
+export class RetryExhaustedError extends RetryableError {
+  public code = 'RETRY_EXHAUSTED'
+  public cause?: any
+  constructor(message: string, cause?: any) {
+    super(message)
+    this.name = 'RetryExhaustedError'
+    this.cause = cause
+  }
+}
+
+/**
  * Map items with limited concurrency
  * @template T,R
  * @param items Array of items to map
@@ -125,24 +152,35 @@ export class NonRetryableError extends Error { }
  * @param concurrency concurrency limit
  * @returns Promise resolving to array of mapped results
  */
-export function mapWithConcurrency<T, R>(items: T[], mapper: (_t: T) => Promise<R>, concurrency = 5): Promise<R[]> {
-  const results: R[] = []
-  let index = 0
-  const runners: Promise<void>[] = []
-  /**
-   * Worker that consumes items and writes results
-   * @returns Promise<void>
-   */
-  const run = async () => {
-    while (index < items.length) {
-      const index_ = index++
-      if (index_ >= items.length) break
-      const r = await mapper(items[index_])
-      results[index_] = r
-    }
+export type MapWithConcurrencyOptions = { controller?: AbortController }
+
+export async function processOne<T, R>(items: T[], mapper: (_t: T) => Promise<R>, results: R[], index_: number, controller?: AbortController): Promise<void> {
+  try {
+    const r = await mapper(items[index_])
+    results[index_] = r
+  } catch (error) {
+    if (error && (error as any).code === 'RETRY_EXHAUSTED' && controller && !controller.signal.aborted) controller.abort()
+    throw error
   }
-  for (let runnerIndex = 0; runnerIndex < Math.min(concurrency, items.length); runnerIndex++) runners.push(run())
-  return Promise.all(runners).then(() => results)
+}
+
+export async function queueRunWorker<T, R>(items: T[], mapper: (_t: T) => Promise<R>, results: R[], indexReference: { value: number }, controller?: AbortController): Promise<void> {
+  while (true) {
+    if (controller && controller.signal.aborted) return
+    const current = indexReference.value++
+    if (current >= items.length) return
+    await processOne(items, mapper, results, current, controller)
+  }
+}
+
+export function mapWithConcurrency<T, R>(items: T[], mapper: (_t: T) => Promise<R>, concurrency = 5, options?: MapWithConcurrencyOptions): Promise<R[]> {
+  const results: R[] = []
+  if (!items || items.length === 0) return Promise.resolve(results)
+  const controller = options && options.controller ? options.controller : undefined
+  const indexReference = { value: 0 }
+  const workerCount = Math.min(concurrency, items.length)
+  const workers = Array.from({ length: workerCount }, () => queueRunWorker(items, mapper, results, indexReference, controller))
+  return Promise.all(workers).then(() => results)
 }
 
 /**
@@ -369,8 +407,8 @@ export abstract class AbstractGitAdapter {
    * @param concurrency concurrency limit
    * @returns Promise resolving to mapped results
    */
-  protected mapWithConcurrency<T, R>(items: T[], mapper: (_t: T) => Promise<R>, concurrency = 5) {
-    return mapWithConcurrency(items, mapper, concurrency)
+  protected mapWithConcurrency<T, R>(items: T[], mapper: (_t: T) => Promise<R>, concurrency = 5, options?: MapWithConcurrencyOptions) {
+    return mapWithConcurrency(items, mapper, concurrency, options)
   }
 }
 

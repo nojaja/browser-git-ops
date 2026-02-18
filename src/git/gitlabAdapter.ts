@@ -1,5 +1,5 @@
 import { GitAdapter } from './adapter.ts'
-import AbstractGitAdapter, { mapWithConcurrency } from './abstractAdapter.ts'
+import AbstractGitAdapter, { RetryExhaustedError } from './abstractAdapter.ts'
 
 export type GLOptions = { projectId: string; token: string; host?: string }
 
@@ -204,6 +204,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
       this.projectMetadata = this._makeProjectMetadata(data)
       return this.projectMetadata
     } catch (error) {
+      if (error instanceof RetryExhaustedError) throw error
       if (typeof console !== 'undefined' && (console as any).error) (console as any).error('リポジトリメタデータの取得に失敗しました。デフォルトブランチを\'main\'として扱います', error)
       this.projectMetadata = { defaultBranch: 'main', name: '', id: undefined }
       return this.projectMetadata
@@ -255,12 +256,22 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     try {
       const resp = await this.fetchWithRetry(url, { method: 'POST', headers: this.headers, body }, 4, 300)
       const text = await resp.text().catch(() => '')
-      const data = text ? JSON.parse(text) : {}
-      const sha = data && data.commit && (data.commit.id || data.commit.sha) ? (data.commit.id || data.commit.sha) : fromSha
+      const sha = this._extractShaFromCommitResponseText(text, fromSha)
       return { name: branchName, sha, ref: `refs/heads/${branchName}` }
     } catch (error: any) {
+      if (error instanceof RetryExhaustedError) throw error
       const message = String(error && error.message ? error.message : error)
       this._handleCreateBranchError(message, branchName)
+    }
+  }
+
+  private _extractShaFromCommitResponseText(text: string, fallback: string) {
+    try {
+      const data = text ? JSON.parse(text) : {}
+      const commit = data && data.commit
+      return commit && (commit.id || commit.sha) ? (commit.id || commit.sha) : fallback
+    } catch {
+      return fallback
     }
   }
 
@@ -426,18 +437,22 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     // short/long hex SHAs and return as-is to avoid noisy 404s.
     if (typeof branch === 'string' && /^[0-9a-f]{7,40}$/.test(branch)) return branch
 
+    const remote = await this._safeGetBranchHead(branch)
+    return remote ?? branch
+  }
+
+  private async _safeGetBranchHead(branch: string): Promise<string | null> {
     try {
       const branchResponse = await this.fetchWithRetry(`${this.baseUrl}/repository/branches/${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
-      if (!branchResponse?.ok) return branch
-
+      if (!branchResponse?.ok) return null
       const branchJson = await branchResponse.json().catch(() => null)
       const commit = branchJson?.commit
-      const remoteHead = commit?.id ?? commit?.sha
-      return remoteHead ?? branch
+      return commit?.id ?? commit?.sha ?? null
     } catch (error) {
+      if (error instanceof RetryExhaustedError) throw error
       if (typeof console !== 'undefined' && (console as any).warn) (console as any).warn('determineHeadSha fallback', error)
+      return null
     }
-    return branch
   }
 
   /**
@@ -470,11 +485,17 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
      * @param {string} p ファイルパス
      * @returns {Promise<null>}
      */
-    await mapWithConcurrency(targets, async (p: string) => {
-      const content = await this._fetchFileContentForPath(cache, snapshot, p, branch)
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : undefined
+    const signal = controller ? controller.signal : undefined
+
+    const mapper = async (p: string) => {
+      if (signal && signal.aborted) throw new Error('aborted')
+      const content = await this._fetchFileContentForPath(cache, snapshot, p, branch, signal)
       if (content !== null) out[p] = content
       return null
-    }, concurrency)
+    }
+
+    await this.mapWithConcurrency(targets, mapper, concurrency, controller ? { controller } : undefined)
     return out
   }
 
@@ -486,13 +507,13 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * @param {string} branch branch
    * @returns {Promise<string|null>} file content or null
    */
-  private async _fetchFileContentForPath(cache: Map<string, string>, snapshot: Record<string, string>, p: string, branch: string) {
+  private async _fetchFileContentForPath(cache: Map<string, string>, snapshot: Record<string, string>, p: string, branch: string, signal?: AbortSignal) {
     if (cache.has(p)) {
       const v = cache.get(p) as string
       snapshot[p] = v
       return v
     }
-    const content = await this._fetchFileRaw(p, branch)
+    const content = await this._fetchFileRaw(p, branch, signal)
     if (content !== null) {
       cache.set(p, content)
       snapshot[p] = content
@@ -507,16 +528,18 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * @param {string} branch branch name
    * @returns {Promise<string|null>} file content or null
    */
-  private async _fetchFileRaw(path: string, branch: string) {
+  private async _fetchFileRaw(path: string, branch: string, signal?: AbortSignal) {
     try {
-      const rawResponse = await this.fetchWithRetry(`${this.baseUrl}/repository/files/${encodeURIComponent(path)}/raw?ref=${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
+      const init: any = { method: 'GET', headers: this.headers, ...(signal ? { signal } : {}) }
+      const rawResponse = await this.fetchWithRetry(`${this.baseUrl}/repository/files/${encodeURIComponent(path)}/raw?ref=${encodeURIComponent(branch)}`, init)
       if (!rawResponse.ok) {
-        if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('fetchSnapshot file failed', path)
+        this.logDebug('fetchSnapshot file failed', path)
         return null
       }
       return await rawResponse.text()
     } catch (error) {
-      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('fetchSnapshot file error', path, error)
+      if (error instanceof RetryExhaustedError) throw error
+      this.logDebug('fetchSnapshot file error', path, error)
       return null
     }
   }
@@ -569,14 +592,20 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    */
   private async _runResolvers(reference: string, resolvers: Array<(_reference: string) => Promise<string | null>>): Promise<string | null> {
     for (const r of resolvers) {
-      try {
-        const v = await r(reference)
-        if (v) return v
-      } catch (error) {
-        if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('resolveRef resolver failed', error)
-      }
+      const v = await this._tryRunResolver(r, reference)
+      if (v) return v
     }
     return null
+  }
+
+  private async _tryRunResolver(r: (_reference: string) => Promise<string | null>, reference: string): Promise<string | null> {
+    try {
+      return await r(reference)
+    } catch (error) {
+      if (error instanceof RetryExhaustedError) throw error
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('resolveRef resolver failed', error)
+      return null
+    }
   }
 
   /**

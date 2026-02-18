@@ -16,4 +16,4 @@
 
 #### Defined in
 
-[git/adapter.ts:9](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/adapter.ts#L9)
+[git/adapter.ts:9](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/adapter.ts#L9)

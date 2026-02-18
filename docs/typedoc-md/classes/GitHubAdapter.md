@@ -81,7 +81,7 @@ AbstractGitAdapter.constructor
 
 #### Defined in
 
-[git/githubAdapter.ts:26](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L26)
+[git/githubAdapter.ts:26](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L26)
 
 ## Properties
 
@@ -95,7 +95,7 @@ AbstractGitAdapter.baseBackoff
 
 #### Defined in
 
-[git/abstractAdapter.ts:157](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L157)
+[git/abstractAdapter.ts:196](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L196)
 
 ___
 
@@ -109,7 +109,7 @@ AbstractGitAdapter.baseUrl
 
 #### Defined in
 
-[git/abstractAdapter.ts:152](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L152)
+[git/abstractAdapter.ts:191](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L191)
 
 ___
 
@@ -123,7 +123,7 @@ AbstractGitAdapter.headers
 
 #### Defined in
 
-[git/abstractAdapter.ts:153](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L153)
+[git/abstractAdapter.ts:192](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L192)
 
 ___
 
@@ -137,7 +137,7 @@ AbstractGitAdapter.logger
 
 #### Defined in
 
-[git/abstractAdapter.ts:155](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L155)
+[git/abstractAdapter.ts:194](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L194)
 
 ___
 
@@ -151,7 +151,7 @@ AbstractGitAdapter.maxRetries
 
 #### Defined in
 
-[git/abstractAdapter.ts:156](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L156)
+[git/abstractAdapter.ts:195](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L195)
 
 ___
 
@@ -165,7 +165,7 @@ AbstractGitAdapter.options
 
 #### Defined in
 
-[git/abstractAdapter.ts:154](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L154)
+[git/abstractAdapter.ts:193](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L193)
 
 ## Methods
 
@@ -193,7 +193,7 @@ AbstractGitAdapter.backoffMs
 
 #### Defined in
 
-[git/abstractAdapter.ts:358](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L358)
+[git/abstractAdapter.ts:397](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L397)
 
 ___
 
@@ -222,7 +222,7 @@ ___
 
 #### Defined in
 
-[git/githubAdapter.ts:121](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L121)
+[git/githubAdapter.ts:121](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L121)
 
 ___
 
@@ -251,7 +251,7 @@ created branch info
 
 #### Defined in
 
-[git/githubAdapter.ts:282](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L282)
+[git/githubAdapter.ts:282](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L282)
 
 ___
 
@@ -281,7 +281,7 @@ ___
 
 #### Defined in
 
-[git/githubAdapter.ts:182](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L182)
+[git/githubAdapter.ts:182](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L182)
 
 ___
 
@@ -310,7 +310,7 @@ ___
 
 #### Defined in
 
-[git/githubAdapter.ts:157](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L157)
+[git/githubAdapter.ts:157](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L157)
 
 ___
 
@@ -333,7 +333,7 @@ Fetch repository snapshot: headSha, shas map and a fetchContent helper.
 
 #### Defined in
 
-[git/githubAdapter.ts:569](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L569)
+[git/githubAdapter.ts:569](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L569)
 
 ___
 
@@ -365,7 +365,7 @@ AbstractGitAdapter.fetchWithRetry
 
 #### Defined in
 
-[git/abstractAdapter.ts:317](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L317)
+[git/abstractAdapter.ts:356](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L356)
 
 ___
 
@@ -389,7 +389,7 @@ blob を取得してデコードして返します。
 
 #### Defined in
 
-[git/githubAdapter.ts:436](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L436)
+[git/githubAdapter.ts:436](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L436)
 
 ___
 
@@ -413,7 +413,7 @@ tree の SHA
 
 #### Defined in
 
-[git/githubAdapter.ts:317](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L317)
+[git/githubAdapter.ts:317](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L317)
 
 ___
 
@@ -437,7 +437,7 @@ ___
 
 #### Defined in
 
-[git/githubAdapter.ts:329](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L329)
+[git/githubAdapter.ts:329](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L329)
 
 ___
 
@@ -459,7 +459,7 @@ repository metadata
 
 #### Defined in
 
-[git/githubAdapter.ts:198](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L198)
+[git/githubAdapter.ts:198](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L198)
 
 ___
 
@@ -484,7 +484,7 @@ tree の配列
 
 #### Defined in
 
-[git/githubAdapter.ts:423](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L423)
+[git/githubAdapter.ts:423](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L423)
 
 ___
 
@@ -512,7 +512,7 @@ AbstractGitAdapter.isRetryableStatus
 
 #### Defined in
 
-[git/abstractAdapter.ts:349](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L349)
+[git/abstractAdapter.ts:388](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L388)
 
 ___
 
@@ -538,7 +538,7 @@ List branches via GitHub API and map to BranchListPage.
 
 #### Defined in
 
-[git/githubAdapter.ts:230](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L230)
+[git/githubAdapter.ts:230](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L230)
 
 ___
 
@@ -569,7 +569,7 @@ List commits for a ref (GitHub commits API)
 
 #### Defined in
 
-[git/githubAdapter.ts:50](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L50)
+[git/githubAdapter.ts:50](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L50)
 
 ___
 
@@ -595,7 +595,7 @@ AbstractGitAdapter.logDebug
 
 #### Defined in
 
-[git/abstractAdapter.ts:192](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L192)
+[git/abstractAdapter.ts:231](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L231)
 
 ___
 
@@ -621,7 +621,7 @@ AbstractGitAdapter.logError
 
 #### Defined in
 
-[git/abstractAdapter.ts:234](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L234)
+[git/abstractAdapter.ts:273](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L273)
 
 ___
 
@@ -647,7 +647,7 @@ AbstractGitAdapter.logInfo
 
 #### Defined in
 
-[git/abstractAdapter.ts:206](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L206)
+[git/abstractAdapter.ts:245](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L245)
 
 ___
 
@@ -673,13 +673,13 @@ AbstractGitAdapter.logWarn
 
 #### Defined in
 
-[git/abstractAdapter.ts:220](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L220)
+[git/abstractAdapter.ts:259](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L259)
 
 ___
 
 ### mapWithConcurrency
 
-▸ **mapWithConcurrency**\<`T`, `R`\>(`items`, `mapper`, `concurrency?`): `Promise`\<`R`[]\>
+▸ **mapWithConcurrency**\<`T`, `R`\>(`items`, `mapper`, `concurrency?`, `options?`): `Promise`\<`R`[]\>
 
 Map items with limited concurrency by delegating to the shared helper.
 
@@ -697,6 +697,7 @@ Map items with limited concurrency by delegating to the shared helper.
 | `items` | `T`[] | `undefined` | items to map |
 | `mapper` | (`_t`: `T`) => `Promise`\<`R`\> | `undefined` | async mapper |
 | `concurrency` | `number` | `5` | concurrency limit |
+| `options?` | `MapWithConcurrencyOptions` | `undefined` | - |
 
 #### Returns
 
@@ -710,7 +711,7 @@ AbstractGitAdapter.mapWithConcurrency
 
 #### Defined in
 
-[git/abstractAdapter.ts:372](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L372)
+[git/abstractAdapter.ts:411](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L411)
 
 ___
 
@@ -740,7 +741,7 @@ resolved commit SHA
 
 #### Defined in
 
-[git/githubAdapter.ts:453](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L453)
+[git/githubAdapter.ts:453](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L453)
 
 ___
 
@@ -769,7 +770,7 @@ AbstractGitAdapter.setLogger
 
 #### Defined in
 
-[git/abstractAdapter.ts:184](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L184)
+[git/abstractAdapter.ts:223](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L223)
 
 ___
 
@@ -797,7 +798,7 @@ AbstractGitAdapter.shaOf
 
 #### Defined in
 
-[git/abstractAdapter.ts:174](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/abstractAdapter.ts#L174)
+[git/abstractAdapter.ts:213](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/abstractAdapter.ts#L213)
 
 ___
 
@@ -825,4 +826,4 @@ ___
 
 #### Defined in
 
-[git/githubAdapter.ts:267](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/git/githubAdapter.ts#L267)
+[git/githubAdapter.ts:267](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L267)

@@ -40,7 +40,7 @@ Storage の具体実装はこの契約に従うこと
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:55](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/storageBackend.ts#L55)
+[virtualfs/storageBackend.ts:55](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L55)
 
 ___
 
@@ -56,7 +56,7 @@ ___
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:17](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/storageBackend.ts#L17)
+[virtualfs/storageBackend.ts:17](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L17)
 
 ___
 
@@ -82,7 +82,7 @@ Promise<Array<{path:string, info:string|null}>>
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:64](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/storageBackend.ts#L64)
+[virtualfs/storageBackend.ts:64](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L64)
 
 ___
 
@@ -107,7 +107,7 @@ Promise<Array<{ uri: string; path: string; info?: string | null }>>
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:70](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/storageBackend.ts#L70)
+[virtualfs/storageBackend.ts:70](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L70)
 
 ___
 
@@ -130,7 +130,7 @@ ___
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:47](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/storageBackend.ts#L47)
+[virtualfs/storageBackend.ts:47](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L47)
 
 ___
 
@@ -146,7 +146,7 @@ index.json を読み込む
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:23](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/storageBackend.ts#L23)
+[virtualfs/storageBackend.ts:23](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L23)
 
 ___
 
@@ -169,7 +169,7 @@ Implementations may ignore this call if branch-scoped storage is unsupported.
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:77](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/storageBackend.ts#L77)
+[virtualfs/storageBackend.ts:77](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L77)
 
 ___
 
@@ -193,7 +193,7 @@ ___
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:39](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/storageBackend.ts#L39)
+[virtualfs/storageBackend.ts:39](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L39)
 
 ___
 
@@ -215,4 +215,4 @@ index.json を書き込む
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:30](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/storageBackend.ts#L30)
+[virtualfs/storageBackend.ts:30](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L30)
