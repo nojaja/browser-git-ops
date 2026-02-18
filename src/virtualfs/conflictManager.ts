@@ -51,12 +51,8 @@ export class ConflictManager {
         await this.backend.writeBlob(filepath, JSON.stringify(ie), 'info')
       }
 
-      try {
-        await this.backend.deleteBlob(filepath, 'conflict')
-        await this.backend.deleteBlob(filepath, 'conflictBlob')
-      } catch {
-        // ignore
-      }
+      await this.backend.deleteBlob(filepath, 'conflict')
+      await this.backend.deleteBlob(filepath, 'conflictBlob')
 
       // Note: entries are refreshed via backend.readIndex() in getIndex()
       // No explicit reload needed here
@@ -92,7 +88,8 @@ export class ConflictManager {
     if (typeof content === 'undefined') return
     try {
       await this.backend.writeBlob(p, content, 'conflictBlob')
-    } catch {
+    } catch (error) {
+      console.warn('無視されたエラー', error)
       return
     }
   }

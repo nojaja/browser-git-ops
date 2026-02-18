@@ -31,6 +31,7 @@ strict digraph "dependency-cruiser output"{
     "src/virtualfs/remoteSynchronizer.ts" -> "src/virtualfs/hashUtils.ts"
     subgraph "cluster_src" {label="src" subgraph "cluster_src/virtualfs" {label="virtualfs" "src/virtualfs/storageBackend.ts" [label=<storageBackend.ts> tooltip="storageBackend.ts" URL="src/virtualfs/storageBackend.ts" fillcolor="#ccffcc"] } }
     subgraph "cluster_src" {label="src" subgraph "cluster_src/virtualfs" {label="virtualfs" "src/virtualfs/types.ts" [label=<types.ts> tooltip="types.ts" URL="src/virtualfs/types.ts" fillcolor="#ccffcc"] } }
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/virtualfs" {label="virtualfs" subgraph "cluster_src/virtualfs/utils" {label="utils" "src/virtualfs/utils/urlParser.ts" [label=<urlParser.ts> tooltip="urlParser.ts" URL="src/virtualfs/utils/urlParser.ts" fillcolor="#ddfeff"] } } }
     subgraph "cluster_src" {label="src" subgraph "cluster_src/virtualfs" {label="virtualfs" "src/virtualfs/virtualfs.ts" [label=<virtualfs.ts> tooltip="virtualfs.ts" URL="src/virtualfs/virtualfs.ts" fillcolor="#ddfeff"] } }
     "src/virtualfs/virtualfs.ts" -> "src/git/githubAdapter.ts"
     "src/virtualfs/virtualfs.ts" -> "src/git/gitlabAdapter.ts"
@@ -42,4 +43,5 @@ strict digraph "dependency-cruiser output"{
     "src/virtualfs/virtualfs.ts" -> "src/virtualfs/localFileManager.ts"
     "src/virtualfs/virtualfs.ts" -> "src/virtualfs/opfsStorage.ts"
     "src/virtualfs/virtualfs.ts" -> "src/virtualfs/remoteSynchronizer.ts"
+    "src/virtualfs/virtualfs.ts" -> "src/virtualfs/utils/urlParser.ts"
 }

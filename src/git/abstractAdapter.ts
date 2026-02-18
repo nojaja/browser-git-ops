@@ -56,7 +56,7 @@ export function getDelayForResponse(response: Response | null, index: number, ba
       retryAfter = hdrs[RETRY_AFTER_HEADER] || hdrs[RETRY_AFTER_HEADER_LOWER]
     }
     return retryAfter ? Number(retryAfter) * 1000 : baseDelay * Math.pow(2, index) + Math.random() * 100
-  } catch {
+  } catch (error) {
     return baseDelay * Math.pow(2, index) + Math.random() * 100
   }
 }
@@ -93,9 +93,10 @@ export async function fetchWithRetry(input: RequestInfo, init: RequestInit, atte
       const response = await fetch(input, init)
       return await processResponseWithDelay(response, attemptIndex, baseDelay)
     } catch (error) {
+      lastError = error
       // Do not retry on NonRetryableError - rethrow immediately
       if (error instanceof NonRetryableError) throw error
-      lastError = error
+      // Apply delay before next retry
       await new Promise((r) => setTimeout(r, getDelayForResponse(null, attemptIndex, baseDelay)))
     }
   }
@@ -260,8 +261,8 @@ export abstract class AbstractGitAdapter {
       if (typeof headerLike === 'object') {
         Object.assign(out, headerLike)
       }
-    } catch {
-      // ignore normalization errors
+    } catch (error) {
+      new Error('Failed to normalize headers: ' + String(error))
     }
     return out
   }
@@ -298,8 +299,8 @@ export abstract class AbstractGitAdapter {
           if (typeof txt === 'string') bodyPreview = txt.slice(0, 500)
         }
       }
-    } catch {
-      // ignore body read errors
+    } catch (error) {
+      new Error('Failed to format response for log: ' + String(error))
     }
     return { status: response.status, statusText: response.statusText, headers: respHdrs, bodyPreview }
   }
@@ -317,8 +318,8 @@ export abstract class AbstractGitAdapter {
     try {
       const requestLog = this.formatRequestForLog(input, init, attempts, baseDelay)
       this.logDebug({ fetchRequest: requestLog })
-    } catch {
-      // best-effort logging
+    } catch (error) {
+      new Error('Failed to format request for log: ' + String(error))
     }
 
     try {
@@ -326,15 +327,15 @@ export abstract class AbstractGitAdapter {
       try {
         const responseLog = await this.formatResponseForLog(response)
         this.logDebug({ fetchResponse: responseLog })
-      } catch {
-        // ignore logging failures
+      } catch (error) {
+        new Error('Failed to format response for log: ' + String(error))
       }
       return response
     } catch (fetchError) {
       try {
         this.logDebug({ fetchError: String(fetchError) })
-      } catch {
-        // ignore
+      } catch (error) {
+        new Error('Failed to format fetch error for log: ' + String(error))
       }
       throw fetchError
     }

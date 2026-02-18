@@ -538,8 +538,9 @@ async function main() {
                   adapterInstance = null
                 }
                 currentVfs.adapter = adapterInstance
-                await currentVfs.setAdapter({ type: 'github', opts: ghOpts })
-                  appendOutput('log.github.registered', { branch: ghBranch })
+                // Persist adapter metadata using new overload: setAdapter(type, url, token)
+                await currentVfs.setAdapter('github', repo, token)
+                appendOutput('log.github.registered', { branch: ghBranch })
 
                 appendTrace('trace.adapter.setGitHubAdapter', { opts: JSON.stringify({ owner: ghOpts.owner, repo: ghOpts.repo, branch: ghBranch }) })
               } catch (e) {
@@ -547,7 +548,7 @@ async function main() {
               }
             } else {
               // no currentVfs: store pending adapter info so later VFS connections can persist it
-              PENDING_ADAPTER = { meta: { type: 'github', opts: ghOpts }, instance: adapterInstance }
+              PENDING_ADAPTER = { meta: { type: 'github', url: repo, token, branch: ghBranch }, instance: adapterInstance }
               appendOutput('error.vfs.notConnected')
             }
           } catch (e) {
@@ -584,14 +585,15 @@ async function main() {
                   adapterInstance = null
                 }
                 currentVfs.adapter = adapterInstance
-                await currentVfs.setAdapter({ type: 'gitlab', opts: glOpts })
+                // Persist adapter metadata using new overload: setAdapter(type, url, token)
+                await currentVfs.setAdapter('gitlab', repo, token)
                 appendOutput('log.gitlab.registered', { branch: glBranch })
                 appendTrace('trace.adapter.setGitLabAdapter', { opts: JSON.stringify({ projectId: glOpts.projectId, host: glOpts.host, branch: glBranch }) })
               } catch (e) {
                 appendOutput('error.vfs.setAdapter', { err: String(e) })
               }
             } else {
-              PENDING_ADAPTER = { meta: { type: 'gitlab', opts: glOpts }, instance: adapterInstance }
+              PENDING_ADAPTER = { meta: { type: 'gitlab', url: repo, token, branch: glBranch }, instance: adapterInstance }
               appendOutput('error.vfs.notConnected')
             }
           } catch (e) {
@@ -856,11 +858,20 @@ async function main() {
         try {
           if (PENDING_ADAPTER && typeof vfs.setAdapter === 'function') {
             vfs.adapter = PENDING_ADAPTER.instance || null
-            await vfs.setAdapter(PENDING_ADAPTER.meta)
-            // signal registration
-            if (PENDING_ADAPTER.meta && PENDING_ADAPTER.meta.type === 'gitlab') appendOutput('log.gitlab.registered', { branch: PENDING_ADAPTER.meta.opts && PENDING_ADAPTER.meta.opts.branch })
-            if (PENDING_ADAPTER.meta && PENDING_ADAPTER.meta.type === 'github') appendOutput('log.github.registered', { branch: PENDING_ADAPTER.meta.opts && PENDING_ADAPTER.meta.opts.branch })
-            PENDING_ADAPTER = null
+            try {
+              // support both new pending shape { type, url, token, branch } and legacy { type, opts }
+              const m: any = PENDING_ADAPTER.meta || {}
+              if (m && typeof m.type === 'string' && typeof m.url === 'string') {
+                await vfs.setAdapter(m.type, m.url, m.token)
+              } else {
+                await vfs.setAdapter(m)
+              }
+              // signal registration (branch may live in m.branch or m.opts.branch)
+              const branchVal = (m && (m.branch || (m.opts && m.opts.branch))) || 'main'
+              if (m && m.type === 'gitlab') appendOutput('log.gitlab.registered', { branch: branchVal })
+              if (m && m.type === 'github') appendOutput('log.github.registered', { branch: branchVal })
+              PENDING_ADAPTER = null
+            } catch (e) { /* ignore */ }
           }
         } catch (e) { /* ignore */ }
         await populateAdapterMetadata(vfs)

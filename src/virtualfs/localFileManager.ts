@@ -41,7 +41,7 @@ export class LocalFileManager {
     if (gitInfoTxt) {
       try {
         gitInfo = JSON.parse(gitInfoTxt)
-      } catch {
+      } catch (error) {
         gitInfo = {}
       }
     }
@@ -61,7 +61,7 @@ export class LocalFileManager {
     if (existingWorkspaceInfoTxt) {
       try {
         existingWorkspaceInfo = JSON.parse(existingWorkspaceInfoTxt)
-      } catch {
+      } catch (error) {
         existingWorkspaceInfo = {}
       }
     }
@@ -107,7 +107,8 @@ export class LocalFileManager {
         return
       }
       await this._deleteInfos(filepath)
-    } catch {
+    } catch (error) {
+      new Error('Failed to delete file infos: ' + String(error))
       // best-effort: ignore and finish
     }
   }

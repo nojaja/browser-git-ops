@@ -1,7 +1,7 @@
 import { GitAdapter } from './adapter.ts'
 import AbstractGitAdapter, { mapWithConcurrency } from './abstractAdapter.ts'
 
-type GLOptions = { projectId: string; token: string; host?: string }
+export type GLOptions = { projectId: string; token: string; host?: string }
 
 /**
  * GitLab 向けの GitAdapter 実装です。
@@ -434,8 +434,8 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
       const commit = branchJson?.commit
       const remoteHead = commit?.id ?? commit?.sha
       return remoteHead ?? branch
-    } catch {
-      if (typeof console !== 'undefined' && (console as any).warn) (console as any).warn('determineHeadSha fallback')
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).warn) (console as any).warn('determineHeadSha fallback', error)
     }
     return branch
   }
@@ -515,8 +515,8 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
         return null
       }
       return await rawResponse.text()
-    } catch {
-      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('fetchSnapshot file error', path)
+    } catch (error) {
+      if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('fetchSnapshot file error', path, error)
       return null
     }
   }

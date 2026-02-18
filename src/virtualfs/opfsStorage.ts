@@ -301,7 +301,7 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       await this._readInfoEntries(root, result)
 
       return result
-    } catch {
+    } catch (error) {
       return { head: '', entries: {} }
     }
   }
@@ -339,7 +339,8 @@ export const OpfsStorage: StorageBackendConstructor = class OpfsStorage implemen
       if (!txt) continue
       try {
         result.entries[fp] = JSON.parse(txt) as any
-      } catch {
+      } catch (error) {
+        console.warn('無視されたエラー', error)
         continue
       }
     }

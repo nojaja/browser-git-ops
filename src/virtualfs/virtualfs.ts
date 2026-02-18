@@ -1,4 +1,5 @@
 ﻿import { IndexFile, AdapterMeta } from './types.ts'
+import { parseAdapterFromUrl } from './utils/urlParser.ts'
 import { StorageBackend } from './storageBackend.ts'
 import { OpfsStorage } from './opfsStorage.ts'
 import { GitHubAdapter } from '../git/githubAdapter.ts'
@@ -14,7 +15,7 @@ import { ChangeTracker } from './changeTracker.ts'
 import { ConflictManager } from './conflictManager.ts'
 import { RemoteSynchronizer } from './remoteSynchronizer.ts'
 
-type RemoteSnapshotDescriptor = {
+export type RemoteSnapshotDescriptor = {
   headSha: string
   shas: Record<string, string>
   fetchContent: (_paths: string[]) => Promise<Record<string, string>>
@@ -118,14 +119,55 @@ export class VirtualFS {
 
   /**
    * Set adapter instance and persist adapter metadata into index file.
-   * @param {AdapterMeta} meta - metadata to persist (e.g. { type:'github', opts: {...} })
+   * Supports overloads:
+   * - setAdapter(meta: AdapterMeta)
+   * - setAdapter(type: string, url: string, token?: string)
+   * - setAdapter(url: string)
+  * @param {AdapterMeta|string} metaOrTypeOrUrl
    * @returns {Promise<void>}
    */
-  async setAdapter(meta: AdapterMeta) {
-    if (!meta || typeof meta.type !== 'string' || meta.opts == null) throw new Error('Adapter meta is required')
-    this.adapterMeta = meta
-    // persist only adapter metadata; adapter instance is no longer accepted here
+  async setAdapter(metaOrTypeOrUrl?: AdapterMeta | string) {
+    // keep declared arity of 1 for backwards-compatible tests; use arguments for overloads
+    const urlOrUndefined = (arguments as any)[1]
+    const tokenOrUndefined = (arguments as any)[2]
+    const meta = await this._parseAdapterArgs(metaOrTypeOrUrl as any, urlOrUndefined, tokenOrUndefined)
+    if (!meta || typeof meta.type !== 'string' || (meta as any).opts == null && (meta as any).options == null) throw new Error('Adapter meta is required')
+    // normalize to AdapterMeta shape with `opts` to preserve existing index shape
+    const normalized: AdapterMeta = { type: meta.type, opts: (meta as any).opts || (meta as any).options }
+    this.adapterMeta = normalized
     await this._tryPersistAdapterMeta()
+  }
+
+  /**
+   * Parse arguments for `setAdapter` and return normalized meta object.
+   * Accepts AdapterMeta, (type, url, token?), or (url).
+   * @param metaOrTypeOrUrl AdapterMeta or type or url
+   * @param urlOrUndefined optional url when first arg is type
+   * @param tokenOrUndefined optional token
+   * @returns normalized meta object
+   */
+  private async _parseAdapterArgs(metaOrTypeOrUrl: AdapterMeta | string, urlOrUndefined?: string, tokenOrUndefined?: string): Promise<any> {
+    // If object provided, assume it's already AdapterMeta
+    if (typeof metaOrTypeOrUrl === 'object' && metaOrTypeOrUrl !== null && !urlOrUndefined) return metaOrTypeOrUrl
+    // If two args: (type, url)
+    if (typeof metaOrTypeOrUrl === 'string' && typeof urlOrUndefined === 'string') {
+      try {
+        const parsed = parseAdapterFromUrl(urlOrUndefined, tokenOrUndefined, metaOrTypeOrUrl as any)
+        return { type: parsed.type, opts: parsed.opts }
+      } catch (error) {
+        throw error
+      }
+    }
+    // If single string argument (url)
+    if (typeof metaOrTypeOrUrl === 'string' && !urlOrUndefined) {
+      try {
+        const parsed = parseAdapterFromUrl(metaOrTypeOrUrl)
+        return { type: parsed.type, opts: parsed.opts }
+      } catch (error) {
+        throw error
+      }
+    }
+    throw new Error('Adapter meta is required')
   }
 
   /**

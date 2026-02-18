@@ -1,4 +1,4 @@
-[browser-git-ops - v0.0.6](../README.md) / VirtualFS
+[browser-git-ops - v0.0.7](../README.md) / VirtualFS
 
 # Class: VirtualFS
 
@@ -55,8 +55,8 @@ VirtualFS のインスタンスを初期化します。
 | Name | Type | Description |
 | :------ | :------ | :------ |
 | `options?` | `Object` | オプションセット |
-| `options.backend?` | `StorageBackend` | ストレージバックエンド |
-| `options.logger?` | `Logger` | ロガーインスタンス |
+| `options.backend?` | [`StorageBackend`](../interfaces/StorageBackend.md) | ストレージバックエンド |
+| `options.logger?` | [`Logger`](../interfaces/Logger.md) | ロガーインスタンス |
 
 #### Returns
 
@@ -64,7 +64,7 @@ VirtualFS のインスタンスを初期化します。
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:48](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L48)
+[virtualfs/virtualfs.ts:49](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L49)
 
 ## Accessors
 
@@ -80,7 +80,7 @@ public-facing property accessors for backwards compatibility with tests
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:65](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L65)
+[virtualfs/virtualfs.ts:66](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L66)
 
 • `set` **head**(`h`): `void`
 
@@ -98,7 +98,7 @@ Setter for head
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:74](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L74)
+[virtualfs/virtualfs.ts:75](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L75)
 
 ___
 
@@ -114,7 +114,7 @@ Get lastCommitKey
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:82](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L82)
+[virtualfs/virtualfs.ts:83](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L83)
 
 • `set` **lastCommitKey**(`k`): `void`
 
@@ -132,13 +132,13 @@ Set lastCommitKey
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:91](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L91)
+[virtualfs/virtualfs.ts:92](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L92)
 
 ## Methods
 
 ### createBranch
 
-▸ **createBranch**(`input`): `Promise`\<`CreateBranchResult`\>
+▸ **createBranch**(`input`): `Promise`\<[`CreateBranchResult`](../README.md#createbranchresult)\>
 
 Create a remote-only branch via the configured adapter.
 
@@ -146,15 +146,15 @@ Create a remote-only branch via the configured adapter.
 
 | Name | Type |
 | :------ | :------ |
-| `input` | `CreateBranchInput` |
+| `input` | [`CreateBranchInput`](../README.md#createbranchinput) |
 
 #### Returns
 
-`Promise`\<`CreateBranchResult`\>
+`Promise`\<[`CreateBranchResult`](../README.md#createbranchresult)\>
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:1255](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L1255)
+[virtualfs/virtualfs.ts:1297](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L1297)
 
 ___
 
@@ -172,7 +172,7 @@ This does not necessarily instantiate the adapter instance; use
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:166](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L166)
+[virtualfs/virtualfs.ts:208](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L208)
 
 ___
 
@@ -188,7 +188,7 @@ Return or lazily create the adapter instance based on persisted metadata.
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:188](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L188)
+[virtualfs/virtualfs.ts:230](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L230)
 
 ___
 
@@ -204,7 +204,7 @@ Return persisted adapter metadata (if any).
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:541](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L541)
+[virtualfs/virtualfs.ts:583](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L583)
 
 ___
 
@@ -222,7 +222,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:850](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L850)
+[virtualfs/virtualfs.ts:892](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L892)
 
 ___
 
@@ -239,29 +239,29 @@ Returns null when adapter not available.
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:1323](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L1323)
+[virtualfs/virtualfs.ts:1365](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L1365)
 
 ___
 
 ### getIndex
 
-▸ **getIndex**(): `Promise`\<`IndexFile`\>
+▸ **getIndex**(): `Promise`\<[`IndexFile`](../interfaces/IndexFile.md)\>
 
 インデックス情報を返します。
 
 #### Returns
 
-`Promise`\<`IndexFile`\>
+`Promise`\<[`IndexFile`](../interfaces/IndexFile.md)\>
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:824](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L824)
+[virtualfs/virtualfs.ts:866](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L866)
 
 ___
 
 ### getRemoteDiffs
 
-▸ **getRemoteDiffs**(`remote?`): `Promise`\<\{ `diffs`: `string`[] ; `remote`: ``null`` \| `RemoteSnapshotDescriptor` ; `remoteShas`: `Record`\<`string`, `string`\>  }\>
+▸ **getRemoteDiffs**(`remote?`): `Promise`\<\{ `diffs`: `string`[] ; `remote`: ``null`` \| [`RemoteSnapshotDescriptor`](../README.md#remotesnapshotdescriptor) ; `remoteShas`: `Record`\<`string`, `string`\>  }\>
 
 Obtain remote snapshot (via persisted adapter if available) and
 compute simple diffs against the current index.
@@ -272,15 +272,15 @@ Returns an object containing the resolved `remote` descriptor (or null),
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `remote?` | `string` \| `RemoteSnapshotDescriptor` \| \{ `fetchSnapshot`: () => `Promise`\<`RemoteSnapshotDescriptor`\>  } | remote descriptor |
+| `remote?` | `string` \| [`RemoteSnapshotDescriptor`](../README.md#remotesnapshotdescriptor) \| \{ `fetchSnapshot`: () => `Promise`\<[`RemoteSnapshotDescriptor`](../README.md#remotesnapshotdescriptor)\>  } | remote descriptor |
 
 #### Returns
 
-`Promise`\<\{ `diffs`: `string`[] ; `remote`: ``null`` \| `RemoteSnapshotDescriptor` ; `remoteShas`: `Record`\<`string`, `string`\>  }\>
+`Promise`\<\{ `diffs`: `string`[] ; `remote`: ``null`` \| [`RemoteSnapshotDescriptor`](../README.md#remotesnapshotdescriptor) ; `remoteShas`: `Record`\<`string`, `string`\>  }\>
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:1192](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L1192)
+[virtualfs/virtualfs.ts:1234](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L1234)
 
 ___
 
@@ -296,13 +296,13 @@ VirtualFS の初期化を行います（バックエンド初期化と index 読
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:99](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L99)
+[virtualfs/virtualfs.ts:100](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L100)
 
 ___
 
 ### listBranches
 
-▸ **listBranches**(`query?`): `Promise`\<`BranchListPage`\>
+▸ **listBranches**(`query?`): `Promise`\<[`BranchListPage`](../README.md#branchlistpage)\>
 
 Delegate branch listing to the underlying adapter when available.
 
@@ -310,21 +310,21 @@ Delegate branch listing to the underlying adapter when available.
 
 | Name | Type |
 | :------ | :------ |
-| `query?` | `BranchListQuery` |
+| `query?` | [`BranchListQuery`](../README.md#branchlistquery) |
 
 #### Returns
 
-`Promise`\<`BranchListPage`\>
+`Promise`\<[`BranchListPage`](../README.md#branchlistpage)\>
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:1237](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L1237)
+[virtualfs/virtualfs.ts:1279](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L1279)
 
 ___
 
 ### listCommits
 
-▸ **listCommits**(`query`): `Promise`\<`CommitHistoryPage`\>
+▸ **listCommits**(`query`): `Promise`\<[`CommitHistoryPage`](../README.md#commithistorypage)\>
 
 Delegate commit history listing to the underlying adapter when available.
 Thin passthrough used by UI/CLI to retrieve commit summaries and paging info.
@@ -333,15 +333,15 @@ Thin passthrough used by UI/CLI to retrieve commit summaries and paging info.
 
 | Name | Type |
 | :------ | :------ |
-| `query` | `CommitHistoryQuery` |
+| `query` | [`CommitHistoryQuery`](../README.md#commithistoryquery) |
 
 #### Returns
 
-`Promise`\<`CommitHistoryPage`\>
+`Promise`\<[`CommitHistoryPage`](../README.md#commithistorypage)\>
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:1224](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L1224)
+[virtualfs/virtualfs.ts:1266](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L1266)
 
 ___
 
@@ -366,7 +366,7 @@ fs.mkdir 互換 (簡易実装): workspace 側にディレクトリ情報を書�
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:665](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L665)
+[virtualfs/virtualfs.ts:707](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L707)
 
 ___
 
@@ -380,7 +380,7 @@ ___
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `remote` | `string` \| `RemoteSnapshotDescriptor` \| \{ `fetchSnapshot`: () => `Promise`\<`RemoteSnapshotDescriptor`\>  } | リモート情報 |
+| `remote` | `string` \| [`RemoteSnapshotDescriptor`](../README.md#remotesnapshotdescriptor) \| \{ `fetchSnapshot`: () => `Promise`\<[`RemoteSnapshotDescriptor`](../README.md#remotesnapshotdescriptor)\>  } | リモート情報 |
 | `baseSnapshot?` | `Record`\<`string`, `string`\> | path->content マップ |
 
 #### Returns
@@ -389,7 +389,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:989](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L989)
+[virtualfs/virtualfs.ts:1031](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L1031)
 
 ___
 
@@ -403,7 +403,7 @@ ___
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `input` | `CommitInput` | コミット入力 |
+| `input` | [`CommitInput`](../interfaces/CommitInput.md) | コミット入力 |
 
 #### Returns
 
@@ -411,7 +411,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:1460](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L1460)
+[virtualfs/virtualfs.ts:1502](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L1502)
 
 ___
 
@@ -435,7 +435,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:606](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L606)
+[virtualfs/virtualfs.ts:648](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L648)
 
 ___
 
@@ -459,7 +459,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:581](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L581)
+[virtualfs/virtualfs.ts:623](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L623)
 
 ___
 
@@ -485,7 +485,7 @@ file names or Dirent array
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:727](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L727)
+[virtualfs/virtualfs.ts:769](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L769)
 
 ___
 
@@ -508,7 +508,7 @@ rename を delete + create の合成で行うヘルパ
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:564](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L564)
+[virtualfs/virtualfs.ts:606](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L606)
 
 ___
 
@@ -533,7 +533,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:796](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L796)
+[virtualfs/virtualfs.ts:838](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L838)
 
 ___
 
@@ -557,21 +557,25 @@ fs.rmdir 互換 (簡易実装)
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:681](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L681)
+[virtualfs/virtualfs.ts:723](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L723)
 
 ___
 
 ### setAdapter
 
-▸ **setAdapter**(`meta`): `Promise`\<`void`\>
+▸ **setAdapter**(`metaOrTypeOrUrl?`): `Promise`\<`void`\>
 
 Set adapter instance and persist adapter metadata into index file.
+Supports overloads:
+- setAdapter(meta: AdapterMeta)
+- setAdapter(type: string, url: string, token?: string)
+- setAdapter(url: string)
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `meta` | `AdapterMeta` | metadata to persist (e.g. { type:'github', opts: {...} }) |
+| Name | Type |
+| :------ | :------ |
+| `metaOrTypeOrUrl?` | `string` \| [`AdapterMeta`](../interfaces/AdapterMeta.md) |
 
 #### Returns
 
@@ -579,7 +583,7 @@ Set adapter instance and persist adapter metadata into index file.
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:124](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L124)
+[virtualfs/virtualfs.ts:129](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L129)
 
 ___
 
@@ -604,7 +608,7 @@ stats オブジェクト
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:616](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L616)
+[virtualfs/virtualfs.ts:658](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L658)
 
 ___
 
@@ -626,7 +630,7 @@ fs.unlink 互換: ファイルを削除する
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:650](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L650)
+[virtualfs/virtualfs.ts:692](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L692)
 
 ___
 
@@ -649,4 +653,4 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:551](https://github.com/nojaja/browser-git-ops/blob/d5ba5a70b892587f2d189be2f3b77ed34b1af62f/src/virtualfs/virtualfs.ts#L551)
+[virtualfs/virtualfs.ts:593](https://github.com/nojaja/browser-git-ops/blob/1228446eacc9318b5d275629b41f577a4d75037a/src/virtualfs/virtualfs.ts#L593)
