@@ -66,7 +66,7 @@ async function example() {
   await vfs.init()
 
   // 2. Configure adapter (GitHub or GitLab)
-  await vfs.setAdapter(null, {
+  await vfs.setAdapter({
     type: 'github',
     opts: {
       owner: 'your-username',
@@ -138,6 +138,40 @@ await vfs.setAdapter(null, {
     branch: 'main'
   }
 })
+```
+
+### Adapter Configuration (setAdapter)
+
+You can configure the adapter for `VirtualFS` using one of the following call forms:
+
+- `await vfs.setAdapter({ type: 'github' | 'gitlab' | string, opts: { ... } })`
+
+Example:
+
+```typescript
+await vfs.setAdapter({
+  type: 'github',
+  opts: { owner: 'your-username', repo: 'your-repo', token: 'your-token', branch: 'main' }
+})
+```
+
+- `await vfs.setAdapter(type: string, url: string, token?: string)`
+
+Example:
+
+```typescript
+await vfs.setAdapter('github', 'https://github.com/owner/repo', 'your-token')
+```
+
+- `await vfs.setAdapter(url: string)`
+
+Example:
+
+```typescript
+await vfs.setAdapter('https://gitlab.com/owner/project')
+```
+
+When a `url` form is provided, the library parses the URL to determine adapter type and options; a `token` may be supplied as the third argument when using the `(type, url, token?)` form.
 ```
 
 ## Development
@@ -235,7 +269,7 @@ class VirtualFS {
   // File Operations
   async writeFile(path: string, content: string): Promise<void>
   async readFile(path: string): Promise<string>
-  async deleteFile(path: string): Promise<void>
+  async unlink(path: string): Promise<void>
   async renameFile(fromPath: string, toPath: string): Promise<void>
   async listPaths(): Promise<string[]>
   

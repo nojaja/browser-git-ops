@@ -139,6 +139,39 @@ await vfs.setAdapter({
 })
 ```
 
+### アダプタ設定 (`setAdapter`)
+
+`VirtualFS` のアダプタは、以下のいずれかの呼び出し形式で設定できます。
+
+- `await vfs.setAdapter({ type: 'github' | 'gitlab' | string, opts: { ... } })`
+
+例:
+
+```typescript
+await vfs.setAdapter({
+  type: 'github',
+  opts: { owner: 'your-username', repo: 'your-repo', token: 'your-token', branch: 'main' }
+})
+```
+
+- `await vfs.setAdapter(type: string, url: string, token?: string)`
+
+例:
+
+```typescript
+await vfs.setAdapter('github', 'https://github.com/owner/repo', 'your-token')
+```
+
+- `await vfs.setAdapter(url: string)`
+
+例:
+
+```typescript
+await vfs.setAdapter('https://gitlab.com/owner/project')
+```
+
+`url` 形式を与えた場合、ライブラリが URL を解析してアダプタ種別とオプションを決定します。`(type, url, token?)` 形式では `token` を第3引数で渡せます。
+
 ## 開発
 
 ### ビルド
