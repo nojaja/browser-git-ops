@@ -19,9 +19,29 @@ export interface IndexFile {
   entries: Record<string, IndexEntry>
 }
 
+export interface AdapterOptionsBase {
+  token?: string
+  branch?: string
+  host?: string
+  defaultBranch?: string
+  repositoryName?: string
+  repositoryId?: string | number
+}
+
+export interface GitHubAdapterOptions extends AdapterOptionsBase {
+  owner: string
+  repo: string
+}
+
+export interface GitLabAdapterOptions extends AdapterOptionsBase {
+  projectId: string
+}
+
+export type AdapterOptions = GitHubAdapterOptions | GitLabAdapterOptions
+
 export interface AdapterMeta {
   type: string
-  opts?: Record<string, any>
+  opts?: AdapterOptions
 }
 
 export interface TombstoneEntry {

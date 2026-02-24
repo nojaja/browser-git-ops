@@ -1,6 +1,6 @@
 {
   "name": "browser-git-ops",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "type": "module",
   "module": "dist/index.mjs",
   "main": "dist/index.js",
@@ -60,7 +60,7 @@
     "dependency-cruiser": "^17.3.6",
     "esbuild": "^0.27.3",
     "eslint": "^8.56.0",
-    "eslint-plugin-jsdoc": "^3.7.1",
+    "eslint-plugin-jsdoc": "^50.8.0",
     "eslint-plugin-sonarjs": "^0.24.0",
     "eslint-plugin-unicorn": "^39.0.0",
     "fake-indexeddb": "^3.1.7",

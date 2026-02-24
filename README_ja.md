@@ -35,6 +35,8 @@
 - ✅ OPFS・IndexedDB 用の永続化バックエンド
 - ✅ GitHubAdapter の push/pull フロー
 - ✅ GitLabAdapter の push/pull フロー
+- ✅ GitLab ツリー API ページネーション（オフセットベース、per_page=100）— 100 件以上のファイルを持つリポジトリに対応
+- ✅ GitHub truncated ツリー検知 — 100,000 エントリ / 7 MB 超のリポジトリに対するワーニングログ出力
 
 ## インストール
 
@@ -201,6 +203,7 @@ GitHub アダプタを使用するには以下が必要です:
 - **Personal Access Token**（`repo` スコープ付き）
 - リポジトリのオーナーと名前
 - 対象ブランチ（デフォルト: `main`）
+- **大規模リポジトリ**: 再帰ツリーレスポンスが 100,000 エントリまたは 7 MB を超えた場合、`truncated` フラグが検知されワーニングが出力されます。取得済みのファイルはそのまま利用可能です。
 
 ### GitLab アダプタ
 
@@ -209,6 +212,7 @@ GitLab アダプタを使用するには以下が必要です:
 - プロジェクト ID（形式: `username/project` または数値 ID）
 - GitLab インスタンスホスト（デフォルト: `gitlab.com`）
 - 対象ブランチ（デフォルト: `main`）
+- **大規模リポジトリ**: ツリー一覧は自動的にページネーション（オフセットベース、`per_page=100`）されるため、ファイル数にかかわらず `pull` 時に全件取得されます。
 
 ### ブラウザ互換性
 
@@ -243,10 +247,10 @@ class VirtualFS {
   async revertChanges(): Promise<void>
   
   // リモート同期
-  async setAdapter(meta: { type: 'github' | 'gitlab' | string, opts?: any}): Promise<void>
-  async getAdapter(): Promise<{ type: string, opts?: any } | null>
+  async setAdapter(meta: AdapterMeta | string, ...): Promise<void>
+  async getAdapter(): Promise<AdapterMeta | null>
   async getAdapterInstance(): Promise<any | null>
-  getAdapterMeta(): { type: string, opts?: any } | null
+  getAdapterMeta(): AdapterMeta | null
   async pull(reference?: string, baseSnapshot?: Record<string, string>): Promise<any>
   async push(input: CommitInput): Promise<any>
   
@@ -258,6 +262,14 @@ class VirtualFS {
   async getIndex(): Promise<IndexFile>
   async saveIndex(): Promise<void>
 }
+
+// AdapterMeta と関連型:
+// interface AdapterMeta { type: string; opts?: AdapterOptions }
+// type AdapterOptions = GitHubAdapterOptions | GitLabAdapterOptions
+// interface AdapterOptionsBase { token?: string; branch?: string; host?: string;
+//   defaultBranch?: string; repositoryName?: string; repositoryId?: string | number }
+// interface GitHubAdapterOptions extends AdapterOptionsBase { owner: string; repo: string }
+// interface GitLabAdapterOptions extends AdapterOptionsBase { projectId: string }
 
 // `vfs.stat(path)` が返す Stats 相当オブジェクトは Node.js の `fs.Stats` に類似した標準フィールドを持ち、
 // 必要に応じて Git 固有の識別子を含みます（実装参照）。情報例:
@@ -276,17 +288,17 @@ class VirtualFS {
 
 ```typescript
 // アダプタメタデータを取得（インスタンスではなく設定情報）
-async getAdapter(): Promise<{ type: string, opts?: any } | null>
+async getAdapter(): Promise<AdapterMeta | null>
 // 例：
 const meta = await vfs.getAdapter()
 if (meta) {
   console.log('Adapter type:', meta.type)
   console.log('Branch:', meta.opts?.branch)
-  console.log('Owner:', meta.opts?.owner) // GitHub の場合
+  console.log('Owner:', (meta.opts as GitHubAdapterOptions)?.owner) // GitHub の場合
 }
 
 // キャッシュされたアダプタメタデータを同期的に取得
-getAdapterMeta(): { type: string, opts?: any } | null
+getAdapterMeta(): AdapterMeta | null
 // 例：
 const meta = vfs.getAdapterMeta()
 
@@ -328,22 +340,28 @@ class InMemoryStorage implements StorageBackend {
 
 ```typescript
 // GitHub アダプタ
+// truncated ツリーレスポンス（100,000 件以上）は自動検知され、
+// ワーニングとしてログ出力されます。取得済みのファイルはそのまま返されます。
 class GitHubAdapter {
   constructor(options: {
     owner: string
     repo: string
     token: string
-    branch: string
+    branch?: string
+    host?: string   // GitHub Enterprise ホスト（任意）
   })
 }
 
 // GitLab アダプタ
+// ツリー一覧は自動的にページネーション（per_page=100）され、
+// ファイル数にかかわらず全件取得されます。
 class GitLabAdapter {
   constructor(options: {
     projectId: string
     host: string
     token: string
-    branch: string
+    branch?: string
+    host?: string   // セルフホスト GitLab インスタンス（任意）
   })
 }
 ```

@@ -13,11 +13,11 @@
 
 ### opts
 
-• `Optional` **opts**: `Record`\<`string`, `any`\>
+• `Optional` **opts**: [`AdapterOptions`](../README.md#adapteroptions)
 
 #### Defined in
 
-[virtualfs/types.ts:24](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L24)
+[virtualfs/types.ts:44](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L44)
 
 ___
 
@@ -27,4 +27,4 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:23](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L23)
+[virtualfs/types.ts:43](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L43)

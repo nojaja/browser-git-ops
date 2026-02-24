@@ -38,7 +38,7 @@ StorageBackend の "静的側"（コンストラクタ/クラス）を表現す�
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:89](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L89)
+[virtualfs/storageBackend.ts:89](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/storageBackend.ts#L89)
 
 ## Methods
 
@@ -61,7 +61,7 @@ StorageBackend の "静的側"（コンストラクタ/クラス）を表現す�
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:100](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L100)
+[virtualfs/storageBackend.ts:100](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/storageBackend.ts#L100)
 
 ___
 
@@ -77,4 +77,4 @@ ___
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:94](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L94)
+[virtualfs/storageBackend.ts:94](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/storageBackend.ts#L94)

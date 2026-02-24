@@ -35,6 +35,8 @@ A browser-native Git operations library that provides a VirtualFS and platform a
 - ✅ Persistence backends for OPFS and IndexedDB
 - ✅ GitHubAdapter with primary push/pull flows
 - ✅ GitLabAdapter with primary push/pull flows
+- ✅ GitLab tree API pagination (offset-based, per_page=100) for repositories with 100+ files
+- ✅ GitHub truncated tree detection with warning log for repositories exceeding 100,000 entries / 7 MB
 
 ## Installation
 
@@ -202,6 +204,7 @@ To use the GitHub adapter, you need:
 - **Personal Access Token** with `repo` scope
 - Repository owner and name
 - Target branch (default: `main`)
+- **Large repositories**: If the recursive tree response exceeds 100,000 entries or 7 MB, the `truncated` flag is detected and a warning is logged. Files within the returned tree are still available.
 
 ### GitLab Adapter
 
@@ -210,6 +213,7 @@ To use the GitLab adapter, you need:
 - Project ID (format: `username/project` or numeric ID)
 - GitLab instance host (default: `gitlab.com`)
 - Target branch (default: `main`)
+- **Large repositories**: Tree listing is automatically paginated (offset-based, `per_page=100`) so that repositories with any number of files are fully fetched during `pull`.
 
 ### Browser Compatibility
 
@@ -244,10 +248,10 @@ class VirtualFS {
   async revertChanges(): Promise<void>
   
   // Remote Synchronization
-  async setAdapter(meta: { type: 'github' | 'gitlab' | string, opts?: any}): Promise<void>
-  async getAdapter(): Promise<{ type: string, opts?: any } | null>
+  async setAdapter(meta: AdapterMeta | string, ...): Promise<void>
+  async getAdapter(): Promise<AdapterMeta | null>
   async getAdapterInstance(): Promise<any | null>
-  getAdapterMeta(): { type: string, opts?: any } | null
+  getAdapterMeta(): AdapterMeta | null
   async pull(reference?: string, baseSnapshot?: Record<string, string>): Promise<any>
   async push(input: CommitInput): Promise<any>
   
@@ -259,6 +263,14 @@ class VirtualFS {
   async getIndex(): Promise<IndexFile>
   async saveIndex(): Promise<void>
 }
+
+// AdapterMeta and related types:
+// interface AdapterMeta { type: string; opts?: AdapterOptions }
+// type AdapterOptions = GitHubAdapterOptions | GitLabAdapterOptions
+// interface AdapterOptionsBase { token?: string; branch?: string; host?: string;
+//   defaultBranch?: string; repositoryName?: string; repositoryId?: string | number }
+// interface GitHubAdapterOptions extends AdapterOptionsBase { owner: string; repo: string }
+// interface GitLabAdapterOptions extends AdapterOptionsBase { projectId: string }
 
 // Stats-like object returned by `vfs.stat(path)` includes standard fields
 // similar to Node.js `fs.Stats` and may include Git identifiers when available.
@@ -278,17 +290,17 @@ class VirtualFS {
 
 ```typescript
 // Get persisted adapter metadata (configuration, not instance)
-async getAdapter(): Promise<{ type: string, opts?: any } | null>
+async getAdapter(): Promise<AdapterMeta | null>
 // Example:
 const meta = await vfs.getAdapter()
 if (meta) {
   console.log('Adapter type:', meta.type)
   console.log('Branch:', meta.opts?.branch)
-  console.log('Owner:', meta.opts?.owner) // GitHub case
+  console.log('Owner:', (meta.opts as GitHubAdapterOptions)?.owner) // GitHub case
 }
 
 // Get cached adapter metadata synchronously
-getAdapterMeta(): { type: string, opts?: any } | null
+getAdapterMeta(): AdapterMeta | null
 // Example:
 const meta = vfs.getAdapterMeta()
 
@@ -330,22 +342,28 @@ class InMemoryStorage implements StorageBackend {
 
 ```typescript
 // GitHub Adapter
+// Truncated tree responses (100,000+ entries) are automatically detected
+// and logged as a warning; fetched files are still returned.
 class GitHubAdapter {
   constructor(options: {
     owner: string
     repo: string
     token: string
-    branch: string
+    branch?: string
+    host?: string   // GitHub Enterprise host (optional)
   })
 }
 
 // GitLab Adapter
+// Tree listing is automatically paginated (per_page=100) to support
+// repositories with any number of files.
 class GitLabAdapter {
   constructor(options: {
     projectId: string
     host: string
     token: string
-    branch: string
+    branch?: string
+    host?: string   // Self-hosted GitLab instance (optional)
   })
 }
 ```

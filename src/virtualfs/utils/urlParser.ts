@@ -1,5 +1,5 @@
+import type { AdapterMeta, GitHubAdapterOptions, GitLabAdapterOptions } from '../types.ts'
 export type AdapterType = 'github' | 'gitlab'
-export interface AdapterMeta { type: AdapterType; opts: Record<string, any> }
 
 /**
  * Parse a repository URL into adapter metadata suitable for `setAdapter`.
@@ -64,9 +64,8 @@ function buildGithubMeta(parsed: URL, hostname: string, segments: string[], reso
   const owner = segments[0] || ''
   const repo = segments[1] || ''
   if (!owner || !repo) throw new Error('invalid repository path')
-  const options: Record<string, any> = { owner, repo }
+  const options: GitHubAdapterOptions = { owner, repo, branch: branchParameter || 'main' }
   if (resolvedToken) options.token = resolvedToken
-  options.branch = branchParameter || 'main'
   if (!/github\.com$/i.test(hostname)) {
     options.host = `${parsed.protocol}//${parsed.host}/api/v3`
   }
@@ -84,9 +83,8 @@ function buildGithubMeta(parsed: URL, hostname: string, segments: string[], reso
 function buildGitlabMeta(parsed: URL, hostname: string, segments: string[], resolvedToken?: string, branchParameter?: string): AdapterMeta {
   const projectId = segments.join('/')
   if (!projectId) throw new Error('invalid repository path')
-  const options: Record<string, any> = { projectId }
+  const options: GitLabAdapterOptions = { projectId, branch: branchParameter || 'main' }
   if (resolvedToken) options.token = resolvedToken
-  options.branch = branchParameter || 'main'
   if (!/gitlab\.com$/i.test(hostname)) {
     options.host = `${parsed.protocol}//${parsed.host}`
   }

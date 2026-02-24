@@ -265,6 +265,12 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     }
   }
 
+  /**
+   * Extract SHA from commit response text.
+   * @param {string} text response text
+   * @param {string} fallback fallback SHA value
+   * @returns {string} extracted SHA or fallback
+   */
   private _extractShaFromCommitResponseText(text: string, fallback: string) {
     try {
       const data = text ? JSON.parse(text) : {}
@@ -441,6 +447,11 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     return remote ?? branch
   }
 
+  /**
+   * Safely fetch branch head SHA, returning null on failure.
+   * @param {string} branch branch name
+   * @returns {Promise<string|null>} head SHA or null
+   */
   private async _safeGetBranchHead(branch: string): Promise<string | null> {
     try {
       const branchResponse = await this.fetchWithRetry(`${this.baseUrl}/repository/branches/${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
@@ -457,14 +468,28 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
 
   /**
    * Fetch repository tree and build shas map and fileSet.
+   * Paginates through all pages using offset-based pagination (per_page=100).
    * @param {string} branch branch name
    * @returns {Promise<{shas:Record<string,string>,fileSet:Set<string>}>}
    */
   private async _fetchTreeAndBuildShas(branch: string): Promise<{ shas: Record<string, string>; fileSet: Set<string> }> {
-    const treeResponse = await this.fetchWithRetry(`${this.baseUrl}/repository/tree?recursive=true&ref=${encodeURIComponent(branch)}`, { method: 'GET', headers: this.headers })
-    const treeJ = await treeResponse.json()
-    const files = Array.isArray(treeJ) ? treeJ.filter((t: any) => t.type === 'blob') : []
-    return this._buildShasAndFileSet(files)
+    const allFiles: any[] = []
+    let page = 1
+    const perPage = 100
+
+    while (true) {
+      const url = `${this.baseUrl}/repository/tree?recursive=true&ref=${encodeURIComponent(branch)}&per_page=${perPage}&page=${page}`
+      const treeResponse = await this.fetchWithRetry(url, { method: 'GET', headers: this.headers })
+      const treeJ = await treeResponse.json()
+      const entries = Array.isArray(treeJ) ? treeJ : []
+      allFiles.push(...entries.filter((t: any) => t.type === 'blob'))
+
+      const paging = this._parsePagingHeaders(treeResponse)
+      if (!paging.nextPage) break
+      page = paging.nextPage
+    }
+
+    return this._buildShasAndFileSet(allFiles)
   }
 
   /**
@@ -488,6 +513,11 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : undefined
     const signal = controller ? controller.signal : undefined
 
+    /**
+     * Mapper to fetch a single file.
+     * @param {string} p file path
+     * @returns {Promise<null>}
+     */
     const mapper = async (p: string) => {
       if (signal && signal.aborted) throw new Error('aborted')
       const content = await this._fetchFileContentForPath(cache, snapshot, p, branch, signal)
@@ -505,6 +535,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * @param {Record<string,string>} snapshot snapshot map
    * @param {string} p file path
    * @param {string} branch branch
+   * @param {AbortSignal} [signal] optional abort signal
    * @returns {Promise<string|null>} file content or null
    */
   private async _fetchFileContentForPath(cache: Map<string, string>, snapshot: Record<string, string>, p: string, branch: string, signal?: AbortSignal) {
@@ -526,6 +557,7 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
    * Fetch raw file content from GitLab; return null on failure.
    * @param {string} path file path
    * @param {string} branch branch name
+   * @param {AbortSignal} [signal] optional abort signal
    * @returns {Promise<string|null>} file content or null
    */
   private async _fetchFileRaw(path: string, branch: string, signal?: AbortSignal) {
@@ -598,6 +630,12 @@ export class GitLabAdapter extends AbstractGitAdapter implements GitAdapter {
     return null
   }
 
+  /**
+   * Try running a single resolver, returning null on failure.
+   * @param {Function} r resolver function
+   * @param {string} reference commit-ish to resolve
+   * @returns {Promise<string|null>} resolved sha or null
+   */
   private async _tryRunResolver(r: (_reference: string) => Promise<string | null>, reference: string): Promise<string | null> {
     try {
       return await r(reference)

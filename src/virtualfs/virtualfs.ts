@@ -1,4 +1,4 @@
-﻿import { IndexFile, AdapterMeta } from './types.ts'
+﻿import { IndexFile, AdapterMeta, AdapterOptions, AdapterOptionsBase } from './types.ts'
 import { parseAdapterFromUrl } from './utils/urlParser.ts'
 import { StorageBackend } from './storageBackend.ts'
 import { OpfsStorage } from './opfsStorage.ts'
@@ -1386,11 +1386,12 @@ export class VirtualFS {
     try {
       const have = await this._loadAdapterMetaIfNeeded()
       if (!have) return
-      const options = (this.adapterMeta && this.adapterMeta.opts) || {}
+      const existing = (this.adapterMeta && this.adapterMeta.opts) as AdapterOptions | undefined
+      const options: Partial<AdapterOptionsBase> = existing ? { ...existing } : {}
       options.defaultBranch = md.defaultBranch
       if (md.name) options.repositoryName = md.name
       if (md.id !== undefined) options.repositoryId = md.id
-      this.adapterMeta!.opts = options
+      this.adapterMeta!.opts = { ...existing, ...options } as AdapterOptions
       await this._writeAdapterMetaToIndex()
     } catch (error) {
       if (typeof console !== 'undefined' && (console as any).debug) (console as any).debug('persist repository metadata aborted', error)

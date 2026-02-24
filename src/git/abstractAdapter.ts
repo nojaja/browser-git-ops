@@ -89,14 +89,17 @@ export async function processResponseWithDelay(response: Response, index: number
 export async function fetchWithRetry(input: RequestInfo, init: RequestInit, attempts = 4, baseDelay = 300): Promise<Response> {
   let lastError: any
 
+  /** @param {number} attemptIndex attempt index */
   async function applyDelayForAttempt(attemptIndex: number) {
     await new Promise((r) => setTimeout(r, getDelayForResponse(null, attemptIndex, baseDelay)))
   }
 
+  /** @param {any} error caught error */
   function rethrowIfNonRetryable(error: any): void {
     if (error instanceof NonRetryableError) throw error
   }
 
+  /** @param {any} error last error */
   function handleExhausted(error: any): never {
     if (error instanceof NonRetryableError) throw error
     // If it's already the exhaustion sentinel, rethrow as-is
@@ -137,6 +140,10 @@ export class NonRetryableError extends Error { }
 export class RetryExhaustedError extends RetryableError {
   public code = 'RETRY_EXHAUSTED'
   public cause?: any
+  /**
+   * @param {string} message error message
+   * @param {any} [cause] original cause
+   */
   constructor(message: string, cause?: any) {
     super(message)
     this.name = 'RetryExhaustedError'
@@ -154,6 +161,16 @@ export class RetryExhaustedError extends RetryableError {
  */
 export type MapWithConcurrencyOptions = { controller?: AbortController }
 
+/**
+ * Process a single item from the items array.
+ * @template T,R
+ * @param {T[]} items source items
+ * @param {Function} mapper async mapper
+ * @param {R[]} results results array
+ * @param {number} index_ item index
+ * @param {AbortController} [controller] optional abort controller
+ * @returns {Promise<void>}
+ */
 export async function processOne<T, R>(items: T[], mapper: (_t: T) => Promise<R>, results: R[], index_: number, controller?: AbortController): Promise<void> {
   try {
     const r = await mapper(items[index_])
@@ -164,6 +181,17 @@ export async function processOne<T, R>(items: T[], mapper: (_t: T) => Promise<R>
   }
 }
 
+/**
+ * Worker that processes items sequentially from a shared index.
+ * @template T,R
+ * @param {T[]} items source items
+ * @param {Function} mapper async mapper
+ * @param {R[]} results results array
+ * @param {{value:number}} indexReference shared index reference
+ * @param {number} indexReference.value current index value
+ * @param {AbortController} [controller] optional abort controller
+ * @returns {Promise<void>}
+ */
 export async function queueRunWorker<T, R>(items: T[], mapper: (_t: T) => Promise<R>, results: R[], indexReference: { value: number }, controller?: AbortController): Promise<void> {
   while (true) {
     if (controller && controller.signal.aborted) return
@@ -173,6 +201,15 @@ export async function queueRunWorker<T, R>(items: T[], mapper: (_t: T) => Promis
   }
 }
 
+/**
+ * Map items with limited concurrency.
+ * @template T,R
+ * @param {T[]} items items to map
+ * @param {Function} mapper async mapper function
+ * @param {number} concurrency concurrency limit
+ * @param {MapWithConcurrencyOptions} [options] options with optional controller
+ * @returns {Promise<R[]>} mapped results
+ */
 export function mapWithConcurrency<T, R>(items: T[], mapper: (_t: T) => Promise<R>, concurrency = 5, options?: MapWithConcurrencyOptions): Promise<R[]> {
   const results: R[] = []
   if (!items || items.length === 0) return Promise.resolve(results)
@@ -405,6 +442,7 @@ export abstract class AbstractGitAdapter {
    * @param items items to map
    * @param mapper async mapper
    * @param concurrency concurrency limit
+   * @param [options] options with optional controller
    * @returns Promise resolving to mapped results
    */
   protected mapWithConcurrency<T, R>(items: T[], mapper: (_t: T) => Promise<R>, concurrency = 5, options?: MapWithConcurrencyOptions) {

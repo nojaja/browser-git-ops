@@ -598,6 +598,11 @@ export class GitHubAdapter extends AbstractGitAdapter implements GitAdapter {
   private async _buildFileMapFromHead(headSha: string): Promise<{ shas: Record<string, string>; fileMap: Map<string, any> }> {
     const treeResponse = await this._fetchWithRetry(`${this.baseUrl}/git/trees/${headSha}${'?recursive=1'}`, { method: 'GET', headers: this.headers }, 4, 300)
     const treeJ = await treeResponse.json()
+
+    if (treeJ && treeJ.truncated === true) {
+      this.logWarn('GitHub tree response was truncated. Some files may be missing. Consider using non-recursive tree fetching for large repositories.')
+    }
+
     const files = (treeJ && treeJ.tree) ? treeJ.tree.filter((t: any) => t.type === 'blob') : []
     const shas: Record<string, string> = {}
     const fileMap = new Map<string, any>()

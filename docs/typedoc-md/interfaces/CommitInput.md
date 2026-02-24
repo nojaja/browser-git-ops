@@ -20,7 +20,7 @@
 
 #### Defined in
 
-[virtualfs/types.ts:48](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L48)
+[virtualfs/types.ts:68](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L68)
 
 ___
 
@@ -30,7 +30,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:51](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L51)
+[virtualfs/types.ts:71](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L71)
 
 ___
 
@@ -40,7 +40,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:46](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L46)
+[virtualfs/types.ts:66](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L66)
 
 ___
 
@@ -50,7 +50,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:47](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L47)
+[virtualfs/types.ts:67](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L67)
 
 ___
 
@@ -60,4 +60,4 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:49](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L49)
+[virtualfs/types.ts:69](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L69)

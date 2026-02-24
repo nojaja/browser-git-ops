@@ -17,10 +17,13 @@ browser-git-ops
 ### Interfaces
 
 - [AdapterMeta](interfaces/AdapterMeta.md)
+- [AdapterOptionsBase](interfaces/AdapterOptionsBase.md)
 - [CommitInput](interfaces/CommitInput.md)
 - [CommitResult](interfaces/CommitResult.md)
 - [GitAdapter](interfaces/GitAdapter.md)
 - [GitChange](interfaces/GitChange.md)
+- [GitHubAdapterOptions](interfaces/GitHubAdapterOptions.md)
+- [GitLabAdapterOptions](interfaces/GitLabAdapterOptions.md)
 - [IndexEntry](interfaces/IndexEntry.md)
 - [IndexFile](interfaces/IndexFile.md)
 - [Logger](interfaces/Logger.md)
@@ -29,6 +32,7 @@ browser-git-ops
 
 ### Type Aliases
 
+- [AdapterOptions](README.md#adapteroptions)
 - [BranchInfo](README.md#branchinfo)
 - [BranchListPage](README.md#branchlistpage)
 - [BranchListQuery](README.md#branchlistquery)
@@ -59,6 +63,16 @@ Renames and re-exports [VirtualFS](classes/VirtualFS.md)
 
 ## Type Aliases
 
+### AdapterOptions
+
+Ƭ **AdapterOptions**: [`GitHubAdapterOptions`](interfaces/GitHubAdapterOptions.md) \| [`GitLabAdapterOptions`](interfaces/GitLabAdapterOptions.md)
+
+#### Defined in
+
+[virtualfs/types.ts:40](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L40)
+
+___
+
 ### BranchInfo
 
 Ƭ **BranchInfo**: `Object`
@@ -76,7 +90,7 @@ Renames and re-exports [VirtualFS](classes/VirtualFS.md)
 
 #### Defined in
 
-[virtualfs/types.ts:55](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L55)
+[virtualfs/types.ts:75](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L75)
 
 ___
 
@@ -94,7 +108,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:70](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L70)
+[virtualfs/types.ts:90](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L90)
 
 ___
 
@@ -111,7 +125,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:65](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L65)
+[virtualfs/types.ts:85](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L85)
 
 ___
 
@@ -129,7 +143,7 @@ ___
 
 #### Defined in
 
-[git/adapter.ts:26](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/adapter.ts#L26)
+[git/adapter.ts:26](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L26)
 
 ___
 
@@ -147,7 +161,7 @@ ___
 
 #### Defined in
 
-[git/adapter.ts:12](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/adapter.ts#L12)
+[git/adapter.ts:12](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L12)
 
 ___
 
@@ -167,7 +181,7 @@ ___
 
 #### Defined in
 
-[git/adapter.ts:18](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/adapter.ts#L18)
+[git/adapter.ts:18](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L18)
 
 ___
 
@@ -184,7 +198,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:83](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L83)
+[virtualfs/types.ts:103](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L103)
 
 ___
 
@@ -202,7 +216,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:88](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L88)
+[virtualfs/types.ts:108](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L108)
 
 ___
 
@@ -212,7 +226,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:1](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L1)
+[virtualfs/types.ts:1](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L1)
 
 ___
 
@@ -231,7 +245,7 @@ ___
 
 #### Defined in
 
-[git/githubAdapter.ts:4](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/githubAdapter.ts#L4)
+[git/githubAdapter.ts:4](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/githubAdapter.ts#L4)
 
 ___
 
@@ -249,7 +263,7 @@ ___
 
 #### Defined in
 
-[git/gitlabAdapter.ts:4](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/git/gitlabAdapter.ts#L4)
+[git/gitlabAdapter.ts:4](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/gitlabAdapter.ts#L4)
 
 ___
 
@@ -267,7 +281,7 @@ ___
 
 #### Defined in
 
-[virtualfs/virtualfs.ts:18](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/virtualfs.ts#L18)
+[virtualfs/virtualfs.ts:18](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/virtualfs.ts#L18)
 
 ___
 
@@ -285,7 +299,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:76](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L76)
+[virtualfs/types.ts:96](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L96)
 
 ___
 
@@ -297,7 +311,7 @@ Storage セグメント
 
 #### Defined in
 
-[virtualfs/storageBackend.ts:6](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/storageBackend.ts#L6)
+[virtualfs/storageBackend.ts:6](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/storageBackend.ts#L6)
 
 ___
 
@@ -307,7 +321,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:40](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/types.ts#L40)
+[virtualfs/types.ts:60](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L60)
 
 ## Variables
 
@@ -320,7 +334,7 @@ ___
 
 #### Defined in
 
-[virtualfs/inmemoryStorage.ts:14](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/inmemoryStorage.ts#L14)
+[virtualfs/inmemoryStorage.ts:14](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/inmemoryStorage.ts#L14)
 
 ___
 
@@ -332,7 +346,7 @@ IndexedDB を用いた永続化実装
 
 #### Defined in
 
-[virtualfs/indexedDatabaseStorage.ts:7](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/indexedDatabaseStorage.ts#L7)
+[virtualfs/indexedDatabaseStorage.ts:7](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/indexedDatabaseStorage.ts#L7)
 
 ___
 
@@ -344,4 +358,4 @@ OPFS (origin private file system) を利用する永続化実装
 
 #### Defined in
 
-[virtualfs/opfsStorage.ts:14](https://github.com/nojaja/browser-git-ops/blob/ed9802aefd83cce9f3aa141ec064f36631d72fe5/src/virtualfs/opfsStorage.ts#L14)
+[virtualfs/opfsStorage.ts:14](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/opfsStorage.ts#L14)
