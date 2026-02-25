@@ -42,7 +42,7 @@ browser-git-ops は、特に以下の用途向けに設計されています。
 - **CORS フリー**: プロキシなしで直接 API 連携
 - **TypeScript サポート**: 完全な型定義付き API
 
-## v0.0.5: FS 互換 API
+## FS 互換 API
 
 - `VirtualFS` に Node ライクなファイル操作メソッドを追加しました: `stat`, `unlink`, `mkdir`, `rmdir`, `readdir`。
 - `Stats` に Git 識別子（`gitBlobSha`, `gitCommitSha`）を含めるようになりました。

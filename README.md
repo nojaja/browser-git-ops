@@ -43,7 +43,7 @@ browser-git-ops is designed specifically for:
 - **CORS-Free Operations**: Direct API integration without proxy workarounds
 - **TypeScript Support**: Fully typed API with TypeScript definitions
 
-## v0.0.5: FS-compatible API
+## FS-compatible API
 
 - Adds Node-like filesystem methods on `VirtualFS`: `stat`, `unlink`, `mkdir`, `rmdir`, `readdir`.
 - `Stats` objects now include Git identifiers when available (`gitBlobSha`, `gitCommitSha`).
