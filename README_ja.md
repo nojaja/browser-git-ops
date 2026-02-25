@@ -70,13 +70,16 @@ async function example() {
   // 2. アダプタを設定（GitHub または GitLab）
   await vfs.setAdapter({
     type: 'github',
+    branch: 'main',
+    token: 'your-github-token',
     opts: {
       owner: 'your-username',
       repo: 'your-repo',
-      token: 'your-github-token',
-      branch: 'main'
     }
   })
+  // 別のオーバーロード呼び出し:
+  //   await vfs.setAdapter('github', 'https://github.com/your-username/your-repo', 'main', 'your-github-token')
+  //   await vfs.setAdapter('https://github.com/your-username/your-repo', 'main', 'your-github-token')
 
   // 3. リモートから最新の内容を取得
   await vfs.pull({ ref: 'main' })
@@ -132,13 +135,16 @@ await vfs.init()
 ```typescript
 await vfs.setAdapter({
   type: 'gitlab',
+  branch: 'main',
+  token: 'your-gitlab-token',
   opts: {
     projectId: 'username/project',
     host: 'gitlab.com',
-    token: 'your-gitlab-token',
-    branch: 'main'
   }
 })
+// 別のオーバーロード呼び出し:
+//   await vfs.setAdapter('gitlab', 'https://gitlab.com/username/project', 'main', 'your-gitlab-token')
+//   await vfs.setAdapter('https://gitlab.com/username/project', 'main', 'your-gitlab-token')
 ```
 
 ## 開発
@@ -246,8 +252,10 @@ class VirtualFS {
   async getChangeSet(): Promise<ChangeItem[]>
   async revertChanges(): Promise<void>
   
-  // リモート同期
-  async setAdapter(meta: AdapterMeta | string, ...): Promise<void>
+  // リモート同期（オーバーロード）
+  async setAdapter(meta: AdapterMeta): Promise<void>
+  async setAdapter(type: string, url: string, branch?: string, token?: string): Promise<void>
+  async setAdapter(url: string, branch?: string, token?: string): Promise<void>
   async getAdapter(): Promise<AdapterMeta | null>
   async getAdapterInstance(): Promise<any | null>
   getAdapterMeta(): AdapterMeta | null
@@ -264,12 +272,21 @@ class VirtualFS {
 }
 
 // AdapterMeta と関連型:
-// interface AdapterMeta { type: string; opts?: AdapterOptions }
-// type AdapterOptions = GitHubAdapterOptions | GitLabAdapterOptions
-// interface AdapterOptionsBase { token?: string; branch?: string; host?: string;
-//   defaultBranch?: string; repositoryName?: string; repositoryId?: string | number }
-// interface GitHubAdapterOptions extends AdapterOptionsBase { owner: string; repo: string }
-// interface GitLabAdapterOptions extends AdapterOptionsBase { projectId: string }
+// interface AdapterMeta {
+//   type: string;
+//   url?: string;        // リポジトリ URL（opts から生成可能）
+//   branch?: string;     // 対象ブランチ（デフォルト: 'main'）
+//   token?: string;
+//   opts?: {
+//     host?: string;
+//     owner?: string;     // GitHub
+//     projectId?: string; // GitLab
+//     repo?: string;
+//   }
+// }
+// indexManager に保存される正規化形式:
+// { type, url, branch, token, opts: { host, owner, projectId, repo } }
+// branch を省略した場合のデフォルト値は 'main'。
 
 // `vfs.stat(path)` が返す Stats 相当オブジェクトは Node.js の `fs.Stats` に類似した標準フィールドを持ち、
 // 必要に応じて Git 固有の識別子を含みます（実装参照）。情報例:
@@ -293,8 +310,9 @@ async getAdapter(): Promise<AdapterMeta | null>
 const meta = await vfs.getAdapter()
 if (meta) {
   console.log('Adapter type:', meta.type)
-  console.log('Branch:', meta.opts?.branch)
-  console.log('Owner:', (meta.opts as GitHubAdapterOptions)?.owner) // GitHub の場合
+  console.log('Branch:', meta.branch)   // トップレベルフィールド（デフォルト: 'main'）
+  console.log('Token:', meta.token)
+  console.log('Owner:', meta.opts?.owner) // GitHub の場合
 }
 
 // キャッシュされたアダプタメタデータを同期的に取得
@@ -313,7 +331,7 @@ if (adapter) {
 
 **注**: 
 - `getAdapter()` と `getAdapterInstance()` は異なります
-- `getAdapter()` は永続化されたメタデータ（type と opts）を返します
+- `getAdapter()` は永続化されたメタデータ（type, url, branch, token, opts）を返します
 - `getAdapterInstance()` はメタデータからアダプタインスタンスを作成・取得します
 - `getAdapterMeta()` はキャッシュされたメタデータを同期的に返します（Promise なし）
 

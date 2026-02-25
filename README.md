@@ -68,15 +68,18 @@ async function example() {
   await vfs.init()
 
   // 2. Configure adapter (GitHub or GitLab)
-  await vfs.setAdapter(null, {
+  await vfs.setAdapter({
     type: 'github',
+    branch: 'main',
+    token: 'your-github-token',
     opts: {
       owner: 'your-username',
       repo: 'your-repo',
-      token: 'your-github-token',
-      branch: 'main'
     }
   })
+  // Alternative overloads:
+  //   await vfs.setAdapter('github', 'https://github.com/your-username/your-repo', 'main', 'your-github-token')
+  //   await vfs.setAdapter('https://github.com/your-username/your-repo', 'main', 'your-github-token')
 
   // 3. Pull latest content from remote
   await vfs.pull()
@@ -131,15 +134,18 @@ await vfs.init()
 ### Using GitLab Adapter
 
 ```typescript
-await vfs.setAdapter(null, {
+await vfs.setAdapter({
   type: 'gitlab',
+  branch: 'main',
+  token: 'your-gitlab-token',
   opts: {
     projectId: 'username/project',
     host: 'gitlab.com',
-    token: 'your-gitlab-token',
-    branch: 'main'
   }
 })
+// Alternative overloads:
+//   await vfs.setAdapter('gitlab', 'https://gitlab.com/username/project', 'main', 'your-gitlab-token')
+//   await vfs.setAdapter('https://gitlab.com/username/project', 'main', 'your-gitlab-token')
 ```
 
 ## Development
@@ -247,8 +253,10 @@ class VirtualFS {
   async getChangeSet(): Promise<ChangeItem[]>
   async revertChanges(): Promise<void>
   
-  // Remote Synchronization
-  async setAdapter(meta: AdapterMeta | string, ...): Promise<void>
+  // Remote Synchronization (overloads)
+  async setAdapter(meta: AdapterMeta): Promise<void>
+  async setAdapter(type: string, url: string, branch?: string, token?: string): Promise<void>
+  async setAdapter(url: string, branch?: string, token?: string): Promise<void>
   async getAdapter(): Promise<AdapterMeta | null>
   async getAdapterInstance(): Promise<any | null>
   getAdapterMeta(): AdapterMeta | null
@@ -265,12 +273,21 @@ class VirtualFS {
 }
 
 // AdapterMeta and related types:
-// interface AdapterMeta { type: string; opts?: AdapterOptions }
-// type AdapterOptions = GitHubAdapterOptions | GitLabAdapterOptions
-// interface AdapterOptionsBase { token?: string; branch?: string; host?: string;
-//   defaultBranch?: string; repositoryName?: string; repositoryId?: string | number }
-// interface GitHubAdapterOptions extends AdapterOptionsBase { owner: string; repo: string }
-// interface GitLabAdapterOptions extends AdapterOptionsBase { projectId: string }
+// interface AdapterMeta {
+//   type: string;
+//   url?: string;        // Repository URL (can be derived from opts)
+//   branch?: string;     // Target branch (default: 'main')
+//   token?: string;
+//   opts?: {
+//     host?: string;
+//     owner?: string;     // GitHub
+//     projectId?: string; // GitLab
+//     repo?: string;
+//   }
+// }
+// Stored (normalized) format in indexManager:
+// { type, url, branch, token, opts: { host, owner, projectId, repo } }
+// When branch is omitted it defaults to 'main'.
 
 // Stats-like object returned by `vfs.stat(path)` includes standard fields
 // similar to Node.js `fs.Stats` and may include Git identifiers when available.
@@ -295,8 +312,9 @@ async getAdapter(): Promise<AdapterMeta | null>
 const meta = await vfs.getAdapter()
 if (meta) {
   console.log('Adapter type:', meta.type)
-  console.log('Branch:', meta.opts?.branch)
-  console.log('Owner:', (meta.opts as GitHubAdapterOptions)?.owner) // GitHub case
+  console.log('Branch:', meta.branch)   // top-level field (default: 'main')
+  console.log('Token:', meta.token)
+  console.log('Owner:', meta.opts?.owner) // GitHub case
 }
 
 // Get cached adapter metadata synchronously
@@ -315,7 +333,7 @@ if (adapter) {
 
 **Note**: 
 - `getAdapter()` and `getAdapterInstance()` serve different purposes
-- `getAdapter()` returns persisted metadata (type and opts)
+- `getAdapter()` returns persisted metadata (type, url, branch, token, opts)
 - `getAdapterInstance()` creates/retrieves the adapter instance from metadata
 - `getAdapterMeta()` synchronously returns cached metadata (no Promise)
 
