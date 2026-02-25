@@ -1,8 +1,9 @@
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/nojaja/browser-git-ops) [![日本語ドキュメント](https://img.shields.io/badge/docs-日本語-blue.svg)](https://github.com/nojaja/browser-git-ops/blob/main/README_ja.md)
-
 # browser-git-ops
 
-A browser-native Git operations library that provides a VirtualFS and platform adapters for GitHub and GitLab. It implements multiple persistent backends (OPFS, IndexedDB, and an in-memory backend) and abstracts them behind a common VirtualFS API.
+browser-git-ops is a zero-server GitHub/GitLab operations library 
+that works entirely in the browser without CORS proxy.
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/nojaja/browser-git-ops) [![日本語ドキュメント](https://img.shields.io/badge/docs-日本語-blue.svg)](https://github.com/nojaja/browser-git-ops/blob/main/README_ja.md)
 
 - **Live Demo**: https://nojaja.github.io/browser-git-ops/
 
@@ -11,6 +12,25 @@ A browser-native Git operations library that provides a VirtualFS and platform a
 ## Overview
 
 ![Architecture Overview](docs/asset/browser-git-ops-overview.png)
+
+## Why browser-git-ops?
+Most browser-based Git solutions suffer from CORS issues or require a backend proxy.
+
+browser-git-ops is designed specifically for:
+
+- Zero-server applications
+- CORS-free GitHub/GitLab operations
+- High-level repository data management
+
+### Comparison
+| Feature                 | browser-git-ops | isomorphic-git | Octokit |
+| ----------------------- | --------------- | -------------- | ------- |
+| Browser Native               | ✅               | ✅              | ✅       |
+| No CORS Proxy Required             | ✅               | ❌              | —       |
+| File Change Detection with VirtualFS     | ✅               | ✖（なし）          | —       |
+| GitHub & GitLab Adapter | ✅               | ✖              | APIのみ   |
+| IndexedDB / OPFS Support   | ✅               | ✖              | —       |
+
 
 ## Key Features
 

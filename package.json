@@ -5,7 +5,7 @@
   "module": "dist/index.mjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "description": "A browser-native Git operations library built with OPFS and Web APIs.",
+  "description": "CORS-free GitHub/GitLab operations from the browser using official APIs. No server, no proxy, just pure browser-based Git operations.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nojaja/browser-git-ops.git"
@@ -15,12 +15,15 @@
   },
   "homepage": "https://github.com/nojaja/browser-git-ops#readme",
   "keywords": [
-    "virtualfs",
     "git",
     "github",
     "gitlab",
-    "vfs",
-    "apigit"
+    "browser",
+    "cors",
+    "rest-api",
+    "no-server",
+    "web-git",
+    "isomorphic-git-alternative"
   ],
   "author": "nojaja <free.riccia@gmail.com> (https://github.com/nojaja)",
   "license": "MIT",

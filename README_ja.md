@@ -1,9 +1,8 @@
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/nojaja/browser-git-ops) [![日本語ドキュメント](https://img.shields.io/badge/docs-日本語-blue.svg)](https://github.com/nojaja/browser-git-ops/blob/main/README_ja.md)
-
 # browser-git-ops
 
-ブラウザネイティブで動作する Git 操作ライブラリです。`VirtualFS` とプラットフォームアダプタ（GitHub / GitLab）を提供し、永続化は OPFS、IndexedDB、インメモリの各バックエンドで実装されています。
+browser-git-ops は、CORS プロキシを使わずにブラウザ内で完全に動作する、ゼロサーバー GitHub/GitLab オペレーションライブラリです。
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/nojaja/browser-git-ops) [![日本語ドキュメント](https://img.shields.io/badge/docs-日本語-blue.svg)](https://github.com/nojaja/browser-git-ops/blob/main/README_ja.md)
 - **Live Demo**: https://nojaja.github.io/browser-git-ops/
 
 **[English](./README.md)** | **[日本語](./README_ja.md)
@@ -11,6 +10,26 @@
 ## 概要
 
 ![アーキテクチャ概要](docs/asset/browser-git-ops-overview.png)
+
+## なぜ browser-git-ops なのか？
+
+ブラウザベースの Git ソリューションの多くは、CORS の問題を抱えているか、バックエンドプロキシを必要とします。
+
+browser-git-ops は、特に以下の用途向けに設計されています。
+
+- ゼロサーバーアプリケーション
+- CORS フリーの GitHub/GitLab 操作
+- 高度なリポジトリデータ管理
+
+### 比較
+| Feature                 | browser-git-ops | isomorphic-git | Octokit |
+| ----------------------- | --------------- | -------------- | ------- |
+| ブラウザネイティブ               | ✅               | ✅              | ✅       |
+| CORS プロキシ不要             | ✅               | ❌              | —       |
+| VirtualFS でファイル変更検出     | ✅               | ✖（なし）          | —       |
+| GitHub & GitLab Adapter | ✅               | ✖              | APIのみ   |
+| IndexedDB / OPFS サポート   | ✅               | ✖              | —       |
+
 
 ## 主な機能
 
