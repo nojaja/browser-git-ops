@@ -47,7 +47,7 @@ describe('VirtualFS.pull() with ref (TDD behavior tests for v0.0.4)', () => {
     await vfs.setAdapter({ type: 'gitlab', opts: { projectId: 'root/test-repo', host: 'http://localhost:8929', token: '******', branch: 'main' } })
   })
 
-  it('resolves ref, applies snapshot and updates head and adapterMeta.opts.branch on success', async () => {
+  it('resolves ref, applies snapshot and updates head and adapterMeta.branch on success', async () => {
     const ref = 'develop'
     // call new API shape; use any cast so tests compile even if API not yet implemented
     await expect((vfs as any).pull({ ref })).resolves.toBeDefined()
@@ -63,7 +63,7 @@ describe('VirtualFS.pull() with ref (TDD behavior tests for v0.0.4)', () => {
     // adapter meta should be updated to the requested ref
     const meta = await vfs.getAdapter()
     expect(meta).not.toBeNull()
-    expect(meta.opts && meta.opts.branch).toBe(ref)
+    expect(meta.branch).toBe(ref)
   })
 
   it('throws if resolveRef fails and does not modify adapterMeta', async () => {
@@ -75,11 +75,11 @@ describe('VirtualFS.pull() with ref (TDD behavior tests for v0.0.4)', () => {
 
     // Ensure adapter meta remains unchanged (still 'main')
     const meta = await vfs.getAdapter()
-    expect(meta.opts && meta.opts.branch).toBe('main')
+    expect(meta.branch).toBe('main')
   })
 
-  it('uses adapterMeta.opts.branch when no ref specified', async () => {
-    // ensure adapterMeta.opts.branch is set to 'feature'
+  it('uses adapterMeta.branch when no ref specified', async () => {
+    // ensure adapterMeta.branch is set to 'feature'
     vfs.adapter = fakeAdapter
     await vfs.setAdapter({ type: 'github', opts: { branch: 'feature' } })
 

@@ -1,4 +1,4 @@
-[browser-git-ops - v0.0.7](../README.md) / IndexFile
+[browser-git-ops - v0.0.8](../README.md) / IndexFile
 
 # Interface: IndexFile
 
@@ -19,7 +19,7 @@
 
 #### Defined in
 
-[virtualfs/types.ts:18](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L18)
+[virtualfs/types.ts:18](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L18)
 
 ___
 
@@ -29,7 +29,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:19](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L19)
+[virtualfs/types.ts:19](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L19)
 
 ___
 
@@ -39,7 +39,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:14](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L14)
+[virtualfs/types.ts:14](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L14)
 
 ___
 
@@ -49,4 +49,4 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:16](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L16)
+[virtualfs/types.ts:16](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L16)

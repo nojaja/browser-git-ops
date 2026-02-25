@@ -1,4 +1,4 @@
-[browser-git-ops - v0.0.7](../README.md) / Logger
+[browser-git-ops - v0.0.8](../README.md) / Logger
 
 # Interface: Logger
 
@@ -38,7 +38,7 @@ provided, no logging will be performed by the adapter.
 
 #### Defined in
 
-[git/abstractAdapter.ts:14](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/abstractAdapter.ts#L14)
+[git/abstractAdapter.ts:14](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/abstractAdapter.ts#L14)
 
 ___
 
@@ -62,7 +62,7 @@ ___
 
 #### Defined in
 
-[git/abstractAdapter.ts:17](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/abstractAdapter.ts#L17)
+[git/abstractAdapter.ts:17](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/abstractAdapter.ts#L17)
 
 ___
 
@@ -86,7 +86,7 @@ ___
 
 #### Defined in
 
-[git/abstractAdapter.ts:15](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/abstractAdapter.ts#L15)
+[git/abstractAdapter.ts:15](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/abstractAdapter.ts#L15)
 
 ___
 
@@ -110,4 +110,4 @@ ___
 
 #### Defined in
 
-[git/abstractAdapter.ts:16](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/abstractAdapter.ts#L16)
+[git/abstractAdapter.ts:16](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/abstractAdapter.ts#L16)

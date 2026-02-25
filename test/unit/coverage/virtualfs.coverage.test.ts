@@ -24,7 +24,7 @@ describe('virtualfs - coverage focused tests', () => {
     const res = await vfs.pull({ ref: 'feature' })
 
     expect(adapter.resolveRef).toHaveBeenCalledWith('feature')
-    expect(vfs.getAdapterMeta().opts.branch).toBe('feature')
+    expect(vfs.getAdapterMeta().branch).toBe('feature')
     expect(vfs.remoteSynchronizer.pull).toHaveBeenCalled()
     expect(res.remote.headSha).toBe('RESOLVED-SHA')
   })
@@ -45,7 +45,7 @@ describe('virtualfs - coverage focused tests', () => {
     const res = await vfs.pull()
 
     expect(adapter.resolveRef).toHaveBeenCalledWith('feature')
-    expect(vfs.getAdapterMeta().opts.branch).toBe('feature')
+    expect(vfs.getAdapterMeta().branch).toBe('feature')
     expect(res.remote.headSha).toBe('BR-SHA')
   })
 

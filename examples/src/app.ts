@@ -439,173 +439,65 @@ async function main() {
     const repo = repoInput.value.trim()
     const token = tokenInput.value.trim()
     appendOutput('log.connect.input', { repo: repo || '<未入力>', token: token ? '***' : '<未入力>' })
-    // Emit adapter-created markers to satisfy E2E expectations
-
 
     try {
-      // Parse URL to support self-hosted instances as well as github.com/gitlab.com
-      let parsed: URL | null = null
-      try {
-        parsed = new URL(repo)
-      } catch (err) {
-        parsed = null
-      }
-
-      if (!parsed) {
+      if (!repo) {
         appendOutput('error.invalidUrl')
         return
       }
 
-      // Normalize path segments and strip trailing .git
-      const path = parsed.pathname.replace(/(^\/+|\/+$)/g, '')
-      const rawSegments = path ? path.split('/') : []
-      const segments = rawSegments.map((s) => s.replace(/\.git$/i, ''))
-
-      // Heuristics to choose platform:
-      // - hostname contains 'gitlab' => GitLab
-      // - hostname contains 'github' => GitHub
-      // - token prefix 'glpat_' => GitLab, 'ghp_' => GitHub
-      // - nested path (>=3 segments) => likely GitLab (groups/subgroups)
-      // - otherwise (2 segments) => GitHub by default
-      const hostname = (parsed.hostname || '').toLowerCase()
-      const tokenHint = (token || '')
-      let chosen: 'github' | 'gitlab' | null = null
-      // If user explicitly selected platform, respect it
-      const platformOverride = (platformSelect && platformSelect.value) ? (platformSelect.value as string) : 'auto'
-      if (platformOverride === 'github' || platformOverride === 'gitlab') {
-        chosen = platformOverride as 'github' | 'gitlab'
-      } else {
-        if (hostname.includes('gitlab')) chosen = 'gitlab'
-        else if (hostname.includes('github')) chosen = 'github'
-        else if (tokenHint.startsWith('glpat_')) chosen = 'gitlab'
-        else if (tokenHint.startsWith('ghp_')) chosen = 'github'
-        else if (segments.length >= 3) chosen = 'gitlab'
-        else if (segments.length === 2) chosen = 'github'
+      // Ensure a VirtualFS exists so adapter metadata can be registered
+      if (!currentVfs && lib.InMemoryStorage) {
+        try {
+          await connectVfsBackend('inMemory', lib.InMemoryStorage, 'apigit_storage', 'InMemoryStorage', 'root')
+        } catch (e) {
+          appendTrace('trace.connectBtn.createDefaultInMemoryFailed', { err: String(e) })
+        }
       }
 
-      if (chosen === 'github' && lib.GitHubAdapter) {
-        const owner = segments[0] || ''
-        const repoName = segments[1] || ''
-        if (!owner || !repoName) {
-          appendOutput('error.github.ownerRepo')
-        } else {
-          currentPlatform = 'github'
-          appendOutput('log.github.adapterCreated')
-          currentOwner = owner
-          currentRepoName = repoName
-          try {
-            // For GitHub Enterprise/self-hosted, prefer API base at origin + '/api/v3'
-            let hostForApi: string | undefined = undefined
-            if (!/github\.com$/i.test(hostname)) {
-              hostForApi = `${parsed.protocol}//${parsed.host}/api/v3`
-            }
-            const ghOpts: any = { owner, repo: repoName, token }
-            if (hostForApi) ghOpts.host = hostForApi
-            // Read branch from UI input (empty -> 'main') and persist along with adapter metadata
-            const ghBranch = (branchInput && branchInput.value ? branchInput.value.trim() : '') || 'main'
-            ghOpts.branch = ghBranch
-            // Ensure a VirtualFS exists so adapter metadata can be registered
-            if (!currentVfs && lib.InMemoryStorage) {
-              try {
-                await connectVfsBackend('inMemory', lib.InMemoryStorage, 'apigit_storage', 'InMemoryStorage', 'root')
-                } catch (e) {
-                  appendTrace('trace.connectBtn.createDefaultInMemoryFailed', { err: String(e) })
-                }
-            }
+      // Read branch from UI input (empty -> undefined; library defaults to 'main')
+      const branch = (branchInput && branchInput.value ? branchInput.value.trim() : '') || undefined
+      const platformOverride = (platformSelect && platformSelect.value) ? (platformSelect.value as string) : 'auto'
 
-            // Ensure a VirtualFS exists so adapter metadata can be registered
-            if (!currentVfs && lib.InMemoryStorage) {
-              try {
-                await connectVfsBackend('inMemory', lib.InMemoryStorage, 'apigit_storage', 'InMemoryStorage', 'root')
-              } catch (e) {
-                appendTrace('trace.connectBtn.createDefaultInMemoryFailed', { err: String(e) })
-              }
-            }
-
-            // Do NOT instantiate adapter here; only persist connection metadata into VirtualFS
-            let adapterInstance: any = null
-            if (currentVfs && typeof currentVfs.setAdapter === 'function') {
-              try {
-                // Instantiate adapter instance so runtime operations (fetch/list) work
-                try {
-                  if (typeof (lib as any).GitHubAdapter === 'function') {
-                    adapterInstance = new (lib as any).GitHubAdapter(ghOpts)
-                    appendTrace('trace.adapter.githubInstanceCreated', { opts: JSON.stringify({ owner: ghOpts.owner, repo: ghOpts.repo, branch: ghBranch }) })
-                    // ja.json -> { "trace.adapter.githubInstanceCreated": "GitHubAdapter インスタンスが作成されました: {opts}" }
-                    // en.json -> { "trace.adapter.githubInstanceCreated": "GitHubAdapter instance created: {opts}" }
-                  }
-                } catch (e) {
-                  adapterInstance = null
-                }
-                currentVfs.adapter = adapterInstance
-                // Persist adapter metadata using new overload: setAdapter(type, url, token)
-                await currentVfs.setAdapter('github', repo, token)
-                appendOutput('log.github.registered', { branch: ghBranch })
-
-                appendTrace('trace.adapter.setGitHubAdapter', { opts: JSON.stringify({ owner: ghOpts.owner, repo: ghOpts.repo, branch: ghBranch }) })
-              } catch (e) {
-                appendOutput('error.vfs.setAdapter', { err: String(e) })
-              }
-            } else {
-              // no currentVfs: store pending adapter info so later VFS connections can persist it
-              PENDING_ADAPTER = { meta: { type: 'github', url: repo, token, branch: ghBranch }, instance: adapterInstance }
-              appendOutput('error.vfs.notConnected')
-            }
-          } catch (e) {
-            appendOutput('error.github.register.exception', { err: String(e) })
+      if (currentVfs && typeof currentVfs.setAdapter === 'function') {
+        try {
+          // Use library's setAdapter which handles URL parsing, platform detection, and normalization.
+          // Adapter instances are created lazily by getAdapterInstance() from persisted metadata.
+          if (platformOverride === 'github' || platformOverride === 'gitlab') {
+            await currentVfs.setAdapter(platformOverride, repo, branch, token || undefined)
+          } else {
+            await currentVfs.setAdapter(repo, branch, token || undefined)
           }
-        }
-      } else if (chosen === 'gitlab' && lib.GitLabAdapter) {
-        if (segments.length < 2) {
-          appendOutput('error.gitlab.namespace')
-        } else {
-          // projectId should be full namespace path (group[/subgroup]/project)
-          const projectId = segments.join('/')
-          currentPlatform = 'gitlab'
-          appendOutput('log.gitlab.adapterCreated')
-          currentOwner = segments.slice(0, -1).join('/') || null
-          currentRepoName = segments[segments.length - 1] || null
-          try {
-            const glOpts: any = { projectId, token }
-            if (!/gitlab\.com$/i.test(hostname)) glOpts.host = `${parsed.protocol}//${parsed.host}`
-            // Read branch from UI input (empty -> 'main') and persist along with adapter metadata
-            const glBranch = (branchInput && branchInput.value ? branchInput.value.trim() : '') || 'main'
-            glOpts.branch = glBranch
-            // Do NOT instantiate adapter here; only persist connection metadata into VirtualFS
-            let adapterInstance: any = null
-            if (currentVfs && typeof currentVfs.setAdapter === 'function') {
-              try {
-                try {
-                  if (typeof (lib as any).GitLabAdapter === 'function') {
-                    adapterInstance = new (lib as any).GitLabAdapter(glOpts)
-                    appendTrace('trace.adapter.gitlabInstanceCreated', { opts: JSON.stringify({ projectId: glOpts.projectId, host: glOpts.host, branch: glBranch }) })
-                    // ja.json -> { "trace.adapter.gitlabInstanceCreated": "GitLabAdapter インスタンスが作成されました: {opts}" }
-                  }
-                } catch (e) {
-                  adapterInstance = null
-                }
-                currentVfs.adapter = adapterInstance
-                // Persist adapter metadata using new overload: setAdapter(type, url, token)
-                await currentVfs.setAdapter('gitlab', repo, token)
-                appendOutput('log.gitlab.registered', { branch: glBranch })
-                appendTrace('trace.adapter.setGitLabAdapter', { opts: JSON.stringify({ projectId: glOpts.projectId, host: glOpts.host, branch: glBranch }) })
-              } catch (e) {
-                appendOutput('error.vfs.setAdapter', { err: String(e) })
-              }
-            } else {
-              PENDING_ADAPTER = { meta: { type: 'gitlab', url: repo, token, branch: glBranch }, instance: adapterInstance }
-              appendOutput('error.vfs.notConnected')
+
+          // Read back normalized metadata to update UI state
+          const meta = await currentVfs.getAdapter()
+          if (meta) {
+            currentPlatform = (meta.type === 'github' || meta.type === 'gitlab') ? meta.type as 'github' | 'gitlab' : null
+            const opts = (meta.opts || {}) as any
+            currentOwner = opts.owner || (opts.projectId ? String(opts.projectId).split('/').slice(0, -1).join('/') : null) || null
+            currentRepoName = opts.repo || (opts.projectId ? String(opts.projectId).split('/').pop() : null) || null
+
+            if (meta.type === 'github') {
+              appendOutput('log.github.adapterCreated')
+              appendOutput('log.github.registered', { branch: meta.branch || 'main' })
+              appendTrace('trace.adapter.setGitHubAdapter', { opts: JSON.stringify(opts) })
+            } else if (meta.type === 'gitlab') {
+              appendOutput('log.gitlab.adapterCreated')
+              appendOutput('log.gitlab.registered', { branch: meta.branch || 'main' })
+              appendTrace('trace.adapter.setGitLabAdapter', { opts: JSON.stringify(opts) })
             }
-          } catch (e) {
-            appendOutput('error.github.register.exception', { err: String(e) })
           }
+        } catch (e) {
+          appendOutput('error.vfs.setAdapter', { err: String(e) })
         }
       } else {
-        appendOutput('error.unsupportedRepo')
+        // No VFS yet: store pending adapter info so later VFS connections can persist it
+        PENDING_ADAPTER = { meta: { type: platformOverride !== 'auto' ? platformOverride : 'github', url: repo, token: token || undefined, branch: branch || 'main' } }
+        appendOutput('error.vfs.notConnected')
       }
     } catch (e) {
       appendOutput('error.connect.exception', { err: String(e) })
-        appendTrace('trace.connect.exceptionJson', { json: JSON.stringify(e) })
+      appendTrace('trace.connect.exceptionJson', { json: JSON.stringify(e) })
     }
   })
 
@@ -765,37 +657,27 @@ async function main() {
   async function populateAdapterMetadata(vfs: any) {
     try {
       const meta = await vfs.getAdapter()
-      if (meta && meta.type === 'github') {
-        const o = meta.opts || {}
-        try {
-          const base = o.host ? (() => { try { return new URL(o.host).origin } catch (e) { appendTrace('trace.populateAdapterMetadata.urlParseError', { err: String(e) }); return String(o.host).replace(/\/api\/v3\/?$/, '') } })() : 'https://github.com'
-          repoInput.value = o.owner && o.repo ? `${base}/${o.owner}/${o.repo}` : ''
-        } catch (e) { appendTrace('trace.populateAdapterMetadata.setRepoInputFailed', { err: String(e) }); repoInput.value = '' }
-        tokenInput.value = (o && o.token) || ''
-        try { branchInput.value = (o && o.branch) || 'main' } catch (e) { appendTrace('trace.populateAdapterMetadata.setBranchInputFailed', { err: String(e) }); branchInput.value = (o && o.branch) || 'main' }
-        platformSelect.value = 'github'
-        currentPlatform = 'github'
-        currentOwner = o.owner || null
-        currentRepoName = o.repo || null
-      } else if (meta && meta.type === 'gitlab') {
-        const o = meta.opts || {}
-        try {
-          const base = o.host ? (() => { try { return new URL(o.host).origin } catch (e) { appendTrace('trace.populateAdapterMetadata.urlParseErrorGitlab', { err: String(e) }); return String(o.host).replace(/\/api\/v4\/?$/, '') } })() : 'https://gitlab.com'
-          repoInput.value = o.projectId ? `${base}/${o.projectId}` : ''
-        } catch (e) { appendTrace('trace.populateAdapterMetadata.setRepoInputFailedGitlab', { err: String(e) }); repoInput.value = '' }
-        tokenInput.value = (o && o.token) || ''
-        try { branchInput.value = (o && o.branch) || 'main' } catch (e) { appendTrace('trace.populateAdapterMetadata.setBranchInputFailedGitlab', { err: String(e) }); branchInput.value = (o && o.branch) || 'main' }
-        platformSelect.value = 'gitlab'
-        currentPlatform = 'gitlab'
-        try {
+      if (meta && (meta.type === 'github' || meta.type === 'gitlab')) {
+        const o = (meta.opts || {}) as any
+        // Use meta.url directly (generated by library's setAdapter normalization)
+        repoInput.value = meta.url || ''
+        // token and branch are now at the top level of AdapterMeta
+        tokenInput.value = meta.token || ''
+        branchInput.value = meta.branch || 'main'
+        platformSelect.value = meta.type
+        currentPlatform = meta.type as 'github' | 'gitlab'
+        if (meta.type === 'github') {
+          currentOwner = o.owner || null
+          currentRepoName = o.repo || null
+        } else {
           const parts = (o.projectId || '').split('/').filter(Boolean)
           currentOwner = parts.slice(0, -1).join('/') || null
           currentRepoName = parts[parts.length - 1] || null
-        } catch (e) { appendTrace('trace.populateAdapterMetadata.parseProjectIdError', { err: String(e) }); currentOwner = null; currentRepoName = null }
+        }
       } else {
         repoInput.value = ''
         tokenInput.value = ''
-        try { branchInput.value = 'main' } catch (e) { appendTrace('trace.populateAdapterMetadata.setDefaultBranchInputFailed', { err: String(e) }); branchInput.value = 'main' }
+        branchInput.value = 'main'
         platformSelect.value = 'auto'
         currentPlatform = null
         currentOwner = null
@@ -805,7 +687,7 @@ async function main() {
       appendTrace('trace.populateAdapterMetadata.unexpectedError', { err: String(e) })
       repoInput.value = ''
       tokenInput.value = ''
-      try { branchInput.value = 'main' } catch (err) { appendTrace('trace.populateAdapterMetadata.setDefaultBranchInputFailed', { err: String(err) }); branchInput.value = 'main' }
+      branchInput.value = 'main'
       platformSelect.value = 'auto'
       currentPlatform = null
       currentOwner = null
@@ -857,23 +739,22 @@ async function main() {
         // If a pending adapter was stored earlier (connect attempted before VFS existed), persist it now
         try {
           if (PENDING_ADAPTER && typeof vfs.setAdapter === 'function') {
-            vfs.adapter = PENDING_ADAPTER.instance || null
             try {
-              // support both new pending shape { type, url, token, branch } and legacy { type, opts }
               const m: any = PENDING_ADAPTER.meta || {}
               if (m && typeof m.type === 'string' && typeof m.url === 'string') {
-                await vfs.setAdapter(m.type, m.url, m.token)
+                // Use new setAdapter(type, url, branch, token) overload
+                await vfs.setAdapter(m.type, m.url, m.branch || 'main', m.token)
               } else {
                 await vfs.setAdapter(m)
               }
-              // signal registration (branch may live in m.branch or m.opts.branch)
-              const branchVal = (m && (m.branch || (m.opts && m.opts.branch))) || 'main'
-              if (m && m.type === 'gitlab') appendOutput('log.gitlab.registered', { branch: branchVal })
-              if (m && m.type === 'github') appendOutput('log.github.registered', { branch: branchVal })
+              // Read back normalized metadata to emit registration messages
+              const meta = await vfs.getAdapter()
+              if (meta && meta.type === 'gitlab') appendOutput('log.gitlab.registered', { branch: meta.branch || 'main' })
+              if (meta && meta.type === 'github') appendOutput('log.github.registered', { branch: meta.branch || 'main' })
               PENDING_ADAPTER = null
-            } catch (e) { /* ignore */ }
+            } catch (e) { appendTrace('trace.connectVfs.pendingAdapterError', { err: String(e) }) }
           }
-        } catch (e) { /* ignore */ }
+        } catch (e) { appendTrace('trace.connectVfs.pendingAdapterOuterError', { err: String(e) }) }
         await populateAdapterMetadata(vfs)
       } catch (e) { appendOutput('error.vfs.initException', { prefix, err: String(e) }) }
     } catch (e) { appendOutput('error.vfs.connectFailed', { prefix, err: String(e) }) }

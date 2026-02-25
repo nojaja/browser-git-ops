@@ -1,4 +1,4 @@
-[browser-git-ops - v0.0.7](../README.md) / AdapterMeta
+[browser-git-ops - v0.0.8](../README.md) / AdapterMeta
 
 # Interface: AdapterMeta
 
@@ -6,10 +6,23 @@
 
 ### Properties
 
+- [branch](AdapterMeta.md#branch)
 - [opts](AdapterMeta.md#opts)
+- [token](AdapterMeta.md#token)
 - [type](AdapterMeta.md#type)
+- [url](AdapterMeta.md#url)
 
 ## Properties
+
+### branch
+
+• `Optional` **branch**: `string`
+
+#### Defined in
+
+[virtualfs/types.ts:45](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L45)
+
+___
 
 ### opts
 
@@ -17,7 +30,17 @@
 
 #### Defined in
 
-[virtualfs/types.ts:44](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L44)
+[virtualfs/types.ts:47](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L47)
+
+___
+
+### token
+
+• `Optional` **token**: `string`
+
+#### Defined in
+
+[virtualfs/types.ts:46](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L46)
 
 ___
 
@@ -27,4 +50,14 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:43](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L43)
+[virtualfs/types.ts:43](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L43)
+
+___
+
+### url
+
+• `Optional` **url**: `string`
+
+#### Defined in
+
+[virtualfs/types.ts:44](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L44)

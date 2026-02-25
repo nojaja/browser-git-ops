@@ -1,5 +1,5 @@
 ﻿import { IndexFile, AdapterMeta, AdapterOptions, AdapterOptionsBase } from './types.ts'
-import { parseAdapterFromUrl } from './utils/urlParser.ts'
+import { parseAdapterFromUrl, buildUrlFromAdapterOptions } from './utils/urlParser.ts'
 import { StorageBackend } from './storageBackend.ts'
 import { OpfsStorage } from './opfsStorage.ts'
 import { GitHubAdapter } from '../git/githubAdapter.ts'
@@ -121,53 +121,119 @@ export class VirtualFS {
    * Set adapter instance and persist adapter metadata into index file.
    * Supports overloads:
    * - setAdapter(meta: AdapterMeta)
-   * - setAdapter(type: string, url: string, token?: string)
-   * - setAdapter(url: string)
-  * @param {AdapterMeta|string} metaOrTypeOrUrl
+   * - setAdapter(type: string, url: string, branch?: string, token?: string)
+   * - setAdapter(url: string, branch?: string, token?: string)
+   * @param {AdapterMeta|string} metaOrTypeOrUrl
    * @returns {Promise<void>}
    */
   async setAdapter(metaOrTypeOrUrl?: AdapterMeta | string) {
     // keep declared arity of 1 for backwards-compatible tests; use arguments for overloads
-    const urlOrUndefined = (arguments as any)[1]
-    const tokenOrUndefined = (arguments as any)[2]
-    const meta = await this._parseAdapterArgs(metaOrTypeOrUrl as any, urlOrUndefined, tokenOrUndefined)
-    if (!meta || typeof meta.type !== 'string' || (meta as any).opts == null && (meta as any).options == null) throw new Error('Adapter meta is required')
-    // normalize to AdapterMeta shape with `opts` to preserve existing index shape
-    const normalized: AdapterMeta = { type: meta.type, opts: (meta as any).opts || (meta as any).options }
-    this.adapterMeta = normalized
+    const argument1 = (arguments as any)[1]
+    const argument2 = (arguments as any)[2]
+    const argument3 = (arguments as any)[3]
+    const meta = this._parseAdapterArgs(metaOrTypeOrUrl as any, argument1, argument2, argument3)
+    if (!meta || typeof meta.type !== 'string') throw new Error('Adapter meta is required')
+    this.adapterMeta = meta
     await this._tryPersistAdapterMeta()
   }
 
   /**
-   * Parse arguments for `setAdapter` and return normalized meta object.
-   * Accepts AdapterMeta, (type, url, token?), or (url).
+   * Parse arguments for `setAdapter` and return a fully normalized AdapterMeta.
+   * The result always has {type, url, branch, token, opts} at the top level.
+   * Accepts AdapterMeta, (type, url, branch?, token?), or (url, branch?, token?).
    * @param metaOrTypeOrUrl AdapterMeta or type or url
-   * @param urlOrUndefined optional url when first arg is type
-   * @param tokenOrUndefined optional token
-   * @returns normalized meta object
+   * @param argument1 url (when first is type) OR branch (when first is url) OR undefined
+   * @param argument2 branch (when first is type) OR token (when first is url) OR undefined
+   * @param argument3 token (when first is type) OR undefined
+   * @returns normalized AdapterMeta
    */
-  private async _parseAdapterArgs(metaOrTypeOrUrl: AdapterMeta | string, urlOrUndefined?: string, tokenOrUndefined?: string): Promise<any> {
-    // If object provided, assume it's already AdapterMeta
-    if (typeof metaOrTypeOrUrl === 'object' && metaOrTypeOrUrl !== null && !urlOrUndefined) return metaOrTypeOrUrl
-    // If two args: (type, url)
-    if (typeof metaOrTypeOrUrl === 'string' && typeof urlOrUndefined === 'string') {
-      try {
-        const parsed = parseAdapterFromUrl(urlOrUndefined, tokenOrUndefined, metaOrTypeOrUrl as any)
-        return { type: parsed.type, opts: parsed.opts }
-      } catch (error) {
-        throw error
-      }
+  private _parseAdapterArgs(metaOrTypeOrUrl: AdapterMeta | string, argument1?: string, argument2?: string, argument3?: string): AdapterMeta {
+    // Overload 1: object (AdapterMeta)
+    if (typeof metaOrTypeOrUrl === 'object' && metaOrTypeOrUrl !== null) {
+      return this._normalizeFromMeta(metaOrTypeOrUrl as AdapterMeta)
     }
-    // If single string argument (url)
-    if (typeof metaOrTypeOrUrl === 'string' && !urlOrUndefined) {
-      try {
-        const parsed = parseAdapterFromUrl(metaOrTypeOrUrl)
-        return { type: parsed.type, opts: parsed.opts }
-      } catch (error) {
-        throw error
-      }
+    const firstArgument = metaOrTypeOrUrl as string
+    // Distinguish "type + url" vs "url only": if argument1 looks like a URL (starts with http)
+    // then firstArgument is a "type"; otherwise firstArgument is a URL itself.
+    const isTypeUrlForm = typeof argument1 === 'string' && /^https?:\/\//i.test(argument1)
+    if (isTypeUrlForm) {
+      // Overload 2: setAdapter(type, url, branch?, token?)
+      return this._normalizeFromTypeUrl(firstArgument, argument1!, argument2, argument3)
     }
-    throw new Error('Adapter meta is required')
+    // Overload 3: setAdapter(url, branch?, token?)
+    return this._normalizeFromUrl(firstArgument, argument1, argument2)
+  }
+
+  /**
+   * Normalize from AdapterMeta object – generate url from opts if missing.
+   * @param meta raw AdapterMeta input
+   * @returns fully normalized AdapterMeta
+   */
+  private _normalizeFromMeta(meta: AdapterMeta): AdapterMeta {
+    const type = meta.type
+    const rawOptions = (meta as any).opts || (meta as any).options || {}
+    const options = this._stripOptionsFields(rawOptions)
+    let url = meta.url
+    if (!url) {
+      try { url = buildUrlFromAdapterOptions(type, options) } catch { url = undefined }
+    }
+    const branch = meta.branch || rawOptions.branch || 'main'
+    const token = meta.token || rawOptions.token || undefined
+    return { type, url, branch, token, opts: options }
+  }
+
+  /**
+   * Normalize from (type, url, branch?, token?) arguments.
+   * @param type adapter type
+   * @param url repository url
+   * @param branch optional branch (defaults to 'main')
+   * @param token optional token
+   * @returns fully normalized AdapterMeta
+   */
+  private _normalizeFromTypeUrl(type: string, url: string, branch?: string, token?: string): AdapterMeta {
+    const parsed = parseAdapterFromUrl(url, token, type as any)
+    const options = this._stripOptionsFields(parsed.opts || {})
+    return { type: parsed.type, url, branch: branch || 'main', token, opts: options }
+  }
+
+  /**
+   * Normalize from (url, branch?, token?) arguments.
+   * @param url repository url
+   * @param branch optional branch (defaults to 'main')
+   * @param token optional token
+   * @returns fully normalized AdapterMeta
+   */
+  private _normalizeFromUrl(url: string, branch?: string, token?: string): AdapterMeta {
+    const parsed = parseAdapterFromUrl(url, token)
+    const options = this._stripOptionsFields(parsed.opts || {})
+    return { type: parsed.type, url, branch: branch || 'main', token, opts: options }
+  }
+
+  /**
+   * Strip branch/token from options to avoid duplication (they live at the top level).
+   * Returns a new object with only host, owner, repo, projectId, etc.
+   * @param options raw adapter options
+   * @returns cleaned options without branch/token
+   */
+  private _stripOptionsFields(options: any): AdapterOptions {
+    if (!options || typeof options !== 'object') return {} as any
+    const cleaned = { ...options }
+    delete cleaned.branch
+    delete cleaned.token
+    delete cleaned.defaultBranch
+    delete cleaned.repositoryName
+    delete cleaned.repositoryId
+    return cleaned as AdapterOptions
+  }
+
+  /**
+   * Return the persisted branch name from adapterMeta (top-level or opts fallback).
+   * Defaults to 'main' when not found.
+   * @returns {string} persisted branch name
+   */
+  private _getPersistedBranch(): string {
+    if (!this.adapterMeta) return 'main'
+    return this.adapterMeta.branch || (this.adapterMeta.opts && this.adapterMeta.opts.branch) || 'main'
   }
 
   /**
@@ -262,8 +328,12 @@ export class VirtualFS {
    */
   private _instantiateAdapter(type: string, options: any): any | null {
     try {
-      // Merge in logger if available so created adapters receive it via DI
+      // Merge in token from top-level adapterMeta (stripped from opts to avoid duplication)
+      // and logger if available so created adapters receive it via DI
       const optionsWithLogger = { ...(options || {}) } as any
+      if (this.adapterMeta && this.adapterMeta.token && !optionsWithLogger.token) {
+        optionsWithLogger.token = this.adapterMeta.token
+      }
       if (this.logger) optionsWithLogger.logger = this.logger
       if (type === 'github') return new GitHubAdapter(optionsWithLogger)
       if (type === 'gitlab') return new GitLabAdapter(optionsWithLogger)
@@ -354,8 +424,9 @@ export class VirtualFS {
    * @returns {void}
    */
   private _populateCommitShaFromMeta(stats: any): void {
-    if (!stats.gitCommitSha && this.adapterMeta && this.adapterMeta.opts && this.adapterMeta.opts.branch) {
-      stats.gitCommitSha = this.adapterMeta.opts.branch
+    const branch = this._getPersistedBranch()
+    if (!stats.gitCommitSha && branch && branch !== 'main') {
+      stats.gitCommitSha = branch
     }
   }
 
@@ -369,7 +440,7 @@ export class VirtualFS {
     if (!instAdapter || stats.gitCommitSha) return
     if (typeof instAdapter.resolveRef !== 'function') return
     try {
-      const branch = (this.adapterMeta && this.adapterMeta.opts && this.adapterMeta.opts.branch) || 'main'
+      const branch = this._getPersistedBranch()
       const resolved = await instAdapter.resolveRef(branch)
       if (resolved) stats.gitCommitSha = resolved
     } catch (error) {
@@ -1003,7 +1074,7 @@ export class VirtualFS {
    * @returns {Promise<{commitSha:string}>}
    */
   private async _handlePushWithAdapter(input: any, adapter: any) {
-    const branch = (input as any).ref || (this.adapterMeta && this.adapterMeta.opts && this.adapterMeta.opts.branch) || 'main'
+    const branch = (input as any).ref || this._getPersistedBranch()
     const messageWithKey = `${input.message}\n\napigit-commit-key:${input.commitKey}`
     // If adapter supports createCommitWithActions (GitLab style), use it directly
     if ((adapter as any).createCommitWithActions) {
@@ -1097,14 +1168,13 @@ export class VirtualFS {
   }
 
   /**
-   * Pull using the persisted adapterMeta.opts.branch (or 'main').
+   * Pull using the persisted adapterMeta.branch (or 'main').
    * @param {Record<string,string>=} baseSnapshot optional base snapshot
    * @returns {Promise<any>} pull result
    */
   private async _pullUsingPersistedBranch(baseSnapshot?: Record<string, string>): Promise<any> {
     const instAdapter = await this.getAdapterInstance()
-    const branch = (this.adapterMeta && this.adapterMeta.opts && this.adapterMeta.opts.branch) || 'main'
-    // Ensure backend scope matches the persisted branch before pulling
+    const branch = this._getPersistedBranch()
     await this._trySetBackendBranch(branch)
     const resolvedSha = await instAdapter!.resolveRef(branch)
     const descriptor = await instAdapter!.fetchSnapshot(resolvedSha)
@@ -1141,9 +1211,9 @@ export class VirtualFS {
    * @returns {Promise<void>}
    */
   private async _persistAdapterBranchMeta(branch: string, _adapterInstance: any): Promise<void> {
-    const meta = (this.adapterMeta && this.adapterMeta.opts) ? { ...(this.adapterMeta) } : (await this.getAdapter())
+    const meta = (this.adapterMeta) ? { ...(this.adapterMeta) } : (await this.getAdapter())
     if (!meta) return
-    const newMeta = { ...(meta || {}), opts: { ...(meta.opts || {}), branch } }
+    const newMeta = { ...(meta || {}), branch, opts: { ...(meta.opts || {}) } }
     // persist only metadata (adapter instance not passed)
     await this.setAdapter(newMeta)
     // Also inform backend about branch scope when backend supports it
@@ -1346,7 +1416,7 @@ export class VirtualFS {
   private async _resolveAdapterDefaultBranch(instAdapter: any): Promise<string | null> {
     if (this.adapterMeta && this.adapterMeta.opts && typeof instAdapter.resolveRef === 'function') {
       try {
-        const defaultBranch = this.adapterMeta.opts.branch || 'main'
+        const defaultBranch = this._getPersistedBranch()
         const resolved = await instAdapter.resolveRef(defaultBranch)
         return resolved || null
       } catch (error) {
@@ -1488,7 +1558,7 @@ export class VirtualFS {
     const adapterInstance = await this.getAdapterInstance()
     if (adapterInstance && typeof adapterInstance.fetchSnapshot === 'function') {
       // prefer branch configured in persisted adapter metadata, default to 'main'
-      const branch = (this.adapterMeta && this.adapterMeta.opts && this.adapterMeta.opts.branch) || 'main'
+      const branch = this._getPersistedBranch()
       return await adapterInstance.fetchSnapshot(branch)
 
     }

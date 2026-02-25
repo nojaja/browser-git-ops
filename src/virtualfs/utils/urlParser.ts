@@ -90,3 +90,51 @@ function buildGitlabMeta(parsed: URL, hostname: string, segments: string[], reso
   }
   return { type: 'gitlab', opts: options }
 }
+
+/**
+ * Build a canonical repository URL from adapter options and type.
+ * The URL does NOT contain branch information (branch is stored separately).
+ * @param type adapter type ('github' | 'gitlab')
+ * @param options adapter options containing host, owner, repo, or projectId
+ * @returns canonical repository URL string
+ */
+export function buildUrlFromAdapterOptions(type: string, options: Record<string, any>): string {
+  if (type === 'github') return buildGithubUrl(options)
+  if (type === 'gitlab') return buildGitlabUrl(options)
+  throw new Error(`unsupported adapter type: ${type}`)
+}
+
+/**
+ * Build GitHub repository URL from options.
+ * @param options adapter options with owner, repo, and optional host
+ * @returns GitHub repository URL
+ */
+function buildGithubUrl(options: Record<string, any>): string {
+  const owner = options.owner || ''
+  const repo = options.repo || ''
+  if (!owner || !repo) throw new Error('owner and repo are required for github')
+  const host = options.host as string | undefined
+  if (host) {
+    // host is API base like 'https://git.example.com/api/v3' – strip /api/v3 suffix
+    const baseUrl = host.replace(/\/api\/v\d+\/?$/i, '')
+    return `${baseUrl}/${owner}/${repo}`
+  }
+  return `https://github.com/${owner}/${repo}`
+}
+
+/**
+ * Build GitLab repository URL from options.
+ * @param options adapter options with projectId and optional host
+ * @returns GitLab repository URL
+ */
+function buildGitlabUrl(options: Record<string, any>): string {
+  const projectId = options.projectId || ''
+  if (!projectId) throw new Error('projectId is required for gitlab')
+  const host = options.host as string | undefined
+  if (host) {
+    // host is base URL like 'http://localhost:8929' or 'https://gitlab.example.com'
+    const trimmed = host.replace(/\/+$/, '')
+    return `${trimmed}/${projectId}`
+  }
+  return `https://gitlab.com/${projectId}`
+}

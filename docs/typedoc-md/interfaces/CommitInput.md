@@ -1,4 +1,4 @@
-[browser-git-ops - v0.0.7](../README.md) / CommitInput
+[browser-git-ops - v0.0.8](../README.md) / CommitInput
 
 # Interface: CommitInput
 
@@ -20,7 +20,7 @@
 
 #### Defined in
 
-[virtualfs/types.ts:68](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L68)
+[virtualfs/types.ts:71](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L71)
 
 ___
 
@@ -30,7 +30,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:71](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L71)
+[virtualfs/types.ts:74](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L74)
 
 ___
 
@@ -40,7 +40,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:66](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L66)
+[virtualfs/types.ts:69](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L69)
 
 ___
 
@@ -50,7 +50,7 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:67](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L67)
+[virtualfs/types.ts:70](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L70)
 
 ___
 
@@ -60,4 +60,4 @@ ___
 
 #### Defined in
 
-[virtualfs/types.ts:69](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/virtualfs/types.ts#L69)
+[virtualfs/types.ts:72](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/virtualfs/types.ts#L72)

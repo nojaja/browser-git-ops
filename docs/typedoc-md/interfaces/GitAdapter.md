@@ -1,4 +1,4 @@
-[browser-git-ops - v0.0.7](../README.md) / GitAdapter
+[browser-git-ops - v0.0.8](../README.md) / GitAdapter
 
 # Interface: GitAdapter
 
@@ -40,7 +40,7 @@
 
 #### Defined in
 
-[git/adapter.ts:34](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L34)
+[git/adapter.ts:34](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/adapter.ts#L34)
 
 ___
 
@@ -61,7 +61,7 @@ ___
 
 #### Defined in
 
-[git/adapter.ts:50](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L50)
+[git/adapter.ts:50](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/adapter.ts#L50)
 
 ___
 
@@ -83,7 +83,7 @@ ___
 
 #### Defined in
 
-[git/adapter.ts:38](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L38)
+[git/adapter.ts:38](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/adapter.ts#L38)
 
 ___
 
@@ -104,7 +104,7 @@ ___
 
 #### Defined in
 
-[git/adapter.ts:36](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L36)
+[git/adapter.ts:36](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/adapter.ts#L36)
 
 ___
 
@@ -118,7 +118,7 @@ ___
 
 #### Defined in
 
-[git/adapter.ts:46](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L46)
+[git/adapter.ts:46](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/adapter.ts#L46)
 
 ___
 
@@ -138,7 +138,7 @@ ___
 
 #### Defined in
 
-[git/adapter.ts:44](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L44)
+[git/adapter.ts:44](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/adapter.ts#L44)
 
 ___
 
@@ -158,7 +158,7 @@ ___
 
 #### Defined in
 
-[git/adapter.ts:42](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L42)
+[git/adapter.ts:42](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/adapter.ts#L42)
 
 ___
 
@@ -178,7 +178,7 @@ ___
 
 #### Defined in
 
-[git/adapter.ts:48](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L48)
+[git/adapter.ts:48](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/adapter.ts#L48)
 
 ___
 
@@ -200,4 +200,4 @@ ___
 
 #### Defined in
 
-[git/adapter.ts:40](https://github.com/nojaja/browser-git-ops/blob/c51cf29673a6f5165e49aea29ccb5792f2611947/src/git/adapter.ts#L40)
+[git/adapter.ts:40](https://github.com/nojaja/browser-git-ops/blob/a01bda826d95206cd9c2cd22416b96e8b46ed363/src/git/adapter.ts#L40)

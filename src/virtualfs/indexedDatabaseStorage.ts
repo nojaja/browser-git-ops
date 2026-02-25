@@ -366,7 +366,8 @@ export const IndexedDatabaseStorage: StorageBackendConstructor = class IndexedDa
     if ((meta as any).adapter) result.adapter = (meta as any).adapter
     // set current branch from persisted adapter metadata so we only load info for that branch
     try {
-      this.currentBranch = (meta as any).adapter && (meta as any).adapter.opts && (meta as any).adapter.opts.branch ? (meta as any).adapter.opts.branch : null
+      const adp = (meta as any).adapter
+      this.currentBranch = adp && (adp.branch || (adp.opts && adp.opts.branch)) ? (adp.branch || adp.opts.branch) : null
     } catch {
       this.currentBranch = null
     }

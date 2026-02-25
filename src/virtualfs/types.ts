@@ -41,6 +41,9 @@ export type AdapterOptions = GitHubAdapterOptions | GitLabAdapterOptions
 
 export interface AdapterMeta {
   type: string
+  url?: string
+  branch?: string
+  token?: string
   opts?: AdapterOptions
 }
 

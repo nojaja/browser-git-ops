@@ -35,7 +35,7 @@ describe('VirtualFS setAdapter/getAdapter behavior (v0.0.6)', () => {
     expect(got).not.toBeNull()
     expect(got.type).toBe('github')
     expect(got.opts).toBeDefined()
-    expect(got.opts.branch).toBe('main')
+    expect(got.branch).toBe('main')
 
     // use backend.listFilesRaw() to inspect persisted index/meta presence (best-effort)
     const raw = await backend.listFilesRaw()
