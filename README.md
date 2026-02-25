@@ -27,8 +27,8 @@ browser-git-ops is designed specifically for:
 | ----------------------- | --------------- | -------------- | ------- |
 | Browser Native               | ✅               | ✅              | ✅       |
 | No CORS Proxy Required             | ✅               | ❌              | —       |
-| File Change Detection with VirtualFS     | ✅               | ✖（なし）          | —       |
-| GitHub & GitLab Adapter | ✅               | ✖              | APIのみ   |
+| File Change Detection with VirtualFS     | ✅               | ✖（None）          | —       |
+| GitHub & GitLab Adapter | ✅               | ✖              | 	API only   |
 | IndexedDB / OPFS Support   | ✅               | ✖              | —       |
 
 
