@@ -1,0 +1,15 @@
+.log-line {
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+  display: block;
+}
+
+.muted-item {
+  color: #777;
+}
+
+.snapshot-dir-link {
+  color: #0969da;
+  text-decoration: underline;
+}

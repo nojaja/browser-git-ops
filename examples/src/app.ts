@@ -12,6 +12,7 @@ type AnyLib = any;
 // Import library source so esbuild bundles proper ESM exports (GitHubAdapter/GitLabAdapter/VirtualFS)
 // Import named exports and assemble a `lib` object so properties are present at runtime.
 import * as GitOpsLib from 'browser-git-ops';
+import './app.css'
 
 // --- i18n dictionary and helpers ---
 type Lang = 'en' | 'ja'
@@ -256,10 +257,7 @@ function appendOutput(messageId: string, params?: Record<string, any>) {
     wrapper.setAttribute('data-message-id', messageId)
     wrapper.setAttribute('data-params', JSON.stringify(params || {}))
     wrapper.textContent = translated
-    wrapper.style.margin = '0'
-    wrapper.style.padding = '0'
-    wrapper.style.lineHeight = '1.2'
-    wrapper.style.display = 'block'
+    wrapper.className = 'log-line'
     out.appendChild(wrapper)
   } catch (e) {
   }
@@ -276,10 +274,7 @@ function appendTrace(messageId: string, params?: Record<string, any>) {
     wrapper.setAttribute('data-params', JSON.stringify(params || {}))
     wrapper.textContent = translated
     // Reduce vertical spacing between consecutive trace entries
-    wrapper.style.margin = '0'
-    wrapper.style.padding = '0'
-    wrapper.style.lineHeight = '1.2'
-    wrapper.style.display = 'block'
+    wrapper.className = 'log-line'
     out.appendChild(wrapper)
   } catch (e) {
   }
@@ -315,7 +310,7 @@ function setListContents(id: string, items: any[] | null) {
     container.innerHTML = ''
     if (!items || items.length === 0) {
       const li = document.createElement('li')
-      li.style.color = '#777'
+      li.className = 'muted-item'
       li.textContent = t('ui.empty')
       container.appendChild(li)
       return
@@ -395,6 +390,7 @@ async function main() {
   let currentPlatform: 'github' | 'gitlab' | null = null
   let currentOwner: string | null = null
   let currentRepoName: string | null = null
+  let pendingShowSnapshotTargetDir: string | null = null
   // commit list paging state for examples UI
   let commitCurrentPage: number = 1
   let commitLastPage: number | null = null
@@ -1235,20 +1231,59 @@ async function main() {
           appendOutput('error.showSnapshot.vfsNotInit')
           return
         }
+        const targetDir = (pendingShowSnapshotTargetDir && pendingShowSnapshotTargetDir.trim())
+          ? pendingShowSnapshotTargetDir.trim()
+          : (((prompt(t('prompt.showSnapshot.dir') || 'Directory to list (empty = root):', '.') || '').trim()) || '.')
+        pendingShowSnapshotTargetDir = null
         appendOutput('log.showSnapshot.start')
         try {
-          const paths: string[] = await currentVfs.readdir('.')
+          const entries: any[] = await currentVfs.readdir(targetDir, { withFileTypes: true })
 
           appendTrace('trace.showSnapshot.comment')
-          appendTrace('trace.showSnapshot.readdirCall')
-          appendTrace('trace.showSnapshot.pathsResult', { res: JSON.stringify(paths) })
-            if (!paths || paths.length === 0) {
+          appendTrace('trace.showSnapshot.readdirCall', { dir: targetDir })
+          appendTrace('trace.showSnapshot.pathsResult', { res: JSON.stringify(entries) })
+            if (!entries || entries.length === 0) {
             appendOutput('log.showSnapshot.noFiles')
             return
           }
-          appendOutput('log.showSnapshot.count', { count: paths.length })
-          for (const p of paths) {
-            appendOutput('log.showSnapshot.fileEntry', { path: p })
+          appendOutput('log.showSnapshot.count', { count: entries.length, dir: targetDir })
+          for (const e of entries) {
+            const name = (e && typeof e === 'object' && typeof e.name === 'string') ? e.name : String(e)
+            const path = targetDir === '.' ? name : `${targetDir}/${name}`
+            const isDir = !!(e && typeof e === 'object' && typeof e.isDirectory === 'function' && e.isDirectory())
+
+            if (isDir) {
+              try {
+                const out = el('output') as HTMLPreElement
+                const wrapper = document.createElement('div')
+                wrapper.className = 'log-line'
+
+                const template = t('log.showSnapshot.fileEntry', { path: '{path}' })
+                const marker = '{path}'
+                const markerIndex = template.indexOf(marker)
+                const prefix = markerIndex >= 0 ? template.slice(0, markerIndex) : ''
+                const suffix = markerIndex >= 0 ? template.slice(markerIndex + marker.length) : ''
+
+                if (prefix) wrapper.appendChild(document.createTextNode(prefix))
+                const link = document.createElement('a')
+                link.href = '#'
+                link.textContent = `${path}/`
+                link.className = 'snapshot-dir-link'
+                link.addEventListener('click', (ev) => {
+                  ev.preventDefault()
+                  pendingShowSnapshotTargetDir = path
+                  showSnapshotBtn.click()
+                })
+                wrapper.appendChild(link)
+                if (suffix) wrapper.appendChild(document.createTextNode(suffix))
+                out.appendChild(wrapper)
+              } catch (_e) {
+                appendOutput('log.showSnapshot.fileEntry', { path: `${path}/` })
+              }
+              continue
+            }
+
+            appendOutput('log.showSnapshot.fileEntry', { path })
           }
         } catch (e) {
           appendOutput('error.showSnapshot.failed', { err: String(e) })
